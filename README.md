@@ -33,12 +33,13 @@
 ```bash
 npm install
 npm run verify
-npm run backend:serve
+npm run demo:serve
 ```
 
-另开一个终端：
+或者手动分两个终端启动：
 
 ```bash
+npm run backend:serve
 npm run dev
 ```
 
@@ -47,9 +48,11 @@ npm run dev
 ## 核心命令
 
 - `npm run dev`：启动前端 Demo。
+- `npm run demo:serve`：一键启动后端和前端，适合路演前本机验证。
 - `npm run build`：生产构建前端。
 - `npm run backend:serve`：启动后端 API，默认 `http://localhost:8787`。
 - `npm run capture:demo`：在前后端服务启动后，抓取桌面/移动 Demo 截图到 `artifacts/`。
+- `npm run capture:demo:auto`：自动启动前后端并抓取桌面/移动 Demo 截图。
 - `npm run demo`：运行核心状态机摘要。
 - `npm run backend:demo`：运行完整后端闭环。
 - `npm test`：状态机、schema、provider、service、HTTP API 测试。
@@ -59,6 +62,8 @@ npm run dev
 ## 真实 API / 模型环境变量
 
 默认不需要任何 key，使用 mock-safe 演示。
+
+可从 `.env.example` 复制本地配置；不要提交真实 `.env`。
 
 真实模型：
 

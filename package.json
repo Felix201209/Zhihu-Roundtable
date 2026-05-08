@@ -7,10 +7,12 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "demo:serve": "node scripts/serve-demo.mjs",
     "demo": "tsx src/demo/run-demo.ts",
     "backend:demo": "tsx src/backend/run-backend-demo.ts",
     "backend:serve": "tsx src/backend/serve.ts",
     "capture:demo": "node scripts/capture-demo-screenshots.mjs",
+    "capture:demo:auto": "AUTO_START_DEMO=1 node scripts/capture-demo-screenshots.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-submission.mjs"

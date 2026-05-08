@@ -24,6 +24,7 @@
 | 社区互动缺少二次确认 | reaction / 主持评论如果 live 调用会代表用户互动 | `有启发` 和 `主持评论` 都新增社区互动确认弹层 |
 | 原始 plan 完成度靠口头说明 | 评委可能追问 60 节点和 30 节方案是否真的完成 | 新增 `docs/original-plan-coverage.md` 逐项映射完成度 |
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |
+| 本机演示启动步骤太分散 | 路演前手动开两个终端容易漏开后端或截图失败 | 新增 `npm run demo:serve` 和 `npm run capture:demo:auto`，队友拉仓库后可一键启动/截图 |
 
 ## 3. 仍需主动说明的非代码风险
 
@@ -48,7 +49,7 @@
 
 ```bash
 npm run verify
-npm run capture:demo
+npm run capture:demo:auto
 ```
 
-`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run capture:demo` 必须在前后端运行时生成桌面和移动截图。
+`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run capture:demo:auto` 必须能自动启动前后端并生成桌面和移动截图。

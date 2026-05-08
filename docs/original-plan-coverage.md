@@ -16,14 +16,14 @@
 | 7 角色设计 | 完成 | 前台 4 角色：刘看山、大 V、反方、吃瓜群众；后台有 briefing/证据/共识/发布/评论分析角色逻辑 |
 | 8 产品主要页面 | 完成但收敛 | 黑客松版没有做多路由页面，而是单页工作台承载热榜、准备、圆桌、发布、回流，减少路演跳转 |
 | 9 完整系统节点 | 大部分完成 | 60 节点被映射为 `nodeResults`、provider、LLM schema、fallback、SSE；OAuth 是官方权限依赖 |
-| 10 技术架构 | 完成但技术栈收敛 | 当前用 Vite + React + Node HTTP，保留 SSE/provider/schema/test；没有引入 Supabase/Redis，避免黑客松复杂度 |
+| 10 技术架构 | 完成但技术栈收敛 | 当前用 Vite + React + Node HTTP，保留 SSE/provider/schema/test；没有引入 Supabase/Redis，避免黑客松复杂度；新增 `demo:serve` 降低路演启动风险 |
 | 11 模型使用方案 | 已按新策略完成 | 用户后续要求国内模型，运行时改为 Kimi K2.6 + DeepSeek V4 Flash/Pro；GPT 仅作为开发协作口径 |
 | 12 状态机设计 | 完成 | `src/backend/workflow-service.ts` 和 `src/core/state-machine.ts` 固定顺序工作流 |
 | 13 核心数据结构 | 完成并扩展 | `src/core/types.ts` 覆盖 Topic/Evidence/DebateTurn/PublishDraft/CommentInsight/ModelUsage |
 | 14 Prompt 设计原则 | 完成 | `src/llm/prompts.ts` 输出 JSON；`src/llm/schemas.ts` 用 zod 校验 |
 | 15 Agent Prompt 方向 | 完成 | 刘看山、大 V、反方、群众、共识/发布/评论分析均有 prompt 或 provider 方法 |
 | 16 API 使用规划 | 完成 live-ready | 热榜、搜索、全网、圈子、发布、评论、reaction 均由 `ZhihuProvider` 映射；OAuth 暂以 token env 注入 |
-| 17 Vibe Coding 执行方式 | 完成 | 项目已按模块逐步落地，并有 verify/capture 脚本 |
+| 17 Vibe Coding 执行方式 | 完成 | 项目已按模块逐步落地，并有 verify/capture/auto-capture 脚本 |
 | 18 前端组件清单 | 基本完成 | 以单文件组件实现 AppShell/TopNav/LeftRail/Roundtable/Insight/Publish/Feedback/Utility；后续可拆文件 |
 | 19 圆桌动画设计 | 基本完成 | active speaker 高亮、轮播、SSE 路演；未做复杂动画，符合原始“简单但有效” |
 | 20 路演 Demo 流程 | 完成 | `docs/hackathon-demo-plan.md` 6 分钟脚本，固定案例 |
@@ -50,7 +50,7 @@
 | F 输出节点 37-44 | 完成 | 观点地图、共识/争议/追问、发布草稿、标题候选、知乎语气、AI 标注完成 |
 | G 发布节点 45-50 | 大部分完成 | 圈子详情、发布、reaction、评论接口都有 provider；发布和社区互动前端均要求用户确认 |
 | H 回流节点 51-56 | 完成 | 评论拉取、情绪/高质量评论/新争议/下一轮建议/作者反馈信息完成 |
-| I 稳定性节点 57-60 | 完成 | quota、mock fallback、错误提示、SSE 路演模式完成 |
+| I 稳定性节点 57-60 | 完成 | quota、mock fallback、错误提示、SSE 路演模式、一键启动和自动截图完成 |
 
 ## 3. 刻意不做或现场说明项
 
