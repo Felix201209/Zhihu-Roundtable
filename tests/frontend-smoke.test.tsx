@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { runWorkflow } from "../src/frontend/api.js";
 import { App, normalizeSentiment } from "../src/frontend/main.js";
 
 const workflow = {
@@ -127,6 +128,7 @@ const switchedWorkflow = {
 
 describe("frontend smoke", () => {
   afterEach(() => {
+    window.history.pushState(null, "", "/");
     vi.restoreAllMocks();
   });
 
@@ -214,6 +216,31 @@ describe("frontend smoke", () => {
       support: 0,
       oppose: 0,
       neutral: 0,
+    });
+  });
+
+  it("allows the demo frontend to switch model policy through URL parameters", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    window.history.pushState(
+      null,
+      "",
+      "/?modelMode=auto&defaultProvider=kimi&fallbackToMock=false&kimiModel=kimi-k2.6-live",
+    );
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      requestBody = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
+      return Response.json(workflow);
+    });
+
+    await runWorkflow(false, "topic-2");
+
+    expect(requestBody).toMatchObject({
+      topicId: "topic-2",
+      modelPolicy: {
+        mode: "auto",
+        defaultProvider: "kimi",
+        fallbackToMock: "false",
+        kimiModel: "kimi-k2.6-live",
+      },
     });
   });
 });

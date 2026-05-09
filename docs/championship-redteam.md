@@ -25,6 +25,7 @@
 | 原始 plan 完成度靠口头说明 | 评委可能追问 60 节点和 30 节方案是否真的完成 | 新增 `docs/original-plan-coverage.md` 逐项映射完成度 |
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |
 | 本机演示启动步骤太分散 | 路演前手动开两个终端容易漏开后端或截图失败 | 新增 `npm run demo:serve` 和 `npm run capture:demo:auto`，队友拉仓库后可一键启动/截图 |
+| 前端硬编码 mock 模型策略 | 后端 live-ready 但 UI 不能不改代码切 Kimi/DeepSeek，会显得“只是假演示” | URL 参数和 `VITE_DEMO_*` 环境变量可切 `mock/auto/live`，并覆盖 run + SSE 两条链路 |
 
 ## 3. 仍需主动说明的非代码风险
 
@@ -32,7 +33,7 @@
 | --- | --- |
 | 真实知乎 OAuth 未开放/未接完 | 当前用 `ZHIHU_ACCESS_TOKEN` 抽象 live provider；真正上线时接 OAuth 回调，发布仍必须人工确认 |
 | 正式刘看山素材未授权 | Demo 使用原创占位主持形象；如官方提供素材可直接替换视觉层 |
-| mock-safe 被误解成假功能 | 现场强调 mock 是防限流/断网兜底；所有 live 接口、配额、fallback、模型使用记录都有工程接口 |
+| mock-safe 被误解成假功能 | 现场强调 mock 是防限流/断网兜底；需要时可用 `/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true` 临时切 live/auto 策略 |
 | 评委只看 6 分钟，可能看不到后端厚度 | 路演时在最后 20 秒展示 `npm run verify`、`backend-contract.md`、`modelUsages/nodeResults` |
 
 ## 4. 夺冠演示顺序

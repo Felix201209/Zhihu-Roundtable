@@ -25,12 +25,13 @@ if (autoStart) {
     label: "backend",
     command: "npm",
     args: ["run", "backend:serve"],
+    env: { PORT: portFromUrl(backendUrl) },
   });
   await ensureReachable({
     url: baseUrl,
     label: "frontend",
     command: "npm",
-    args: ["run", "dev", "--", "--host", "127.0.0.1"],
+    args: ["run", "dev", "--", "--host", "127.0.0.1", "--port", portFromUrl(baseUrl)],
   });
 } else {
   await assertReachable(backendUrl, "backend");
@@ -72,7 +73,7 @@ await run("npx", [
 console.log(`\ndemo screenshots captured in ${outDir}/`);
 cleanup();
 
-async function ensureReachable({ url, label, command, args }) {
+async function ensureReachable({ url, label, command, args, env = {} }) {
   if (await isReachable(url)) {
     return;
   }
@@ -81,7 +82,7 @@ async function ensureReachable({ url, label, command, args }) {
   const child = spawn(command, args, {
     stdio: "pipe",
     shell: process.platform === "win32",
-    env: process.env,
+    env: { ...process.env, ...env },
   });
   children.push(child);
   child.stdout.on("data", (chunk) => writeChild(label, chunk));
@@ -152,4 +153,13 @@ function cleanup() {
   for (const child of children) {
     child.kill("SIGTERM");
   }
+}
+
+function portFromUrl(url) {
+  const parsed = new URL(url);
+  if (parsed.port) {
+    return parsed.port;
+  }
+
+  return parsed.protocol === "https:" ? "443" : "80";
 }

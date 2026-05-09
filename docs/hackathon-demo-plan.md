@@ -200,7 +200,7 @@
 
 最后 25 秒只讲交付：
 
-- “完整流程可本地运行：`npm run dev`、`npm run backend:serve`、`npm test`。”
+- “完整流程可本地运行：`npm run demo:serve`、`npm run verify`、`npm run capture:demo:auto`。”
 - “没有真实 token 也能稳定演示，有 token 时可以切 live provider。”
 - “我们提交的是一个可运行的社区 AI 圆桌系统，不是静态 mockup。”
 
@@ -356,7 +356,7 @@ npm run typecheck
 3. `npm run backend:serve`
 4. 另开终端执行 `npm run dev`
 5. 打开前端页面，点击 `重播 Demo`、`路演模式` 和 `生成圈子帖`
-6. 如需提交截图或备份材料，保持前后端服务运行并执行 `npm run capture:demo`
+6. 如需提交截图或备份材料，执行 `npm run capture:demo:auto`
 
 ### 不建议提交
 

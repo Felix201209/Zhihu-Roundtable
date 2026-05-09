@@ -1,19 +1,23 @@
 import { spawn } from "node:child_process";
 
+const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8787/api/health";
+const demoUrl = process.env.DEMO_URL ?? "http://localhost:5173/";
+
 const targets = [
   {
     label: "backend",
-    url: process.env.BACKEND_URL ?? "http://localhost:8787/api/health",
+    url: backendUrl,
     command: "npm",
     args: ["run", "backend:serve"],
-    displayUrl: "http://localhost:8787",
+    env: { PORT: portFromUrl(backendUrl) },
+    displayUrl: originFromUrl(backendUrl),
   },
   {
     label: "frontend",
-    url: process.env.DEMO_URL ?? "http://localhost:5173/",
+    url: demoUrl,
     command: "npm",
-    args: ["run", "dev", "--", "--host", "127.0.0.1"],
-    displayUrl: "http://localhost:5173",
+    args: ["run", "dev", "--", "--host", "127.0.0.1", "--port", portFromUrl(demoUrl)],
+    displayUrl: originFromUrl(demoUrl),
   },
 ];
 
@@ -48,7 +52,7 @@ async function ensureRunning(target) {
   const child = spawn(target.command, target.args, {
     stdio: "pipe",
     shell: process.platform === "win32",
-    env: process.env,
+    env: { ...process.env, ...(target.env ?? {}) },
   });
   children.push(child);
   child.stdout.on("data", (chunk) => write(target.label, chunk));
@@ -95,4 +99,17 @@ function cleanup(signal) {
   for (const child of children) {
     child.kill(signal);
   }
+}
+
+function portFromUrl(url) {
+  const parsed = new URL(url);
+  if (parsed.port) {
+    return parsed.port;
+  }
+
+  return parsed.protocol === "https:" ? "443" : "80";
+}
+
+function originFromUrl(url) {
+  return new URL(url).origin;
 }

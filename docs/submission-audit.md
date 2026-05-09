@@ -51,7 +51,7 @@
 | Provider fallback test | `tests/provider-integrations.test.ts` | Done |
 | Browser desktop screenshot | `artifacts/zhihu-roundtable-desktop.png` | Verified |
 | Browser mobile screenshot | `artifacts/zhihu-roundtable-mobile.png` | Verified |
-| 可重复截图脚本 | `npm run capture:demo` -> `artifacts/` | Done |
+| 可重复截图脚本 | `npm run capture:demo:auto` -> `artifacts/` | Done |
 
 ## 3. 最新验证命令
 
@@ -64,14 +64,13 @@ npm run build
 npm run demo
 npm run backend:demo
 npm run verify
-npm run capture:demo
+npm run capture:demo:auto
 ```
 
 浏览器验证：
 
 ```bash
-npx -y playwright@1.56.1 screenshot --channel chrome --viewport-size 1440,1100 --wait-for-selector '.roundtable' --wait-for-timeout 1800 http://localhost:5173/ artifacts/zhihu-roundtable-desktop.png
-npx -y playwright@1.56.1 screenshot --channel chrome --viewport-size 390,900 --wait-for-selector '.roundtable' --wait-for-timeout 1800 http://localhost:5173/ artifacts/zhihu-roundtable-mobile.png
+npm run capture:demo:auto
 ```
 
 项目内固定截图脚本会输出到：
@@ -92,7 +91,7 @@ artifacts/zhihu-roundtable-mobile.png
 
 - 真实知乎 OAuth 暂未实现；当前 live provider 依赖 `ZHIHU_ACCESS_TOKEN` 环境变量。路演时可说明“官方开放 OAuth 后接入回调，目前把授权边界放在人工确认和 provider 层，避免自动发帖风险”。
 - 正式刘看山素材未接入；当前用合规占位形象，避免盗用未授权图片。
-- 备用录屏不是代码阻塞；已提供 `npm run capture:demo` 固定截图兜底。如果提交平台允许，可最后录一段 2 分钟固定路径视频。
+- 备用录屏不是代码阻塞；已提供 `npm run capture:demo:auto` 固定截图兜底。如果提交平台允许，可最后录一段 2 分钟固定路径视频。
 
 ## 5. 当前判断
 

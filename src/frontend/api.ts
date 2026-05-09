@@ -7,6 +7,15 @@ import type {
 } from "./types.js";
 import type { RoundtableSnapshot } from "../core/types.js";
 
+const frontendModelKeys = [
+  "modelMode",
+  "defaultProvider",
+  "kimiModel",
+  "deepseekFlashModel",
+  "deepseekProModel",
+  "fallbackToMock",
+] as const;
+
 async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -25,15 +34,13 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function runWorkflow(publish = false, topicId?: string): Promise<WorkflowRunResponse> {
+  const modelPolicy = getFrontendModelPolicy();
   return jsonFetch<WorkflowRunResponse>("/api/workflow/run", {
     method: "POST",
     body: JSON.stringify({
       publish,
       topicId,
-      modelPolicy: {
-        mode: "mock",
-        defaultProvider: "mock",
-      },
+      modelPolicy,
     }),
   });
 }
@@ -76,9 +83,8 @@ export function streamWorkflow(input: {
 }) {
   const params = new URLSearchParams({
     publish: String(input.publish ?? false),
-    modelMode: "mock",
-    defaultProvider: "mock",
   });
+  applyFrontendModelQuery(params);
   if (input.topicId) {
     params.set("topicId", input.topicId);
   }
@@ -122,4 +128,59 @@ export function streamWorkflow(input: {
   };
 
   return () => source.close();
+}
+
+function getFrontendModelPolicy(): Record<string, unknown> {
+  const query = getSearchParams();
+  const env = getFrontendEnv();
+  const mode = query.get("modelMode") ?? env.VITE_DEMO_MODEL_MODE ?? "mock";
+  const defaultProvider = query.get("defaultProvider") ?? env.VITE_DEMO_DEFAULT_PROVIDER ?? "mock";
+  const policy: Record<string, unknown> = {
+    mode,
+    defaultProvider,
+  };
+
+  for (const key of ["kimiModel", "deepseekFlashModel", "deepseekProModel"] as const) {
+    const value = query.get(key) ?? env[toEnvKey(key)];
+    if (value) {
+      policy[key] = value;
+    }
+  }
+
+  const fallbackToMock = query.get("fallbackToMock") ?? env.VITE_DEMO_FALLBACK_TO_MOCK;
+  if (fallbackToMock !== undefined && fallbackToMock !== null && fallbackToMock !== "") {
+    policy.fallbackToMock = fallbackToMock;
+  }
+
+  return policy;
+}
+
+function applyFrontendModelQuery(params: URLSearchParams) {
+  const policy = getFrontendModelPolicy();
+  for (const key of frontendModelKeys) {
+    const policyKey = key === "modelMode" ? "mode" : key;
+    const value = policy[policyKey];
+    if (value !== undefined && value !== null && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+}
+
+function getSearchParams() {
+  if (typeof window === "undefined") {
+    return new URLSearchParams();
+  }
+
+  return new URLSearchParams(window.location.search);
+}
+
+function getFrontendEnv(): Record<string, string | undefined> {
+  const meta = import.meta as ImportMeta & { env?: Record<string, string | boolean | undefined> };
+  return Object.fromEntries(
+    Object.entries(meta.env ?? {}).map(([key, value]) => [key, typeof value === "string" ? value : undefined]),
+  );
+}
+
+function toEnvKey(key: "kimiModel" | "deepseekFlashModel" | "deepseekProModel") {
+  return `VITE_DEMO_${key.replace(/[A-Z]/g, (char) => `_${char}`).toUpperCase()}`;
 }

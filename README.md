@@ -27,6 +27,7 @@
 - Mock-safe + live-ready：现场 API 失败会自动 fallback，不影响完整 Demo。
 - SSE 路演流：前端可逐节点播放“AI 正在工作”。
 - Readiness 自检：按官方评分维度生成夺奖面板。
+- 前端无需改代码即可切模型策略：URL 参数或 `VITE_DEMO_*` 环境变量可切 `mock/auto/live`。
 
 ## 快速运行
 
@@ -73,6 +74,12 @@ npm run dev
 - `DEEPSEEK_API_KEY`
 - `DEEPSEEK_BASE_URL`
 - `DEEPSEEK_FLASH_MODEL` / `DEEPSEEK_PRO_MODEL` / `DEEPSEEK_MODEL`（可选，用于覆盖默认 DeepSeek V4 模型名）
+
+前端路演模型切换：
+
+- 默认 mock-safe：不设置即可。
+- URL 临时切换：`/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true`
+- Vite 环境变量：`VITE_DEMO_MODEL_MODE`、`VITE_DEMO_DEFAULT_PROVIDER`、`VITE_DEMO_KIMI_MODEL`、`VITE_DEMO_DEEPSEEK_FLASH_MODEL`、`VITE_DEMO_DEEPSEEK_PRO_MODEL`、`VITE_DEMO_FALLBACK_TO_MOCK`
 
 知乎 live provider：
 

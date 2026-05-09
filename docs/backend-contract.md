@@ -47,6 +47,14 @@
 
 所有模型调用都要求 JSON object，并经过 zod schema 校验；如果 `fallbackToMock=true` 且 live 调用失败，会自动回退 mock 并在 `modelUsages[].fallbackUsed` 标记。
 
+前端路演默认使用 mock-safe，但不再需要改代码才能切 live/auto。可在 URL 上追加：
+
+```text
+/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true
+```
+
+也可通过 `VITE_DEMO_MODEL_MODE`、`VITE_DEMO_DEFAULT_PROVIDER`、`VITE_DEMO_KIMI_MODEL`、`VITE_DEMO_DEEPSEEK_FLASH_MODEL`、`VITE_DEMO_DEEPSEEK_PRO_MODEL`、`VITE_DEMO_FALLBACK_TO_MOCK` 固化到本地 `.env`。这些值会同时作用于 `POST /api/workflow/run` 和 `GET /api/workflow/stream`。
+
 模型响应容错：
 
 - 支持 OpenAI-compatible `/chat/completions`。
