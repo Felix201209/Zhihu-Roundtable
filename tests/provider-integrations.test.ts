@@ -237,4 +237,10 @@ describe("provider integrations", () => {
 
     expect(provider.failures.at(-1)?.operation).toBe("publishDraft");
   });
+
+  it("rejects unsafe live Zhihu API base URLs when using real fetch", () => {
+    expect(() => new LiveZhihuProvider({ baseUrl: "http://api.zhihu.com" })).toThrow(/https/);
+    expect(() => new LiveZhihuProvider({ baseUrl: "https://example.test" })).toThrow(/非知乎域/);
+    expect(() => new LiveZhihuProvider({ baseUrl: "https://api.zhihu.com" })).not.toThrow();
+  });
 });

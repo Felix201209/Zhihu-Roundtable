@@ -71,6 +71,8 @@
 - `ZHIHU_API_BASE_URL`
 - `ZHIHU_ACCESS_TOKEN`
 
+使用真实 `fetch` 时，`ZHIHU_API_BASE_URL` 必须是 `https://*.zhihu.com`，避免把 bearer token 发送到非知乎域；单元测试可通过 `fetchImpl` 注入假域。
+
 Live provider 对齐方案里的官方接口规划：
 
 - `GET /api/v1/content/hot_list`

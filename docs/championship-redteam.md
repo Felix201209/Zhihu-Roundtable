@@ -24,6 +24,7 @@
 | 社区互动缺少二次确认 | reaction / 主持评论如果 live 调用会代表用户互动 | `有启发` 和 `主持评论` 都新增社区互动确认弹层 |
 | 人工确认只停在前端 | 如果 live 后端允许直接 POST 发布，会被质疑“AI 自动替用户发帖” | live 写操作新增一次性 confirmation token；`run/stream publish=true` 在 live 模式拒绝绕过确认 |
 | live 写失败被 mock 成功掩盖 | 评委可能以为真实发帖成功，实际只是 fallback | publish/comment/reaction 失败不再 fallback 成 mock 成功；读接口仍可 fallback 保障路演 |
+| live API base URL 误配泄露 token | `ZHIHU_API_BASE_URL` 如果指向非知乎域，会把 bearer token 发错地方 | 真实 fetch 强制 `https://*.zhihu.com`；测试注入 `fetchImpl` 才允许假域 |
 | 原始 plan 完成度靠口头说明 | 评委可能追问 60 节点和 30 节方案是否真的完成 | 新增 `docs/original-plan-coverage.md` 逐项映射完成度 |
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |
 | 发布确认测试是假阳性 | 旧烟测一开始就给前端 `publishResult`，可能掩盖“未发布前不能互动、确认后才回流”的社区边界 | 烟测改为未发布初态，点击确认后断言调用 `confirm-publish` 且携带当前 snapshot，不再重跑整条 workflow |

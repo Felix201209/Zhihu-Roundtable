@@ -238,6 +238,9 @@ export class LiveZhihuProvider implements ZhihuProvider {
   private readonly quota: ApiQuotaManager;
 
   constructor(private readonly options: LiveZhihuProviderOptions) {
+    if (!options.fetchImpl) {
+      assertSafeZhihuBaseUrl(options.baseUrl);
+    }
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.quota = options.quota ?? new ApiQuotaManager();
   }
@@ -415,6 +418,15 @@ export class LiveZhihuProvider implements ZhihuProvider {
     }
 
     return response.json();
+  }
+}
+
+function assertSafeZhihuBaseUrl(baseUrl: string): void {
+  const url = new URL(baseUrl);
+  const isZhihuHost = url.hostname === "zhihu.com" || url.hostname.endsWith(".zhihu.com");
+
+  if (url.protocol !== "https:" || !isZhihuHost) {
+    throw new Error("ZHIHU_API_BASE_URL 必须是 https://*.zhihu.com，避免把授权 token 发到非知乎域。");
   }
 }
 
