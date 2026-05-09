@@ -2,8 +2,8 @@ import { mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
 
 const outDir = "artifacts";
-const baseUrl = process.env.DEMO_URL ?? "http://localhost:5173/";
-const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8787/api/health";
+const baseUrl = demoUrlFromEnv();
+const backendUrl = backendUrlFromEnv();
 const autoStart = process.env.AUTO_START_DEMO === "1";
 const children = [];
 
@@ -185,6 +185,20 @@ function portFromUrl(url) {
   }
 
   return parsed.protocol === "https:" ? "443" : "80";
+}
+
+function backendUrlFromEnv() {
+  if (process.env.BACKEND_URL) {
+    return process.env.BACKEND_URL;
+  }
+  return `http://localhost:${process.env.DEMO_BACKEND_PORT ?? "8787"}/api/health`;
+}
+
+function demoUrlFromEnv() {
+  if (process.env.DEMO_URL) {
+    return process.env.DEMO_URL;
+  }
+  return `http://localhost:${process.env.DEMO_FRONTEND_PORT ?? "5173"}/`;
 }
 
 function originFromUrl(url) {

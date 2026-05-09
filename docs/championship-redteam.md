@@ -35,6 +35,7 @@
 | 评委入口分散 | README、路演文档、后端契约都有信息，但现场可能来不及串起来 | 新增根目录 `JUDGE_GUIDE.md`，3 分钟验证路径和评分项映射放在一页 |
 | judge 门禁依赖 npm audit 网络 | npm registry/TLS 抖动会让可运行项目被外部网络误判失败 | `verify:judge` 改为离线可复现门禁，`audit:high` 保留为独立可选检查 |
 | 自定义端口验证是假阳性 | `BACKEND_URL` 可改端口，但 Vite `/api` proxy 曾硬指向 `8787`，截图可能误用旧后端 | Vite proxy 现在从 `BACKEND_URL` / `VITE_BACKEND_PROXY_TARGET` 派生，前端 `/api/health` 会校验真实后端端口，并新增配置测试 |
+| 路演脚本环境变量不够防呆 | 队友可能用 `DEMO_BACKEND_PORT` / `DEMO_FRONTEND_PORT` 这类直觉变量，导致截图命令误走默认端口 | `demo:serve` 和 `capture:demo:auto` 同时支持完整 URL 与端口别名，README 和提交审计文档补充示例 |
 
 ## 3. 仍需主动说明的非代码风险
 

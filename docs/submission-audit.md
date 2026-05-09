@@ -73,6 +73,12 @@ npm run capture:demo:auto
 npm run capture:demo:auto
 ```
 
+如默认端口被占用，可直接用端口别名避开：
+
+```bash
+DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 npm run capture:demo:auto
+```
+
 项目内固定截图脚本会输出到：
 
 ```bash
