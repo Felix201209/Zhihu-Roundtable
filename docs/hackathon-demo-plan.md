@@ -304,6 +304,8 @@ npm test
 
 成立。当前代码把知乎接口抽象成 `ZhihuProvider`，默认 mock-safe，live provider 按官方接口规划映射。没有 token 时可以完整演示产品闭环；有 token 时可以替换为 live 数据。这个架构正适合 hackathon 现场和后续生态接入。
 
+同时我们没有把“用户确认”只做成前端样子。live 模式下，发布、主持评论和 reaction 都要求后端一次性 confirmation token；`run/stream publish=true` 不能绕过确认自动发帖，真实写失败也不会被伪装成 mock 成功。
+
 ### Q5：Kimi 和 DeepSeek V4 的分工是什么？
 
 默认策略是按任务路由：Kimi K2.6 更适合证据整理、辩论生成等长文本任务；DeepSeek V4 Flash 负责选题评分、briefing、评论回流等高频结构化任务；DeepSeek V4 Pro 负责问题重构、综合判断、发布稿润色等关键决策节点。所有输出都要求 JSON object，并经过 schema 校验。

@@ -87,8 +87,10 @@ npm run dev
 知乎 live provider：
 
 - `ZHIHU_PROVIDER=live`
-- `ZHIHU_API_BASE_URL`
+- `ZHIHU_API_BASE_URL`，真实 fetch 只允许 `https://*.zhihu.com`
 - `ZHIHU_ACCESS_TOKEN`
+
+live 写操作不会绕过用户确认：发布、主持评论、reaction 都需要后端一次性 confirmation token；真实写失败不会被伪装成 mock 成功。
 
 ## Reviewer 入口
 

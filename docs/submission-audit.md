@@ -39,7 +39,7 @@
 | 观点地图 | `ViewpointPanel` + `ViewpointMap` | Done |
 | Agent 任务卡 | `AgentBriefPanel` 展示 mission/tone/evidence | Done |
 | 发布预览 | `PublishPanel` + `PublishDraft` | Done |
-| 人工确认发布 | `PublishConfirmDialog` in-app modal | Done |
+| 人工确认发布 | `PublishConfirmDialog` + live confirmation token | Done |
 | 评论回流 | `FeedbackPanel` + `CommentInsight` | Done |
 | 模型/节点可观察性 | `ModelPanel`、`NodeTimeline` | Done |
 | readiness 评分 | `src/backend/readiness.ts` + `ReadinessPanel` | Done |
