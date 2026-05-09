@@ -450,7 +450,7 @@ export class FallbackZhihuProvider implements ZhihuProvider {
   async publishDraft(input: { draft: PublishDraft; ringId?: string }): Promise<PublishResult> {
     return this.withFallback("publishDraft", () => this.primary.publishDraft(input), () =>
       this.fallback.publishDraft(input),
-    );
+    { allowWriteFallback: false });
   }
 
   async listComments(input: { topicId: string; publishId?: string }): Promise<string[]> {
@@ -462,13 +462,13 @@ export class FallbackZhihuProvider implements ZhihuProvider {
   async createComment(input: { publishId: string; content: string }): Promise<CommentCreateResult> {
     return this.withFallback("createComment", () => this.primary.createComment(input), () =>
       this.fallback.createComment(input),
-    );
+    { allowWriteFallback: false });
   }
 
   async react(input: { targetId: string; type: ReactionType }): Promise<ReactionResult> {
     return this.withFallback("react", () => this.primary.react(input), () =>
       this.fallback.react(input),
-    );
+    { allowWriteFallback: false });
   }
 
   getQuotaStatus(): ApiQuotaStatus[] {
@@ -487,6 +487,7 @@ export class FallbackZhihuProvider implements ZhihuProvider {
     operation: string,
     primary: () => Promise<T>,
     fallback: () => Promise<T>,
+    options: { allowWriteFallback?: boolean } = {},
   ): Promise<T> {
     try {
       return await primary();
@@ -497,6 +498,9 @@ export class FallbackZhihuProvider implements ZhihuProvider {
         at: new Date().toISOString(),
       };
       this.failures.push(failure);
+      if (options.allowWriteFallback === false) {
+        throw error;
+      }
       console.warn(`[zhihu-provider] ${operation} failed, using fallback`, error);
       return fallback();
     }

@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createHash, randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { URL } from "node:url";
 import { RoundtableWorkflowService } from "./workflow-service.js";
@@ -14,6 +15,67 @@ export type BackendServerOptions = {
 };
 
 type JsonRecord = Record<string, unknown>;
+type ConfirmationAction = "publish" | "comment" | "reaction";
+
+type ConfirmationRecord = {
+  action: ConfirmationAction;
+  subject?: string;
+  snapshotHash?: string;
+  expiresAt: number;
+};
+
+type ConfirmationPayload = {
+  action: ConfirmationAction;
+  token: string;
+  expiresAt: string;
+};
+
+class ConfirmationRegistry {
+  private readonly records = new Map<string, ConfirmationRecord>();
+
+  create(input: Omit<ConfirmationRecord, "expiresAt">, ttlMs = 5 * 60_000): ConfirmationPayload {
+    this.prune();
+    const token = randomUUID();
+    const expiresAt = Date.now() + ttlMs;
+    this.records.set(token, { ...input, expiresAt });
+    return {
+      action: input.action,
+      token,
+      expiresAt: new Date(expiresAt).toISOString(),
+    };
+  }
+
+  consume(token: string | undefined, expected: Omit<ConfirmationRecord, "expiresAt">): void {
+    this.prune();
+    if (!token) {
+      throw new HttpError(403, "confirmation_required", "真实知乎写操作需要先经过用户确认 token。");
+    }
+
+    const record = this.records.get(token);
+    this.records.delete(token);
+
+    if (!record || record.expiresAt < Date.now()) {
+      throw new HttpError(403, "confirmation_invalid", "确认 token 无效或已过期。");
+    }
+
+    if (
+      record.action !== expected.action ||
+      record.subject !== expected.subject ||
+      record.snapshotHash !== expected.snapshotHash
+    ) {
+      throw new HttpError(403, "confirmation_mismatch", "确认 token 与本次写操作不匹配。");
+    }
+  }
+
+  private prune(): void {
+    const nowMs = Date.now();
+    for (const [token, record] of this.records.entries()) {
+      if (record.expiresAt < nowMs) {
+        this.records.delete(token);
+      }
+    }
+  }
+}
 
 class HttpError extends Error {
   constructor(
@@ -57,7 +119,7 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
-    "access-control-allow-origin": "*",
+    "access-control-allow-origin": allowedCorsOrigin(),
     "access-control-allow-methods": "GET,POST,OPTIONS",
     "access-control-allow-headers": "content-type",
   });
@@ -70,6 +132,22 @@ function stringValue(value: unknown): string | undefined {
 
 function booleanValue(value: unknown): boolean {
   return value === true || value === "true";
+}
+
+function allowedCorsOrigin(): string {
+  return process.env.CORS_ALLOW_ORIGIN ?? `http://localhost:${process.env.VITE_DEV_PORT ?? "5173"}`;
+}
+
+function snapshotHash(snapshot: RoundtableSnapshot): string {
+  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+}
+
+function requiresWriteConfirmation(service: RoundtableWorkflowService): boolean {
+  return service.getProviderMode() === "live" && process.env.ZHIHU_REQUIRE_CONFIRMATION !== "false";
+}
+
+function livePublishRequested(input: { publish?: unknown; modelPolicy?: Partial<ModelPolicy> }, service: RoundtableWorkflowService): boolean {
+  return booleanValue(input.publish) && requiresWriteConfirmation(service);
 }
 
 function snapshotValue(value: unknown): RoundtableSnapshot {
@@ -167,6 +245,7 @@ function parseModelPolicy(source: URLSearchParams | JsonRecord): Partial<ModelPo
 
 async function handleRequest(
   service: RoundtableWorkflowService,
+  confirmations: ConfirmationRegistry,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
@@ -193,6 +272,7 @@ async function handleRequest(
         "/api/workflow/prepare",
         "/api/workflow/debate",
         "/api/workflow/publish-draft",
+        "/api/workflow/confirmation",
         "/api/workflow/confirm-publish",
         "/api/workflow/comment",
         "/api/workflow/reaction",
@@ -249,13 +329,21 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/workflow/run") {
     const body = await readJson(req);
+    if (livePublishRequested(body, service)) {
+      throw new HttpError(403, "confirmation_required", "真实知乎发布必须走发布预览和用户确认，不能通过一键 run 自动发布。");
+    }
     const result = await service.runFullWorkflow({
       topicId: stringValue(body.topicId),
       publish: booleanValue(body.publish),
       ringId: stringValue(body.ringId),
       modelPolicy: parseModelPolicy(body),
     });
-    sendJson(res, 200, result);
+    sendJson(res, 200, {
+      ...result,
+      publishConfirmation: requiresWriteConfirmation(service) && result.snapshot.publishDraft
+        ? confirmations.create({ action: "publish", snapshotHash: snapshotHash(result.snapshot) })
+        : undefined,
+    });
     return;
   }
 
@@ -287,14 +375,54 @@ async function handleRequest(
     const body = await readJson(req);
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const snapshot = await scoped.generatePublishDraft(snapshotValue(body.snapshot));
-    sendJson(res, 200, { snapshot, modelUsages: snapshot.modelUsages ?? [], nodeResults: snapshot.nodeResults ?? [] });
+    sendJson(res, 200, {
+      snapshot,
+      publishConfirmation: requiresWriteConfirmation(service)
+        ? confirmations.create({ action: "publish", snapshotHash: snapshotHash(snapshot) })
+        : undefined,
+      modelUsages: snapshot.modelUsages ?? [],
+      nodeResults: snapshot.nodeResults ?? [],
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/workflow/confirmation") {
+    const body = await readJson(req);
+    const action = body.action === "publish" || body.action === "comment" || body.action === "reaction"
+      ? body.action
+      : undefined;
+
+    if (!action) {
+      throw new HttpError(400, "invalid_confirmation", "action 必须是 publish/comment/reaction。");
+    }
+
+    const snapshot = action === "publish" ? snapshotValue(body.snapshot) : undefined;
+    const subject = action === "publish" ? undefined : stringValue(body.subject);
+    if (action !== "publish" && !subject) {
+      throw new HttpError(400, "invalid_confirmation", "comment/reaction 确认必须绑定 subject。");
+    }
+
+    sendJson(res, 200, {
+      confirmation: confirmations.create({
+        action,
+        subject,
+        snapshotHash: snapshot ? snapshotHash(snapshot) : undefined,
+      }),
+    });
     return;
   }
 
   if (req.method === "POST" && url.pathname === "/api/workflow/confirm-publish") {
     const body = await readJson(req);
     const scoped = service.withModelPolicy(parseModelPolicy(body));
-    const result = await scoped.confirmPublishWithSnapshot(snapshotValue(body.snapshot), stringValue(body.ringId));
+    const snapshot = snapshotValue(body.snapshot);
+    if (requiresWriteConfirmation(service)) {
+      confirmations.consume(stringValue(body.confirmationToken), {
+        action: "publish",
+        snapshotHash: snapshotHash(snapshot),
+      });
+    }
+    const result = await scoped.confirmPublishWithSnapshot(snapshot, stringValue(body.ringId));
     sendJson(res, 200, {
       ...result,
       modelUsages: result.snapshot.modelUsages ?? [],
@@ -310,6 +438,9 @@ async function handleRequest(
     if (!publishId || !content) {
       throw new HttpError(400, "invalid_comment", "publishId 和 content 必填。");
     }
+    if (requiresWriteConfirmation(service)) {
+      confirmations.consume(stringValue(body.confirmationToken), { action: "comment", subject: publishId });
+    }
     const comment = await service.createHostComment({ publishId, content });
     sendJson(res, 200, { comment });
     return;
@@ -320,6 +451,9 @@ async function handleRequest(
     const targetId = stringValue(body.targetId);
     if (!targetId) {
       throw new HttpError(400, "invalid_reaction", "targetId 必填。");
+    }
+    if (requiresWriteConfirmation(service)) {
+      confirmations.consume(stringValue(body.confirmationToken), { action: "reaction", subject: targetId });
     }
     const reaction = await service.react({ targetId, type: reactionValue(body.type) });
     sendJson(res, 200, { reaction });
@@ -346,11 +480,14 @@ async function handleRequest(
   }
 
   if (req.method === "GET" && url.pathname === "/api/workflow/stream") {
+    if (booleanValue(url.searchParams.get("publish")) && requiresWriteConfirmation(service)) {
+      throw new HttpError(403, "confirmation_required", "真实知乎发布必须走发布预览和用户确认，不能通过 SSE 自动发布。");
+    }
     res.writeHead(200, {
       "content-type": "text/event-stream; charset=utf-8",
       "cache-control": "no-cache, no-transform",
       connection: "keep-alive",
-      "access-control-allow-origin": "*",
+      "access-control-allow-origin": allowedCorsOrigin(),
     });
 
     for await (const event of service.streamWorkflow({
@@ -371,9 +508,10 @@ async function handleRequest(
 
 export function createBackendServer(options: BackendServerOptions = {}) {
   const service = options.service ?? new RoundtableWorkflowService();
+  const confirmations = new ConfirmationRegistry();
 
   return createServer((req, res) => {
-    handleRequest(service, req, res).catch((error) => {
+    handleRequest(service, confirmations, req, res).catch((error) => {
       const status = error instanceof HttpError ? error.status : 500;
       sendJson(res, status, {
         error: error instanceof HttpError ? error.code : "backend_error",

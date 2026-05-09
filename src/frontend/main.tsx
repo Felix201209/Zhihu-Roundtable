@@ -22,7 +22,18 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { createHostComment, getQuota, getReadiness, getZhihuStatus, react, runWorkflow, streamWorkflow } from "./api.js";
+import {
+  analyzeFeedback,
+  confirmPublish,
+  createConfirmation,
+  createHostComment,
+  getQuota,
+  getReadiness,
+  getZhihuStatus,
+  react,
+  runWorkflow,
+  streamWorkflow,
+} from "./api.js";
 import type { QuotaResponse, ReadinessResponse, WorkflowRunResponse, ZhihuStatusResponse } from "./types.js";
 import type { DebateTurn, ReactionType, RoundtableSnapshot } from "../core/types.js";
 import "./styles.css";
@@ -149,16 +160,40 @@ export function App() {
   const snapshot = data?.snapshot;
 
   const confirmAndPublish = React.useCallback(async () => {
+    if (!snapshot?.publishDraft) {
+      setError("发布稿尚未生成，不能确认发布。");
+      return;
+    }
+
     setPublishBusy(true);
     try {
-      await load(true, snapshot?.selectedTopic?.id);
+      const publishConfirmation = data?.publishConfirmation ?? (
+        data?.providerMode === "live"
+          ? await createConfirmation({ action: "publish", snapshot })
+          : undefined
+      );
+      const published = await confirmPublish(snapshot, publishConfirmation?.token);
+      const feedback = await analyzeFeedback(published.snapshot, published.publishResult?.id);
+      const nextData = {
+        ...data,
+        ...published,
+        snapshot: feedback.snapshot,
+        publishResult: published.publishResult,
+        modelUsages: feedback.modelUsages,
+        nodeResults: feedback.nodeResults,
+      };
+      setData(nextData);
+      await refreshSystem(feedback.snapshot);
+      setActiveTurn(Math.max(0, feedback.snapshot.turns.length - 1));
+      setIsPaused(false);
+      setStatus("已确认发布并完成评论回流");
       setPublishDialogOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "发布闭环失败");
     } finally {
       setPublishBusy(false);
     }
-  }, [load, snapshot?.selectedTopic?.id]);
+  }, [data, refreshSystem, snapshot]);
 
   const active = snapshot?.turns[activeTurn];
   const copyDraft = React.useCallback(() => {
@@ -197,10 +232,16 @@ export function App() {
     setError(null);
     try {
       if (pendingCommunityAction.kind === "reaction") {
-        await react(data.publishResult.id, pendingCommunityAction.type);
+        const confirmation = data.providerMode === "live"
+          ? await createConfirmation({ action: "reaction", subject: data.publishResult.id })
+          : undefined;
+        await react(data.publishResult.id, pendingCommunityAction.type, confirmation?.token);
         setStatus("社区互动已确认发送");
       } else {
-        await createHostComment(data.publishResult.id, pendingCommunityAction.content);
+        const confirmation = data.providerMode === "live"
+          ? await createConfirmation({ action: "comment", subject: data.publishResult.id })
+          : undefined;
+        await createHostComment(data.publishResult.id, pendingCommunityAction.content, confirmation?.token);
         setStatus("刘看山主持评论已确认发送");
       }
       setPendingCommunityAction(null);

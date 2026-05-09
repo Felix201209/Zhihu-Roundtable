@@ -215,4 +215,26 @@ describe("provider integrations", () => {
     expect(topics.length).toBeGreaterThan(0);
     expect(provider.failures[0].operation).toBe("getHotTopics");
   });
+
+  it("does not turn failed live write operations into mock success", async () => {
+    const live = new LiveZhihuProvider({
+      baseUrl: "https://example.test",
+      fetchImpl: async () => Response.json({ error: "forbidden" }, { status: 403 }),
+    });
+    const provider = new FallbackZhihuProvider(live, new MockZhihuProvider());
+
+    await expect(provider.publishDraft({
+      ringId: "ring-selected-by-user",
+      draft: {
+        title: "标题",
+        opening: "开场",
+        consensus: ["共识"],
+        disputes: ["争议"],
+        questions: ["问题"],
+        disclosure: "AI 辅助整理",
+      },
+    })).rejects.toThrow(/知乎 API 403/);
+
+    expect(provider.failures.at(-1)?.operation).toBe("publishDraft");
+  });
 });

@@ -61,7 +61,7 @@ BACKEND_URL=http://localhost:8877/api/health DEMO_URL=http://localhost:5177/ npm
 /?modelMode=auto&defaultProvider=kimi&fallbackToMock=true
 ```
 
-真实知乎接口通过 `ZHIHU_PROVIDER=live`、`ZHIHU_API_BASE_URL`、`ZHIHU_ACCESS_TOKEN` 接入；发布、reaction、主持评论仍然要求用户确认。
+真实知乎接口通过 `ZHIHU_PROVIDER=live`、`ZHIHU_API_BASE_URL`、`ZHIHU_ACCESS_TOKEN` 接入；发布、reaction、主持评论仍然要求用户确认。live 模式下后端也会校验一次性 confirmation token，`run/stream publish=true` 不能绕过确认自动发帖。
 
 ## 评分项对应
 

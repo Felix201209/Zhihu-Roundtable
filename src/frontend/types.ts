@@ -17,6 +17,13 @@ export type WorkflowRunResponse = {
   nodeResults: WorkflowNodeResult[];
   providerFailures?: ZhihuProviderFailure[];
   publishResult?: PublishResult;
+  publishConfirmation?: ConfirmationPayload;
+};
+
+export type ConfirmationPayload = {
+  action: "publish" | "comment" | "reaction";
+  token: string;
+  expiresAt: string;
 };
 
 export type ModelsResponse = {

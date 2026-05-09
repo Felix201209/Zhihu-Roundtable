@@ -409,11 +409,19 @@ export class RoundtableWorkflowService {
     snapshot: RoundtableSnapshot,
     ringId?: string,
   ): Promise<{ snapshot: RoundtableSnapshot; publishResult: PublishResult }> {
-    const publishResult = await this.confirmPublish(snapshot, ringId);
+    const publishSnapshot: RoundtableSnapshot = snapshot.stage === "publish"
+      ? cloneSnapshot(snapshot)
+      : {
+          ...cloneSnapshot(snapshot),
+          stage: "publish",
+          commentInsight: undefined,
+          statusMessage: "等待用户确认发布",
+        };
+    const publishResult = await this.confirmPublish(publishSnapshot, ringId);
     const node = finishNode(startNode("publish", "发布节点"), "用户确认后已发布/模拟发布");
 
     return {
-      snapshot: appendNode(cloneSnapshot(snapshot), node),
+      snapshot: appendNode(publishSnapshot, node),
       publishResult,
     };
   }
@@ -432,6 +440,10 @@ export class RoundtableWorkflowService {
 
   getQuotaStatus() {
     return this.zhihuProvider.getQuotaStatus?.() ?? [];
+  }
+
+  getProviderMode() {
+    return this.zhihuProvider.mode;
   }
 
   getProviderFailures(): ZhihuProviderFailure[] {

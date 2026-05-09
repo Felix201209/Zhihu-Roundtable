@@ -1,5 +1,31 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { startBackendServer } from "../src/backend/http-server.js";
+import { RoundtableWorkflowService } from "../src/backend/workflow-service.js";
+import { MockZhihuProvider, type ZhihuProvider } from "../src/providers/zhihu-provider.js";
+
+class LiveLikeProvider implements ZhihuProvider {
+  readonly mode = "live" as const;
+  private readonly mock = new MockZhihuProvider();
+
+  getHotTopics = this.mock.getHotTopics.bind(this.mock);
+  searchEvidence = this.mock.searchEvidence.bind(this.mock);
+  getDefaultRing = this.mock.getDefaultRing.bind(this.mock);
+  publishDraft: ZhihuProvider["publishDraft"] = async (input) => ({
+    ...(await this.mock.publishDraft(input)),
+    mode: "live",
+  });
+  listComments = this.mock.listComments.bind(this.mock);
+  createComment: ZhihuProvider["createComment"] = async (input) => ({
+    ...(await this.mock.createComment(input)),
+    mode: "live",
+  });
+  react: ZhihuProvider["react"] = async (input) => ({
+    ...(await this.mock.react(input)),
+    mode: "live",
+  });
+  getQuotaStatus = this.mock.getQuotaStatus.bind(this.mock);
+  getCachedCommentInsight = this.mock.getCachedCommentInsight.bind(this.mock);
+}
 
 type StartedServer = Awaited<ReturnType<typeof startBackendServer>>;
 
@@ -122,6 +148,57 @@ describe("backend HTTP server", () => {
       type: "inspired",
     });
     expect(reaction.reaction.type).toBe("inspired");
+  });
+
+  it("requires explicit confirmation tokens for live Zhihu write operations", async () => {
+    started = await startBackendServer({
+      port: 0,
+      service: new RoundtableWorkflowService({ zhihuProvider: new LiveLikeProvider() }),
+    });
+    const baseUrl = `http://127.0.0.1:${started.port}`;
+    const post = (path: string, body: unknown) =>
+      fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    const directPublish = await post("/api/workflow/run", { publish: true });
+    expect(directPublish.status).toBe(403);
+    await expect(directPublish.json()).resolves.toMatchObject({ error: "confirmation_required" });
+
+    const preview = await post("/api/workflow/run", {});
+    expect(preview.status).toBe(200);
+    const previewWorkflow = await preview.json();
+    expect(previewWorkflow.publishConfirmation.token).toBeTruthy();
+
+    const rejectedPublish = await post("/api/workflow/confirm-publish", { snapshot: previewWorkflow.snapshot });
+    expect(rejectedPublish.status).toBe(403);
+
+    const confirmedPublish = await post("/api/workflow/confirm-publish", {
+      snapshot: previewWorkflow.snapshot,
+      confirmationToken: previewWorkflow.publishConfirmation.token,
+    });
+    expect(confirmedPublish.status).toBe(200);
+    const published = await confirmedPublish.json();
+    expect(published.publishResult.mode).toBe("live");
+
+    const rejectedReaction = await post("/api/workflow/reaction", {
+      targetId: published.publishResult.id,
+      type: "inspired",
+    });
+    expect(rejectedReaction.status).toBe(403);
+
+    const reactionConfirmation = await post("/api/workflow/confirmation", {
+      action: "reaction",
+      subject: published.publishResult.id,
+    }).then((response) => response.json());
+    const reaction = await post("/api/workflow/reaction", {
+      targetId: published.publishResult.id,
+      type: "inspired",
+      confirmationToken: reactionConfirmation.confirmation.token,
+    });
+    expect(reaction.status).toBe(200);
   });
 
   it("falls back safely when domestic live model keys are missing", async () => {

@@ -1,6 +1,7 @@
 import type {
   QuotaResponse,
   ReadinessResponse,
+  ConfirmationPayload,
   WorkflowRunResponse,
   WorkflowStreamEvent,
   ZhihuStatusResponse,
@@ -60,17 +61,43 @@ export async function getReadiness(snapshot: RoundtableSnapshot): Promise<Readin
   });
 }
 
-export async function createHostComment(publishId: string, content: string) {
-  return jsonFetch("/api/workflow/comment", {
+export async function confirmPublish(snapshot: RoundtableSnapshot, confirmationToken?: string): Promise<WorkflowRunResponse> {
+  return jsonFetch<WorkflowRunResponse>("/api/workflow/confirm-publish", {
     method: "POST",
-    body: JSON.stringify({ publishId, content }),
+    body: JSON.stringify({ snapshot, confirmationToken }),
   });
 }
 
-export async function react(targetId: string, type: "support" | "oppose" | "inspired" | "neutral") {
+export async function analyzeFeedback(snapshot: RoundtableSnapshot, publishId?: string): Promise<Pick<WorkflowRunResponse, "snapshot" | "modelUsages" | "nodeResults">> {
+  return jsonFetch<Pick<WorkflowRunResponse, "snapshot" | "modelUsages" | "nodeResults">>("/api/workflow/feedback", {
+    method: "POST",
+    body: JSON.stringify({ snapshot, publishId }),
+  });
+}
+
+export async function createConfirmation(input: {
+  action: "publish" | "comment" | "reaction";
+  snapshot?: RoundtableSnapshot;
+  subject?: string;
+}): Promise<ConfirmationPayload> {
+  const result = await jsonFetch<{ confirmation: ConfirmationPayload }>("/api/workflow/confirmation", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return result.confirmation;
+}
+
+export async function createHostComment(publishId: string, content: string, confirmationToken?: string) {
+  return jsonFetch("/api/workflow/comment", {
+    method: "POST",
+    body: JSON.stringify({ publishId, content, confirmationToken }),
+  });
+}
+
+export async function react(targetId: string, type: "support" | "oppose" | "inspired" | "neutral", confirmationToken?: string) {
   return jsonFetch("/api/workflow/reaction", {
     method: "POST",
-    body: JSON.stringify({ targetId, type }),
+    body: JSON.stringify({ targetId, type, confirmationToken }),
   });
 }
 

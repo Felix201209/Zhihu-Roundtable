@@ -94,7 +94,11 @@ const workflow = {
   },
   providerMode: "mock",
   providerFailures: [],
-  publishResult: {
+  modelUsages: [],
+  nodeResults: [],
+};
+
+const publishResult = {
     id: "mock-pin-1",
     url: "https://www.zhihu.com/pin/mock-pin-1",
     ring: {
@@ -112,9 +116,6 @@ const workflow = {
     },
     mode: "mock",
     createdAt: "2026-05-08T00:00:00.000Z",
-  },
-  modelUsages: [],
-  nodeResults: [],
 };
 
 const switchedWorkflow = {
@@ -124,6 +125,16 @@ const switchedWorkflow = {
     selectedTopic: workflow.topics[1],
     rewrittenQuestion: "作品集中的 AI 使用边界应该如何披露？",
   },
+};
+
+const publishedWorkflow = {
+  ...workflow,
+  publishResult,
+};
+
+const switchedPublishedWorkflow = {
+  ...switchedWorkflow,
+  publishResult,
 };
 
 describe("frontend smoke", () => {
@@ -140,6 +151,22 @@ describe("frontend smoke", () => {
         const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
         workflowRequests.push({ url, body });
         return Response.json(body?.topicId === "topic-2" ? switchedWorkflow : workflow);
+      }
+      if (url.includes("/api/workflow/confirm-publish")) {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
+        workflowRequests.push({ url, body });
+        return Response.json(body?.snapshot && (body.snapshot as typeof workflow.snapshot).selectedTopic.id === "topic-2"
+          ? switchedPublishedWorkflow
+          : publishedWorkflow);
+      }
+      if (url.includes("/api/workflow/feedback")) {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
+        workflowRequests.push({ url, body });
+        return Response.json({
+          snapshot: body?.snapshot,
+          modelUsages: [],
+          nodeResults: [],
+        });
       }
       if (url.includes("/api/quota")) {
         return Response.json({ quotas: [] });
@@ -194,7 +221,14 @@ describe("frontend smoke", () => {
     fireEvent.click(screen.getAllByRole("button", { name: /生成圈子帖/ })[0]);
     expect(screen.getByRole("dialog", { name: /确认把圆桌结果发布到圈子/ })).toBeInTheDocument();
     expect(screen.getByText(/真实知乎环境下/)).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText("关闭发布确认"));
+    fireEvent.click(screen.getByRole("button", { name: /确认发布并回流/ }));
+    await waitFor(() => expect(workflowRequests.some((request) => (
+      request.url.includes("/api/workflow/confirm-publish") &&
+      (request.body?.snapshot as typeof workflow.snapshot).selectedTopic.id === "topic-2"
+    ))).toBe(true));
+    expect(workflowRequests.some((request) => request.body?.publish === true)).toBe(false);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /确认把圆桌结果发布到圈子/ })).not.toBeInTheDocument());
+    expect(screen.getByText("高质量评论")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "有启发" }));
     expect(screen.getByRole("dialog", { name: /确认发送「有启发」互动/ })).toBeInTheDocument();

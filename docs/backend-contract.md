@@ -90,7 +90,8 @@ Live provider 对齐方案里的官方接口规划：
 - 站内搜索：默认 `zhihu_search` 1000 次/天。
 - 全网搜索：默认 `global_search` 1000 次/天。
 - 其他圈子/发布/评论/reaction 也有本地 quota 计数。
-- `GET /api/quota` 可查看当前配额状态；live 配额耗尽会触发 fallback，不让路演中断。
+- `GET /api/quota` 可查看当前配额状态；读接口 live 配额耗尽会触发 fallback，不让路演中断。
+- 发布、评论、reaction 是真实社区写操作：live 模式下不会 fallback 成 mock 成功，必须显式失败或由用户切回 mock-safe 路演。
 
 ## HTTP API
 
@@ -119,16 +120,20 @@ Live provider 对齐方案里的官方接口规划：
   - 运行四个前台 Agent 发言和观点地图生成。
 - `POST /api/workflow/publish-draft`
   - body: `{ snapshot: RoundtableSnapshot, modelPolicy?: Partial<ModelPolicy> }`
-  - 生成发布草稿、标题候选、讨论质量评分。
+  - 生成发布草稿、标题候选、讨论质量评分；live 模式额外返回 `publishConfirmation`。
+- `POST /api/workflow/confirmation`
+  - body: `{ action: "publish" | "comment" | "reaction", snapshot?: RoundtableSnapshot, subject?: string }`
+  - 为 live 写操作生成一次性确认 token。`publish` 绑定当前 snapshot；`comment/reaction` 绑定 publishId/targetId。
 - `POST /api/workflow/confirm-publish`
-  - body: `{ snapshot: RoundtableSnapshot, ringId?: string }`
+  - body: `{ snapshot: RoundtableSnapshot, ringId?: string, confirmationToken?: string }`
   - 用户确认后发布或 mock 发布。
+  - live 模式必须带服务端生成的一次性 `confirmationToken`；`POST /api/workflow/run publish=true` 和 SSE `publish=true` 不允许绕过确认。
   - 返回 `{ snapshot, publishResult, modelUsages, nodeResults }`，其中 `snapshot.nodeResults` 会追加 `publish` 节点。
 - `POST /api/workflow/comment`
-  - body: `{ publishId: string, content: string }`
+  - body: `{ publishId: string, content: string, confirmationToken?: string }`
   - 用户确认后让刘看山补主持评论。
 - `POST /api/workflow/reaction`
-  - body: `{ targetId: string, type: "support" | "oppose" | "inspired" | "neutral" }`
+  - body: `{ targetId: string, type: "support" | "oppose" | "inspired" | "neutral", confirmationToken?: string }`
   - 初始化或模拟“支持/反对/有启发”等轻互动入口。
 - `POST /api/workflow/feedback`
   - body: `{ snapshot: RoundtableSnapshot, publishResult?: { id: string }, publishId?: string, modelPolicy?: Partial<ModelPolicy> }`
@@ -149,6 +154,8 @@ Live provider 对齐方案里的官方接口规划：
 - step endpoint 缺少或传错 snapshot：`400 missing_snapshot` / `400 invalid_snapshot`
 - reaction 参数错误：`400 invalid_reaction`
 - comment 参数错误：`400 invalid_comment`
+- live 写操作缺少确认：`403 confirmation_required`
+- 确认 token 过期或不匹配：`403 confirmation_invalid` / `403 confirmation_mismatch`
 - 未知路由：`404 not_found`
 - 后端未知错误：`500 backend_error`
 
@@ -197,4 +204,4 @@ UI 第一版只需要接两种方式之一：
 - 路演版：`GET /api/workflow/stream` 用 SSE 逐步驱动圆桌动画和右侧面板增长。
 - 手动版：`start -> prepare -> debate -> publish-draft -> confirm-publish -> feedback`，每一步都能传 `modelPolicy`，适合前端做“暂停/继续/重新生成”。
 
-所有发布默认 mock；如果未来接真实知乎 API，只需要实现 `ZhihuProvider` 接口并传给 `RoundtableWorkflowService`。前端不需要知道模型具体是谁，只读 `snapshot.modelUsages` 和 `snapshot.nodeResults` 做“AI 正在工作”的可视化。
+所有发布默认 mock；接入真实知乎 API 时，写操作必须走确认 token，且失败不会被伪装为 mock 成功。前端不需要知道模型具体是谁，只读 `snapshot.modelUsages` 和 `snapshot.nodeResults` 做“AI 正在工作”的可视化。
