@@ -1,9 +1,10 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 
 const requiredFiles = [
   "README.md",
   "JUDGE_GUIDE.md",
+  "DESIGN.md",
   ".env.example",
   ".github/workflows/verify.yml",
   "docs/backend-contract.md",
@@ -14,6 +15,8 @@ const requiredFiles = [
   "src/backend/workflow-service.ts",
   "src/frontend/main.tsx",
   "tests/frontend-smoke.test.tsx",
+  "artifacts/zhihu-roundtable-desktop.png",
+  "artifacts/zhihu-roundtable-mobile.png",
 ];
 
 const commands = [
@@ -26,6 +29,10 @@ const commands = [
 for (const file of requiredFiles) {
   if (!existsSync(file)) {
     console.error(`missing required file: ${file}`);
+    process.exit(1);
+  }
+  if (file.startsWith("artifacts/") && statSync(file).size < 10_000) {
+    console.error(`artifact appears empty or corrupted: ${file}`);
     process.exit(1);
   }
 }
