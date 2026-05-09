@@ -48,6 +48,8 @@ npm run capture:demo:auto
 BACKEND_URL=http://localhost:8877/api/health DEMO_URL=http://localhost:5177/ npm run capture:demo:auto
 ```
 
+脚本会把 Vite 的 `/api` proxy 同步指向 `BACKEND_URL` 对应的 origin，避免前端仍误打默认 `8787`。
+
 ## live / mock 边界
 
 默认不需要任何 key，使用 mock-safe 路演，避免现场网络、限流、第三方接口影响演示。

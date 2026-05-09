@@ -17,6 +17,10 @@ const targets = [
     url: demoUrl,
     command: "npm",
     args: ["run", "dev", "--", "--host", "127.0.0.1", "--port", portFromUrl(demoUrl)],
+    env: {
+      VITE_DEV_PORT: portFromUrl(demoUrl),
+      VITE_BACKEND_PROXY_TARGET: originFromUrl(backendUrl),
+    },
     displayUrl: originFromUrl(demoUrl),
   },
 ];

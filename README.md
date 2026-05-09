@@ -44,7 +44,7 @@ npm run backend:serve
 npm run dev
 ```
 
-打开 Vite 输出的本地地址，默认前端会通过代理访问 `http://localhost:8787/api`。
+打开 Vite 输出的本地地址，默认前端会通过代理访问 `http://localhost:8787/api`。如需改端口，设置 `BACKEND_URL` / `DEMO_URL`，脚本会同步配置 Vite API proxy。
 
 ## 核心命令
 
@@ -54,6 +54,7 @@ npm run dev
 - `npm run backend:serve`：启动后端 API，默认 `http://localhost:8787`。
 - `npm run capture:demo`：在前后端服务启动后，抓取桌面/移动 Demo 截图到 `artifacts/`。
 - `npm run capture:demo:auto`：自动启动前后端并抓取桌面/移动 Demo 截图。
+- 自定义端口示例：`BACKEND_URL=http://localhost:8877/api/health DEMO_URL=http://localhost:5177/ npm run capture:demo:auto`。
 - `npm run demo`：运行核心状态机摘要。
 - `npm run backend:demo`：运行完整后端闭环。
 - `npm test`：状态机、schema、provider、service、HTTP API 测试。

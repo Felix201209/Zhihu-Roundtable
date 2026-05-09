@@ -32,6 +32,10 @@ if (autoStart) {
     label: "frontend",
     command: "npm",
     args: ["run", "dev", "--", "--host", "127.0.0.1", "--port", portFromUrl(baseUrl)],
+    env: {
+      VITE_DEV_PORT: portFromUrl(baseUrl),
+      VITE_BACKEND_PROXY_TARGET: originFromUrl(backendUrl),
+    },
   });
 } else {
   await assertReachable(backendUrl, "backend");
@@ -162,4 +166,8 @@ function portFromUrl(url) {
   }
 
   return parsed.protocol === "https:" ? "443" : "80";
+}
+
+function originFromUrl(url) {
+  return new URL(url).origin;
 }
