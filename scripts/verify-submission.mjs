@@ -3,6 +3,9 @@ import { existsSync } from "node:fs";
 
 const requiredFiles = [
   "README.md",
+  "JUDGE_GUIDE.md",
+  ".env.example",
+  ".github/workflows/verify.yml",
   "docs/backend-contract.md",
   "docs/hackathon-demo-plan.md",
   "docs/championship-redteam.md",

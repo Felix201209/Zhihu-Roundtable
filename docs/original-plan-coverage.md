@@ -23,7 +23,7 @@
 | 14 Prompt 设计原则 | 完成 | `src/llm/prompts.ts` 输出 JSON；`src/llm/schemas.ts` 用 zod 校验 |
 | 15 Agent Prompt 方向 | 完成 | 刘看山、大 V、反方、群众、共识/发布/评论分析均有 prompt 或 provider 方法 |
 | 16 API 使用规划 | 完成 live-ready | 热榜、搜索、全网、圈子、发布、评论、reaction 均由 `ZhihuProvider` 映射；OAuth 暂以 token env 注入 |
-| 17 Vibe Coding 执行方式 | 完成 | 项目已按模块逐步落地，并有 verify/capture/auto-capture 脚本 |
+| 17 Vibe Coding 执行方式 | 完成 | 项目已按模块逐步落地，并有 verify/verify:judge/capture/auto-capture 脚本、独立 audit:high 和 GitHub Actions 门禁 |
 | 18 前端组件清单 | 基本完成 | 以单文件组件实现 AppShell/TopNav/LeftRail/Roundtable/Insight/Publish/Feedback/Utility；后续可拆文件 |
 | 19 圆桌动画设计 | 基本完成 | active speaker 高亮、轮播、SSE 路演；未做复杂动画，符合原始“简单但有效” |
 | 20 路演 Demo 流程 | 完成 | `docs/hackathon-demo-plan.md` 6 分钟脚本，固定案例 |
@@ -50,7 +50,7 @@
 | F 输出节点 37-44 | 完成 | 观点地图、共识/争议/追问、发布草稿、标题候选、知乎语气、AI 标注完成 |
 | G 发布节点 45-50 | 大部分完成 | 圈子详情、发布、reaction、评论接口都有 provider；发布和社区互动前端均要求用户确认 |
 | H 回流节点 51-56 | 完成 | 评论拉取、情绪/高质量评论/新争议/下一轮建议/作者反馈信息完成 |
-| I 稳定性节点 57-60 | 完成 | quota、mock fallback、错误提示、SSE 路演模式、一键启动、自动截图和模型策略快速切换完成 |
+| I 稳定性节点 57-60 | 完成 | quota、mock fallback、错误提示、SSE 路演模式、一键启动、自动截图、模型策略快速切换和 CI 门禁完成 |
 
 ## 3. 刻意不做或现场说明项
 

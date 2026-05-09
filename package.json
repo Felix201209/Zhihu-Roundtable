@@ -15,7 +15,9 @@
     "capture:demo:auto": "AUTO_START_DEMO=1 node scripts/capture-demo-screenshots.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify": "node scripts/verify-submission.mjs"
+    "verify": "node scripts/verify-submission.mjs",
+    "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs",
+    "audit:high": "npm audit --audit-level=high"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.2",

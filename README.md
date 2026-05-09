@@ -59,6 +59,8 @@ npm run dev
 - `npm test`：状态机、schema、provider、service、HTTP API 测试。
 - `npm run typecheck`：TypeScript 类型检查。
 - `npm run verify`：提交前总验证，串行执行类型检查、测试、生产构建和后端完整 Demo。
+- `npm run verify:judge`：评审/CI 门禁，避免依赖外部 live API 或 npm audit 网络。
+- `npm run audit:high`：可选依赖安全公告检查，需要 npm registry 网络稳定。
 
 ## 真实 API / 模型环境变量
 
@@ -89,6 +91,7 @@ npm run dev
 
 ## Reviewer 入口
 
+- 评审快速指南：[JUDGE_GUIDE.md](JUDGE_GUIDE.md)
 - 后端契约：[docs/backend-contract.md](docs/backend-contract.md)
 - 路演计划：[docs/hackathon-demo-plan.md](docs/hackathon-demo-plan.md)
 - 夺冠红队审计：[docs/championship-redteam.md](docs/championship-redteam.md)
@@ -99,6 +102,8 @@ npm run dev
 当前核心门禁：
 
 - `npm run verify`
+- `npm run verify:judge`
+- `npm run audit:high`
 - `npm run typecheck`
 - `npm test`
 - `npm run build`

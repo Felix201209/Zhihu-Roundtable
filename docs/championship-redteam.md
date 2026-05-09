@@ -26,6 +26,9 @@
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |
 | 本机演示启动步骤太分散 | 路演前手动开两个终端容易漏开后端或截图失败 | 新增 `npm run demo:serve` 和 `npm run capture:demo:auto`，队友拉仓库后可一键启动/截图 |
 | 前端硬编码 mock 模型策略 | 后端 live-ready 但 UI 不能不改代码切 Kimi/DeepSeek，会显得“只是假演示” | URL 参数和 `VITE_DEMO_*` 环境变量可切 `mock/auto/live`，并覆盖 run + SSE 两条链路 |
+| 私密仓库缺少自动门禁 | 备份存在但 reviewer/队友无法看到每次推送是否仍可运行 | 新增 GitHub Actions `Verify`，推送和 PR 都运行 `npm run verify:judge` |
+| 评委入口分散 | README、路演文档、后端契约都有信息，但现场可能来不及串起来 | 新增根目录 `JUDGE_GUIDE.md`，3 分钟验证路径和评分项映射放在一页 |
+| judge 门禁依赖 npm audit 网络 | npm registry/TLS 抖动会让可运行项目被外部网络误判失败 | `verify:judge` 改为离线可复现门禁，`audit:high` 保留为独立可选检查 |
 
 ## 3. 仍需主动说明的非代码风险
 
@@ -50,7 +53,8 @@
 
 ```bash
 npm run verify
+npm run verify:judge
 npm run capture:demo:auto
 ```
 
-`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run capture:demo:auto` 必须能自动启动前后端并生成桌面和移动截图。
+`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run verify:judge` 额外检查演示脚本语法且不依赖外部 live API。`npm run audit:high` 可在网络稳定时单独检查依赖安全公告。`npm run capture:demo:auto` 必须能自动启动前后端并生成桌面和移动截图。
