@@ -68,7 +68,24 @@ npm run dev
 
 默认不需要任何 key，使用 mock-safe 演示。
 
-可从 `.env.example` 复制本地配置；不要提交真实 `.env`。
+可从 `.env.example` 复制本地配置；不要提交真实 `.env`。`.env.local`、`.env`、`.env.*` 都已被 `.gitignore` 忽略，后端和一键脚本会自动读取 `.env.local`。
+
+推荐本机写法：
+
+```bash
+cp .env.example .env.local
+```
+
+然后只在 `.env.local` 里填真实 key：
+
+```bash
+VITE_DEMO_MODEL_MODE=auto
+VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-flash
+VITE_DEMO_FALLBACK_TO_MOCK=true
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
+```
 
 真实模型：
 

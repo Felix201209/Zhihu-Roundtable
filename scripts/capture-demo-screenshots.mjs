@@ -1,5 +1,8 @@
 import { mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
+import { loadLocalEnv } from "./load-local-env.mjs";
+
+loadLocalEnv();
 
 const outDir = "artifacts";
 const baseUrl = demoUrlFromEnv();

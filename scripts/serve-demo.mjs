@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { loadLocalEnv } from "./load-local-env.mjs";
+
+loadLocalEnv();
 
 const backendUrl = backendUrlFromEnv();
 const demoUrl = demoUrlFromEnv();

@@ -45,6 +45,19 @@
 - DeepSeek base URL: `DEEPSEEK_BASE_URL`，默认 `https://api.deepseek.com/v1`
 - DeepSeek model override: `DEEPSEEK_FLASH_MODEL`、`DEEPSEEK_PRO_MODEL`，或统一 `DEEPSEEK_MODEL`
 
+本地推荐把真实 key 放在 `.env.local`，不要写进聊天记录和 git：
+
+```bash
+VITE_DEMO_MODEL_MODE=auto
+VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-flash
+VITE_DEMO_FALLBACK_TO_MOCK=true
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
+```
+
+`npm run backend:serve`、`npm run backend:demo`、`npm run demo:serve`、`npm run capture:demo:auto` 都会读取 `.env.local`；shell 里已经设置的环境变量优先级更高。
+
 所有模型调用都要求 JSON object，并经过 zod schema 校验；如果 `fallbackToMock=true` 且 live 调用失败，会自动回退 mock 并在 `modelUsages[].fallbackUsed` 标记。
 
 前端路演默认使用 mock-safe，但不再需要改代码才能切 live/auto。可在 URL 上追加：

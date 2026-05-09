@@ -1,5 +1,8 @@
 import { pathToFileURL } from "node:url";
+import { loadLocalEnv } from "./env.js";
 import { RoundtableWorkflowService } from "./workflow-service.js";
+
+loadLocalEnv();
 
 export async function runBackendDemo(): Promise<void> {
   const service = new RoundtableWorkflowService();
