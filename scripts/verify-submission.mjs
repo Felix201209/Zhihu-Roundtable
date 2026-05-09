@@ -9,6 +9,7 @@ const requiredFiles = [
   ".github/workflows/verify.yml",
   "docs/backend-contract.md",
   "docs/hackathon-demo-plan.md",
+  "docs/hackathon-source-notes.md",
   "docs/championship-redteam.md",
   "docs/original-plan-coverage.md",
   "docs/submission-audit.md",
