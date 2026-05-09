@@ -499,7 +499,7 @@ export class RoundtableWorkflowService {
           finishNode(startNode("publish", "发布节点"), publishResult ? "用户确认后已发布/模拟发布" : "未发布"),
         )
       : drafted;
-    const snapshot = await service.analyzeFeedback(published, publishResult);
+    const snapshot = input.publish ? await service.analyzeFeedback(published, publishResult) : published;
 
     return {
       topics,

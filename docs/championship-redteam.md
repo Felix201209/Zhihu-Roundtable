@@ -28,6 +28,7 @@
 | 原始 plan 完成度靠口头说明 | 评委可能追问 60 节点和 30 节方案是否真的完成 | 新增 `docs/original-plan-coverage.md` 逐项映射完成度 |
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |
 | 发布确认测试是假阳性 | 旧烟测一开始就给前端 `publishResult`，可能掩盖“未发布前不能互动、确认后才回流”的社区边界 | 烟测改为未发布初态，点击确认后断言调用 `confirm-publish` 且携带当前 snapshot，不再重跑整条 workflow |
+| 未确认发布也提前评论回流 | `publish=false` 如果已经出现 `comment_feedback`，会削弱“用户确认后回流”的闭环叙事 | `runFullWorkflow({ publish:false })` 只到发布预览；确认发布后才进入 `comment_feedback`，并新增回归测试 |
 | 本机演示启动步骤太分散 | 路演前手动开两个终端容易漏开后端或截图失败 | 新增 `npm run demo:serve` 和 `npm run capture:demo:auto`，队友拉仓库后可一键启动/截图 |
 | 前端硬编码 mock 模型策略 | 后端 live-ready 但 UI 不能不改代码切 Kimi/DeepSeek，会显得“只是假演示” | URL 参数和 `VITE_DEMO_*` 环境变量可切 `mock/auto/live`，并覆盖 run + SSE 两条链路 |
 | 私密仓库缺少自动门禁 | 备份存在但 reviewer/队友无法看到每次推送是否仍可运行 | 新增 GitHub Actions `Verify`，推送和 PR 都运行 `npm run verify:judge` |

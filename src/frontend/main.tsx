@@ -158,6 +158,10 @@ export function App() {
   }, [data, isStreaming, isPaused]);
 
   const snapshot = data?.snapshot;
+  const readinessValue = !data?.publishResult && snapshot?.publishDraft ? "就绪" : readiness?.report.totalScore ?? "--";
+  const readinessLabel = !data?.publishResult && snapshot?.publishDraft
+    ? "发布确认后回流"
+    : readiness?.report.awardTargets.at(0) ?? "综合大奖";
 
   const confirmAndPublish = React.useCallback(async () => {
     if (!snapshot?.publishDraft) {
@@ -290,8 +294,8 @@ export function App() {
         </div>
         <div className="mission-proof">
           <span>夺奖自检</span>
-          <strong>{readiness?.report.totalScore ?? "--"}</strong>
-          <small>{readiness?.report.awardTargets.at(0) ?? "综合大奖"}</small>
+          <strong>{readinessValue}</strong>
+          <small>{readinessLabel}</small>
         </div>
       </section>
 
@@ -323,7 +327,7 @@ export function App() {
               <span className="stage-kicker">{status}</span>
               <h2>{snapshot?.rewrittenQuestion ?? "正在等待议题重构"}</h2>
             </div>
-            <div className="stage-badge"><Sparkles size={16} /> {snapshot?.stage ?? "radar"}</div>
+            <div className="stage-badge"><Sparkles size={16} /> {stageLabel(snapshot?.stage)}</div>
           </div>
 
           <Roundtable activeSpeaker={active?.speaker ?? "liu"} turns={snapshot?.turns ?? []} />
@@ -408,6 +412,17 @@ function streamLabel(type: string) {
     feedback: "评论回流分析已完成",
   };
   return labels[type] ?? "AI 圆桌运行中";
+}
+
+function stageLabel(stage?: RoundtableSnapshot["stage"]) {
+  const labels: Record<RoundtableSnapshot["stage"], string> = {
+    radar: "热榜雷达",
+    prepare: "议题准备",
+    debate: "圆桌讨论",
+    publish: "发布预览",
+    feedback: "评论回流",
+  };
+  return stage ? labels[stage] : "热榜雷达";
 }
 
 function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {

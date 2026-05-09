@@ -44,6 +44,17 @@ describe("backend workflow service", () => {
     );
   });
 
+  it("stops at publish preview when the user has not confirmed publishing", async () => {
+    const service = new RoundtableWorkflowService();
+    const result = await service.runFullWorkflow({ publish: false });
+
+    expect(result.snapshot.stage).toBe("publish");
+    expect(result.snapshot.publishDraft).toBeDefined();
+    expect(result.publishResult).toBeUndefined();
+    expect(result.snapshot.commentInsight).toBeUndefined();
+    expect(result.nodeResults.map((node) => node.id)).not.toContain("comment_feedback");
+  });
+
   it("streams stage events in UI-friendly order", async () => {
     const service = new RoundtableWorkflowService();
     const events = [];

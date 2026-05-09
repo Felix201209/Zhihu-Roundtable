@@ -227,7 +227,9 @@ describe("backend HTTP server", () => {
     const workflow = await response.json();
 
     expect(response.status).toBe(200);
-    expect(workflow.snapshot.stage).toBe("feedback");
+    expect(workflow.snapshot.stage).toBe("publish");
+    expect(workflow.publishResult).toBeUndefined();
+    expect(workflow.snapshot.commentInsight).toBeUndefined();
     expect(workflow.modelPolicy.roleMap.publish).toBe("deepseek-v4-pro");
     expect(workflow.modelUsages.some((usage: { fallbackUsed: boolean }) => usage.fallbackUsed)).toBe(true);
   });

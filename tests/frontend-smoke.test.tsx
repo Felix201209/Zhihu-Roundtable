@@ -4,6 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { runWorkflow } from "../src/frontend/api.js";
 import { App, normalizeSentiment } from "../src/frontend/main.js";
 
+const commentInsight = {
+  sentiment: { support: 60, oppose: 25, neutral: 15 },
+  highQualityComments: ["建议把新人评价拆成三栏。"],
+  newDisputes: ["是否提交 AI 对话记录。"],
+  nextRoundSuggestions: ["继续围绕过程证据讨论。"],
+};
+
 const workflow = {
   topics: [
     {
@@ -26,7 +33,7 @@ const workflow = {
     },
   ],
   snapshot: {
-    stage: "feedback",
+    stage: "publish",
     selectedTopic: {
       id: "topic-1",
       title: "AI 工具是否正在改变职场新人能力评价？",
@@ -73,12 +80,7 @@ const workflow = {
       disclosure: "由 AI 圆桌辅助整理，用户确认发布。",
     },
     titleOptions: ["关于 AI 工具的圆桌讨论"],
-    commentInsight: {
-      sentiment: { support: 60, oppose: 25, neutral: 15 },
-      highQualityComments: ["建议把新人评价拆成三栏。"],
-      newDisputes: ["是否提交 AI 对话记录。"],
-      nextRoundSuggestions: ["继续围绕过程证据讨论。"],
-    },
+    commentInsight: undefined,
     agentBriefs: [
       {
         speaker: "liu",
@@ -129,11 +131,21 @@ const switchedWorkflow = {
 
 const publishedWorkflow = {
   ...workflow,
+  snapshot: {
+    ...workflow.snapshot,
+    stage: "feedback",
+    commentInsight,
+  },
   publishResult,
 };
 
 const switchedPublishedWorkflow = {
   ...switchedWorkflow,
+  snapshot: {
+    ...switchedWorkflow.snapshot,
+    stage: "feedback",
+    commentInsight,
+  },
   publishResult,
 };
 

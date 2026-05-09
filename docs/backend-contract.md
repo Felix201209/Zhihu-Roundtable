@@ -145,7 +145,9 @@ Live provider 对齐方案里的官方接口规划：
   - 按官方评分维度输出 `HackathonReadinessReport`。
 - `POST /api/workflow/run`
   - body: `{ topicId?: string, publish?: boolean, ringId?: string, modelPolicy?: Partial<ModelPolicy> }`
-  - 返回完整 `{ topics, snapshot, publishResult?, providerMode, modelPolicy, modelUsages, nodeResults }`。
+  - `publish=false` 返回到发布预览阶段；`publish=true` 在 mock-safe 演示中会继续完成发布和评论回流。
+  - live 模式禁止 `publish=true` 绕过用户确认。
+  - 返回 `{ topics, snapshot, publishResult?, providerMode, modelPolicy, modelUsages, nodeResults }`。
   - 同时返回 `providerFailures[]`，用于证明 live API 异常时系统不会中断路演。
 - `GET /api/workflow/stream?topicId=&publish=&ringId=&modelMode=&defaultProvider=&kimiModel=&deepseekFlashModel=&deepseekProModel=&fallbackToMock=`
   - SSE 输出事件：`radar`、`prepare`、`agent_briefing`、`debate_turn`、`debate_done`、`publish`、`feedback`、`error`。
