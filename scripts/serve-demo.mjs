@@ -38,6 +38,7 @@ console.log("\n知辩圆桌 Demo 正在启动：");
 for (const target of targets) {
   await ensureRunning(target);
 }
+await assertFrontendProxy(demoUrl, backendUrl);
 
 console.log("\nDemo 已就绪：");
 for (const target of targets) {
@@ -77,6 +78,23 @@ async function isReachable(url) {
     return response.ok;
   } catch {
     return false;
+  }
+}
+
+async function assertFrontendProxy(frontendUrl, expectedBackendUrl) {
+  const healthUrl = new URL("/api/health", frontendUrl).toString();
+  const response = await fetch(healthUrl);
+  if (!response.ok) {
+    throw new Error(`frontend proxy health check failed at ${healthUrl}: ${response.status}`);
+  }
+
+  const health = await response.json();
+  const expectedPort = Number(portFromUrl(expectedBackendUrl));
+  if (health.port !== expectedPort) {
+    throw new Error(
+      `frontend /api proxy points to backend port ${health.port}, expected ${expectedPort}. ` +
+        "Stop stale Vite servers or set DEMO_URL to a fresh port.",
+    );
   }
 }
 

@@ -181,6 +181,7 @@ async function handleRequest(
     sendJson(res, 200, {
       ok: true,
       service: "zhihu-roundtable-backend",
+      port: req.socket.localPort,
       endpoints: [
         "/api/topics",
         "/api/models",

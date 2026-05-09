@@ -17,6 +17,7 @@ describe("backend HTTP server", () => {
 
     const health = await fetch(`${baseUrl}/api/health`).then((res) => res.json());
     expect(health).toMatchObject({ ok: true });
+    expect(health.port).toBe(started.port);
     expect(health.endpoints).toContain("/api/models");
     expect(health.endpoints).toContain("/api/zhihu/status");
     expect(health.endpoints).toContain("/api/readiness");

@@ -37,9 +37,11 @@ if (autoStart) {
       VITE_BACKEND_PROXY_TARGET: originFromUrl(backendUrl),
     },
   });
+  await assertFrontendProxy(baseUrl, backendUrl);
 } else {
   await assertReachable(backendUrl, "backend");
   await assertReachable(baseUrl, "frontend");
+  await assertFrontendProxy(baseUrl, backendUrl);
 }
 
 await run("npx", [
@@ -104,6 +106,23 @@ async function assertReachable(url, label) {
   } catch (error) {
     console.error(`${label} is not reachable at ${url}. Start backend:serve and dev first.`);
     throw error;
+  }
+}
+
+async function assertFrontendProxy(frontendUrl, expectedBackendUrl) {
+  const healthUrl = new URL("/api/health", frontendUrl).toString();
+  const response = await fetch(healthUrl);
+  if (!response.ok) {
+    throw new Error(`frontend proxy health check failed at ${healthUrl}: ${response.status}`);
+  }
+
+  const health = await response.json();
+  const expectedPort = Number(portFromUrl(expectedBackendUrl));
+  if (health.port !== expectedPort) {
+    throw new Error(
+      `frontend /api proxy points to backend port ${health.port}, expected ${expectedPort}. ` +
+        "Stop stale Vite servers or set DEMO_URL to a fresh port.",
+    );
   }
 }
 
