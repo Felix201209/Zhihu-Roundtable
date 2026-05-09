@@ -100,6 +100,7 @@ live 写操作不会绕过用户确认：发布、主持评论、reaction 都需
 - 路演计划：[docs/hackathon-demo-plan.md](docs/hackathon-demo-plan.md)
 - 夺冠红队审计：[docs/championship-redteam.md](docs/championship-redteam.md)
 - 最初方案完成度对照：[docs/original-plan-coverage.md](docs/original-plan-coverage.md)
+- 来源边界记录：[docs/hackathon-source-notes.md](docs/hackathon-source-notes.md)
 
 ## 验证状态
 

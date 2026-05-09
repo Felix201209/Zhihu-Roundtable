@@ -165,7 +165,7 @@ Live provider 对齐方案里的官方接口规划：
 
 ## Hackathon Readiness
 
-`POST /api/readiness` 对齐截图里的官方评分维度：
+`POST /api/readiness` 对齐赛事手册截图里的评审维度；来源边界见 `docs/hackathon-source-notes.md`：
 
 - AI 场景价值：35%
 - 创新度：25%
