@@ -158,10 +158,20 @@ export function App() {
   }, [data, isStreaming, isPaused]);
 
   const snapshot = data?.snapshot;
-  const readinessValue = !data?.publishResult && snapshot?.publishDraft ? "就绪" : readiness?.report.totalScore ?? "--";
+  const readinessItems = readiness?.report.items ?? [];
+  const readyDimensionCount = readinessItems.filter((item) => item.score >= 80).length;
+  const readinessValue = !data?.publishResult && snapshot?.publishDraft
+    ? "就绪"
+    : readinessItems.length
+      ? `${readyDimensionCount}/${readinessItems.length}`
+      : readiness
+        ? "就绪"
+        : "--";
   const readinessLabel = !data?.publishResult && snapshot?.publishDraft
     ? "发布确认后回流"
-    : readiness?.report.awardTargets.at(0) ?? "综合大奖";
+    : readiness
+      ? "评分维度就绪"
+      : "等待自检";
 
   const confirmAndPublish = React.useCallback(async () => {
     if (!snapshot?.publishDraft) {
@@ -675,10 +685,13 @@ function ReadinessPanel({ readiness }: { readiness: ReadinessResponse | null }) 
       {readiness?.report.items.map((item) => (
         <div key={item.key} className="score-row">
           <span>{item.label}</span>
-          <strong>{item.score}</strong>
+          <strong>{item.score >= 80 ? "已就绪" : "需补强"}</strong>
         </div>
       ))}
-      <div className="targets">{readiness?.report.awardTargets.map((target) => <span key={target}>{target}</span>)}</div>
+      <div className="targets">
+        <span>冲奖方向</span>
+        {readiness?.report.awardTargets.map((target) => <span key={target}>{target}</span>)}
+      </div>
     </section>
   );
 }
