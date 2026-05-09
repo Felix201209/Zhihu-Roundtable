@@ -48,6 +48,12 @@ npm run capture:demo:auto
 BACKEND_URL=http://localhost:8877/api/health DEMO_URL=http://localhost:5177/ npm run capture:demo:auto
 ```
 
+也可以使用更短的端口别名：
+
+```bash
+DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 npm run capture:demo:auto
+```
+
 脚本会把 Vite 的 `/api` proxy 同步指向 `BACKEND_URL` 对应的 origin，避免前端仍误打默认 `8787`。
 截图前还会通过前端 `/api/health` 校验实际后端端口，防止复用旧 Vite 服务造成假阳性。
 

@@ -46,11 +46,12 @@
 | README | `README.md` | Done |
 | 后端契约 | `docs/backend-contract.md` | Done |
 | 路演脚本/Q&A | `docs/hackathon-demo-plan.md` | Done |
+| 来源边界 | `docs/hackathon-source-notes.md` | Done |
 | 前端 smoke test | `tests/frontend-smoke.test.tsx` | Done |
 | HTTP contract test | `tests/http-server.test.ts` | Done |
 | Provider fallback test | `tests/provider-integrations.test.ts` | Done |
-| Browser desktop screenshot | `artifacts/zhihu-roundtable-desktop.png` | Verified |
-| Browser mobile screenshot | `artifacts/zhihu-roundtable-mobile.png` | Verified |
+| Browser desktop screenshot | `artifacts/zhihu-roundtable-desktop.png`，verifier 校验 PNG 与 1440x1100 视口 | Verified |
+| Browser mobile screenshot | `artifacts/zhihu-roundtable-mobile.png`，verifier 校验 PNG 与 390x900 视口 | Verified |
 | 可重复截图脚本 | `npm run capture:demo:auto` -> `artifacts/` | Done |
 
 ## 3. 最新验证命令
@@ -91,7 +92,10 @@ artifacts/zhihu-roundtable-mobile.png
 - 页面加载到 `http://localhost:5173/`
 - 点击 `路演模式`，状态到 `路演播放完成`
 - 点击 `生成圈子帖`，出现 `人工确认节点` 弹层
-- 点击 `确认发布并回流`，右侧节点出现 `发布节点`
+- 点击 `确认发布并回流`，右侧出现 `高质量评论 / 新争议 / 下一轮圆桌`
+- 展开 `技术细节 / 评分自检`，点击 `有启发`，确认出现社区互动二次确认
+- 点击 `确认发送互动`，顶部状态变为 `社区互动已确认发送`
+- 再点 `主持评论` -> `确认发送评论`，顶部状态变为 `刘看山主持评论已确认发送`
 
 ## 4. 剩余风险
 
