@@ -13,7 +13,7 @@
 - Build Command: `npm ci && npm run build`
 - Start Command: `npm run start`
 - Health Check Path: `/api/health`
-- Node: `24`，与 `.node-version`、GitHub Actions 和 `render.yaml` 对齐
+- Node: `24`，与 `.node-version`、`package.json engines`、GitHub Actions 和 `render.yaml` 对齐。Render 官方支持用 `NODE_VERSION`、`.node-version` 或 `package.json engines` 指定 Node 版本；本项目三处都锁在 `>=24 <25` / `24`，避免线上构建漂到其他大版本。
 - `ZHIHU_PROVIDER=mock`
 - `VITE_DEMO_MODEL_MODE=mock`
 - `VITE_DEMO_DEFAULT_PROVIDER=mock`
