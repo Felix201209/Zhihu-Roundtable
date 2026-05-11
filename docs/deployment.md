@@ -17,6 +17,7 @@
 - `ZHIHU_PROVIDER=mock`
 - `VITE_DEMO_MODEL_MODE=mock`
 - `VITE_DEMO_DEFAULT_PROVIDER=mock`
+- `VITE_DEMO_FALLBACK_TO_MOCK=true`
 
 这条路径不会使用真实知乎 token，也不会触发真实发布。
 
