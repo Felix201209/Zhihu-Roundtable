@@ -25,6 +25,7 @@
     "verify": "node scripts/verify-submission.mjs",
     "verify:production": "npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
     "verify:public": "node scripts/verify-public-demo.mjs",
+    "verify:public:full": "npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs",
     "verify:remote-ci": "node scripts/verify-remote-ci.mjs",
     "completion:audit": "node scripts/completion-audit.mjs",
     "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs && node --check scripts/package-source.mjs && node --check scripts/verify-public-demo.mjs && node --check scripts/verify-remote-ci.mjs && node --check scripts/verify-production-server.mjs && node --check scripts/verify-production-flow.mjs && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",

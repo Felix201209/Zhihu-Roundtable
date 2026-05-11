@@ -99,6 +99,7 @@ assertFileIncludes("package.json", [
   "\"serve:app\": \"npm run build && STATIC_DIR=dist tsx src/backend/serve.ts\"",
   "\"verify:production\": \"npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs\"",
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
+  "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
   "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   "\"verify:judge\":",
@@ -202,7 +203,7 @@ assertFileIncludes("docs/backend-contract.md", [
 
 assertFileIncludes("docs/deployment.md", [
   "npm run verify:remote-ci",
-  "PRODUCTION_FLOW_URL=https://你的线上-demo域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict",
   "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
 ]);
