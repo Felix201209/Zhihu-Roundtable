@@ -195,6 +195,13 @@ assertFileIncludes("docs/submission-form-checklist.md", [
   "不要提交 `.env.local`",
 ]);
 
+assertFileIncludes("docs/submission-package.md", [
+  ".cache/submission/zhihu-roundtable-source.zip",
+  ".cache/submission/manifest.json",
+  "HEAD commit",
+  "sha256",
+]);
+
 for (const file of publicNarrativeFiles) {
   assertFileExcludes(file, bannedPublicPhrases);
 }
