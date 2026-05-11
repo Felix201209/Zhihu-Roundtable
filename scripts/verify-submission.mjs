@@ -132,7 +132,7 @@ assertFileIncludes(".env.example", [
 
 assertFileIncludes("render.yaml", [
   "NODE_VERSION",
-  "value: 24",
+  "value: \"24\"",
   "buildCommand: npm ci && npm run build",
   "startCommand: npm run start",
   "healthCheckPath: /api/health",

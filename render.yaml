@@ -8,7 +8,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
-        value: 24
+        value: "24"
       - key: ZHIHU_PROVIDER
         value: mock
       - key: VITE_DEMO_MODEL_MODE
