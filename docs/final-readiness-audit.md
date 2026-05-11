@@ -66,7 +66,7 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 `verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
 
 - `npm run typecheck`
-- `npm test`，9 个测试文件，60 个测试通过
+- `npm test`，9 个测试文件，61 个测试通过
 - `npm run build`
 - `npm run backend:demo`
 - 脚本语法检查

@@ -190,7 +190,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "node scripts/verify-remote-ci.mjs --allow-not-pushed",
   "npm run completion:audit",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
-  "60 个测试通过",
+  "61 个测试通过",
   "生产式浏览器路径确认",
   "前端 bundle 中的产品关键文案",
   "mock-safe 公网 demo 不能报告知乎 live 凭证已配置",
