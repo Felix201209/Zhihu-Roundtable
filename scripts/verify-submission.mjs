@@ -123,6 +123,11 @@ assertFileIncludes("README.md", [
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
 ]);
 
+assertFileIncludes(".env.example", [
+  "PUBLIC_DEMO_URL=https://your-demo-domain.com",
+  "REVIEWER_REPO_ACCESS_CONFIRMED",
+]);
+
 assertFileIncludes("render.yaml", [
   "NODE_VERSION",
   "value: 24",
@@ -181,6 +186,11 @@ assertFileIncludes("docs/backend-contract.md", [
   "live 只读接口失败",
   "live 写操作失败必须显式失败",
   "服务层默认拒绝 live 写操作",
+]);
+
+assertFileIncludes("docs/deployment.md", [
+  "npm run verify:remote-ci",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict",
 ]);
 
 assertFileIncludes("docs/submission-form-checklist.md", [
