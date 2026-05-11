@@ -26,7 +26,7 @@
 | 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md` | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
-| 代码远端同步 | 当前本地分支已提交并领先 `origin/main` 1 个提交；远端最后 push 为 2026-05-09 | 未完成 |
+| 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
 | 评委仓库访问 | GitHub 仓库当前为 private | 未完成 |
 
 ## 2. Prompt-to-Artifact Checklist
@@ -48,8 +48,8 @@
 当前本地 Git 状态以提交前终端输出为准。最近一次审计时状态：
 
 ```text
-branch: main...origin/main [ahead 1]
-commit: Prepare Zhihu roundtable submission
+branch: main...origin/main [ahead 2]
+commit: ba9c1a2 Add executable completion audit
 ```
 
 已通过：
@@ -63,7 +63,7 @@ git push --dry-run origin main
 node scripts/verify-remote-ci.mjs --allow-not-pushed
 ```
 
-`verify:submission` 会先跑 `verify:judge`，再生成并检查源码 ZIP；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
+`verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
 
 - `npm run typecheck`
 - `npm test`，9 个测试文件，60 个测试通过
@@ -75,6 +75,8 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 - `scripts/verify-public-demo.mjs`
 - `scripts/verify-remote-ci.mjs`
 - `scripts/package-source.mjs` 语法检查
+
+`completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。
 
 源码 ZIP 输出会随最终提交 hash 改变，提交时以 `npm run package:source` 的终端输出为准。该脚本会输出：
 
