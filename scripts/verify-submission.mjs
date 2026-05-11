@@ -145,6 +145,12 @@ assertFileIncludes("scripts/verify-public-demo.mjs", [
   "mock-safe public demo should not report Zhihu live credentials configured",
 ]);
 
+assertFileIncludes("scripts/verify-production-flow.mjs", [
+  "PRODUCTION_FLOW_URL",
+  "PUBLIC_DEMO_URL",
+  "normalizeOrigin",
+]);
+
 assertFileIncludes("scripts/package-source.mjs", [
   ".github/workflows/verify.yml",
   "scripts/verify-submission.mjs",
@@ -190,6 +196,7 @@ assertFileIncludes("docs/backend-contract.md", [
 
 assertFileIncludes("docs/deployment.md", [
   "npm run verify:remote-ci",
+  "PRODUCTION_FLOW_URL=https://你的线上-demo域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict",
 ]);
 

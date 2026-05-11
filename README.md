@@ -69,6 +69,7 @@ npm run dev
 - `npm run verify`：提交前总验证，串行执行类型检查、测试、生产构建和后端完整 Demo。
 - `npm run verify:production`：构建后启动 `npm run start`，真实请求生产式首页和 `/api/health`；本机有 Chrome/Chromium 时还会走完整 5 步浏览器点击流。
 - `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public`：部署后验证公网首页、`/api/health`、知乎状态和 OAuth callback，默认要求 mock-safe。
+- `PRODUCTION_FLOW_URL=https://你的线上域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs`：部署后对公网 Demo 跑同一条首页到评论复盘的浏览器点击流。
 - `npm run verify:remote-ci`：push 后检查 GitHub Actions `Verify` 是否针对当前 HEAD 成功；远端会运行 `npm run verify:submission`。push 前可用 `node scripts/verify-remote-ci.mjs --allow-not-pushed` 预检远端状态。
 - `npm run completion:audit`：把 `/goal` 拆成产品定位、主流程、安全边界、验证门禁、部署准备和外部交付项逐项检查；本地项失败会退出，公网 Demo、远端 CI、仓库访问这类外部项会列为 blocker。若仓库保持 private，但已给评委/主办方授权，可设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据。
 - `npm run package:source`：从干净 HEAD 生成 `.cache/submission/zhihu-roundtable-source.zip` 和 `.cache/submission/manifest.json`，并打印 commit、大小和 sha256。

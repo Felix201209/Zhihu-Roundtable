@@ -58,9 +58,10 @@ npm run verify:production
 
 ```bash
 PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public
+PRODUCTION_FLOW_URL=https://你的线上-demo域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs
 ```
 
-这会检查公网首页、前端 bundle 里的关键产品文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。默认要求线上 demo 保持 `ZHIHU_PROVIDER=mock`，避免评审点击时消耗真实知乎额度或触发 live 写操作。
+第一条命令会检查公网首页、前端 bundle 里的关键产品文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。第二条命令会对公网 Demo 跑同一条首页 -> 选题雷达 -> 讨论方案准备 -> 刘看山主持校验 -> 发布策划 -> 评论复盘的浏览器点击流。默认要求线上 demo 保持 `ZHIHU_PROVIDER=mock`，避免评审点击时消耗真实知乎额度或触发 live 写操作。
 
 push 后还要确认远端 CI 针对当前 HEAD 成功：
 

@@ -3,7 +3,8 @@ import { existsSync, rmSync } from "node:fs";
 
 const appPort = process.env.PRODUCTION_FLOW_PORT ?? "8900";
 const chromePort = process.env.PRODUCTION_FLOW_CHROME_PORT ?? "9230";
-const origin = `http://127.0.0.1:${appPort}`;
+const externalOrigin = process.env.PRODUCTION_FLOW_URL ?? process.env.PUBLIC_DEMO_URL;
+const origin = externalOrigin ? normalizeOrigin(externalOrigin) : `http://127.0.0.1:${appPort}`;
 const chromePath = findChrome();
 const requireBrowser = process.env.PRODUCTION_FLOW_REQUIRE_BROWSER === "true";
 
@@ -16,7 +17,7 @@ if (!chromePath) {
   process.exit(0);
 }
 
-const app = spawn("npm", ["run", "start"], {
+const app = externalOrigin ? null : spawn("npm", ["run", "start"], {
   stdio: "pipe",
   shell: process.platform === "win32",
   env: {
@@ -30,10 +31,10 @@ const app = spawn("npm", ["run", "start"], {
 });
 
 let appOutput = "";
-app.stdout.on("data", (chunk) => {
+app?.stdout.on("data", (chunk) => {
   appOutput += String(chunk);
 });
-app.stderr.on("data", (chunk) => {
+app?.stderr.on("data", (chunk) => {
   appOutput += String(chunk);
 });
 
@@ -62,7 +63,7 @@ try {
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
-  app.kill("SIGTERM");
+  app?.kill("SIGTERM");
   chrome.kill("SIGTERM");
 }
 
@@ -198,7 +199,7 @@ async function runBrowserFlow() {
 async function waitForApp() {
   const startedAt = Date.now();
   while (Date.now() - startedAt < 30_000) {
-    if (app.exitCode !== null) {
+    if (app && app.exitCode !== null) {
       throw new Error(`production app exited early with ${app.exitCode}\n${appOutput}`);
     }
     try {
@@ -256,6 +257,14 @@ function findChrome() {
   }
 
   return undefined;
+}
+
+function normalizeOrigin(value) {
+  const parsed = new URL(value);
+  parsed.pathname = "";
+  parsed.search = "";
+  parsed.hash = "";
+  return parsed.toString().replace(/\/$/, "");
 }
 
 function delay(ms) {

@@ -23,7 +23,7 @@
 | 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/hackathon-demo-plan.md` | 已完成 |
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 已准备给 push 后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
-| 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md` | 已准备 |
+| 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`；公网部署后可用 `PRODUCTION_FLOW_URL` 复用浏览器点击流 | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
 | 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
@@ -128,7 +128,7 @@ http://localhost:8898/
 - 构建后的 `dist/` 与 `/api` 由同一个 Node 进程托管。
 - 生产式页面可从首页手动走完选题雷达、讨论方案准备、刘看山主持校验、发布策划与圈子帖预览、评论复盘。
 - 点击“生成讨论方案”后，页面停留在“讨论方案准备”，不会因为后台 SSE 已经生成发布预览而自动跳过中间步骤。
-- `scripts/verify-production-flow.mjs` 已把这条生产式 5 步点击流固化成门禁；本机有 Chrome/Chromium 时会自动启动 headless browser 验证。
+- `scripts/verify-production-flow.mjs` 已把这条生产式 5 步点击流固化成门禁；本机有 Chrome/Chromium 时会自动启动 headless browser 验证，部署后也可设置 `PRODUCTION_FLOW_URL=https://你的线上-demo域名` 对公网 Demo 跑同一条点击流。
 - 浏览器控制台没有 warning/error。
 - 检查结束后已停止本地 `8898` 服务。
 
@@ -167,6 +167,7 @@ note: local workflow hardening only becomes active on GitHub after push
 
 ```text
 PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public
+PRODUCTION_FLOW_URL=https://你的线上-demo域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs
 ```
 
 - 部署后会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
