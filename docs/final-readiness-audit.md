@@ -24,7 +24,7 @@
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 已准备给 push 后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md` | 已准备 |
-| 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
+| 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
 | 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
 | 评委仓库访问 | GitHub 仓库当前为 private；可切 public，或给评委/主办方授权后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 验收 | 未完成 |
@@ -45,11 +45,11 @@
 
 ## 3. 最新实证
 
-当前本地 Git 状态以提交前终端输出为准。最近一次审计时状态：
+当前本地 Git 状态以提交前终端输出为准，提交前重新运行：
 
-```text
-branch: main...origin/main [ahead 2]
-commit: ba9c1a2 Add executable completion audit
+```bash
+git status -sb
+git log -1 --oneline
 ```
 
 已通过：
@@ -78,10 +78,11 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 
 `completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。若仓库保持 private，但已经给评委/主办方授权，可用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 作为最终审计证据。
 
-源码 ZIP 输出会随最终提交 hash 改变，提交时以 `npm run package:source` 的终端输出为准。该脚本会输出：
+源码 ZIP 输出会随最终提交 hash 改变，提交时以 `npm run package:source` 的终端输出和 `.cache/submission/manifest.json` 为准。该脚本会输出：
 
 ```text
 source package ready: .cache/submission/zhihu-roundtable-source.zip
+manifest: .cache/submission/manifest.json
 files: <tracked source file count>
 commit: <current HEAD>
 size: <zip size>
@@ -141,7 +142,7 @@ node_modules ignored by .gitignore
 git ls-files shows none of those paths tracked
 git archive HEAD contains no real .env/.cache/dist/node_modules entries; only .env.example is included
 git grep secret scan only finds .env.example placeholders and tests/local-env fake key
-npm run package:source outputs .cache/submission/zhihu-roundtable-source.zip from clean HEAD, with commit, size and sha256 printed
+npm run package:source outputs .cache/submission/zhihu-roundtable-source.zip and .cache/submission/manifest.json from clean HEAD, with commit, size and sha256 printed
 ```
 
 GitHub 远端状态确认：

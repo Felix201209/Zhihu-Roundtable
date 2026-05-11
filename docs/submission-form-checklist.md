@@ -104,9 +104,10 @@ npm run package:source
 
 ```text
 .cache/submission/zhihu-roundtable-source.zip
+.cache/submission/manifest.json
 ```
 
-这个 ZIP 由 `git archive HEAD` 生成，不包含 `.env.local`、`.cache/`、`dist/` 或 `node_modules/`。
+这个 ZIP 由 `git archive HEAD` 生成，不包含 `.env.local`、`.cache/`、`dist/` 或 `node_modules/`。`manifest.json` 记录 HEAD commit、文件数、ZIP 大小和 sha256，便于提交前核对。
 正式打包要求 git 工作区干净，避免 ZIP 漏掉未提交改动；本地调试才使用 `node scripts/package-source.mjs --allow-dirty`。
 
 ## 4. 不要填写或提交

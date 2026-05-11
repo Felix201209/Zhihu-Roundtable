@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const args = process.argv.slice(2);
@@ -77,8 +77,23 @@ if (!stats || stats.size < 10_000) {
 
 const commit = run("git", ["rev-parse", "HEAD"], { capture: true }).stdout.trim();
 const sha256 = createHash("sha256").update(readFileSync(outputPath)).digest("hex");
+const manifestPath = join(dirname(outputPath), "manifest.json");
+const manifest = {
+  package: outputPath,
+  manifest: manifestPath,
+  generatedAt: new Date().toISOString(),
+  commit,
+  fileCount: sourceFiles.length,
+  sizeBytes: stats.size,
+  sha256,
+  allowDirty,
+  requiredSourceFiles,
+};
+
+writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
 console.log(`source package ready: ${outputPath}`);
+console.log(`manifest: ${manifestPath}`);
 console.log(`files: ${sourceFiles.length}`);
 console.log(`commit: ${commit}`);
 console.log(`size: ${stats.size} bytes`);

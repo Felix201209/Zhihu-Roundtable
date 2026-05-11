@@ -144,6 +144,8 @@ assertFileIncludes("scripts/package-source.mjs", [
   ".github/workflows/verify.yml",
   "scripts/verify-submission.mjs",
   "scripts/completion-audit.mjs",
+  "manifest.json",
+  "generatedAt",
   "scripts/verify-production-server.mjs",
   "tests/http-server.test.ts",
 ]);
