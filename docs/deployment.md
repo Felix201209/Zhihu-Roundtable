@@ -62,10 +62,10 @@ PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full
 
 这会检查公网首页、前端 bundle 里的关键产品文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`，并对公网 Demo 跑同一条首页 -> 选题雷达 -> 讨论方案准备 -> 刘看山主持校验 -> 发布策划 -> 评论复盘的浏览器点击流。默认要求线上 demo 保持 `ZHIHU_PROVIDER=mock`，避免评审点击时消耗真实知乎额度或触发 live 写操作。
 
-push 后还要确认远端 CI 针对当前 HEAD 成功：
+push 后还要确认远端 CI 针对当前 HEAD 成功；如果刚 push 完，建议使用等待模式，避免 CI 还在排队时误判失败：
 
 ```bash
-npm run verify:remote-ci
+npm run verify:remote-ci -- --wait
 ```
 
 如果仓库保持 private，给评委/主办方授权后再跑最终严格审计：

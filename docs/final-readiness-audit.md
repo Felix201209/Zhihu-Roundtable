@@ -157,7 +157,7 @@ remote workflow: Verify active on current remote
 local HEAD workflow: push, PR and manual dispatch all run npm run verify:submission
 local HEAD browser gate: GitHub Actions checks Chrome/Chromium version first, then runs PRODUCTION_FLOW_REQUIRE_BROWSER=true
 local HEAD package gate: GitHub Actions also runs package:source through verify:submission
-remote CI verifier: npm run verify:remote-ci checks current HEAD after push
+remote CI verifier: npm run verify:remote-ci checks current HEAD after push; npm run verify:remote-ci -- --wait waits for GitHub Actions to create and finish the current HEAD run
 remote CI precheck: no run yet for current unpushed HEAD; latest remote run was completed/success
 push dry-run: origin/main..HEAD main -> main passed
 note: local workflow hardening only becomes active on GitHub after push

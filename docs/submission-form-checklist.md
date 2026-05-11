@@ -76,14 +76,14 @@ npm run verify:judge
 npm run audit:high
 npm run capture:demo:auto:mock
 PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full
-npm run verify:remote-ci
+npm run verify:remote-ci -- --wait
 PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final
 ```
 
 `verify:submission` 会跑评审门禁并生成源码 ZIP；它要求 git 工作区干净。
 `verify:judge` 还会在本机存在 Chrome/Chromium 时启动 headless browser，验证生产式页面可以手动走完 5 步主流程，且不会自动跳过讨论方案准备和主持校验。
 `verify:public:full` 用于部署后公网验收，会检查首页 bundle、后端健康、模型状态、知乎状态、OAuth callback，并对公网 Demo 跑首页到评论复盘的浏览器点击流，默认要求线上 demo 是 mock-safe。
-`verify:remote-ci` 用于 push 后确认 GitHub Actions `Verify` 已针对当前 HEAD 成功。
+`verify:remote-ci -- --wait` 用于 push 后等待并确认 GitHub Actions `Verify` 已针对当前 HEAD 成功。
 `verify:final` 用于 push、远端 CI、公网 Demo 和仓库授权都完成后的最终严格验收。
 
 公网部署推荐：

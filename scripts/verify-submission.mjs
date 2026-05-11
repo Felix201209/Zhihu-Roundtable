@@ -101,7 +101,7 @@ assertFileIncludes("package.json", [
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
   "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
-  "\"verify:final\": \"npm run verify:remote-ci && npm run verify:public:full && npm run completion:audit -- --strict\"",
+  "\"verify:final\": \"npm run verify:remote-ci -- --wait && npm run verify:public:full && npm run completion:audit -- --strict\"",
   "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   "\"verify:judge\":",
   "node --check scripts/verify-public-demo.mjs",
@@ -207,6 +207,7 @@ assertFileIncludes("docs/deployment.md", [
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
   "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
+  "npm run verify:remote-ci -- --wait",
 ]);
 
 assertFileIncludes("docs/submission-form-checklist.md", [
@@ -217,6 +218,7 @@ assertFileIncludes("docs/submission-form-checklist.md", [
   "npm run verify:submission",
   "npm run verify:judge",
   "npm run package:source",
+  "verify:remote-ci -- --wait",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
   "不要提交 `.env.local`",
 ]);
