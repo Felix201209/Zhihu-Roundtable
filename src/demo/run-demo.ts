@@ -7,7 +7,7 @@ import {
   runDebate,
   runFullDemo,
   selectTopic,
-} from "../core/state-machine.js";
+} from "../core/demo-runner.js";
 import type { RoundtableSnapshot } from "../core/types.js";
 
 type StageSummary = {
@@ -16,11 +16,11 @@ type StageSummary = {
 };
 
 const stageNames: Record<RoundtableSnapshot["stage"], string> = {
-  radar: "热点雷达",
-  prepare: "议题准备",
-  debate: "圆桌辩论",
-  publish: "发布草稿",
-  feedback: "评论反馈",
+  radar: "选题雷达",
+  prepare: "讨论方案准备",
+  debate: "刘看山主持校验",
+  publish: "发布策划",
+  feedback: "评论复盘",
 };
 
 function summarizeSnapshot(snapshot: RoundtableSnapshot, index: number): StageSummary {
@@ -57,8 +57,8 @@ function summarizeSnapshot(snapshot: RoundtableSnapshot, index: number): StageSu
         label: `${index}. ${stageNames.publish}`,
         detail: [
           `标题：${snapshot.publishDraft?.title ?? "待生成"}`,
-          `共识：${snapshot.publishDraft?.consensus.length ?? 0}`,
-          `争议：${snapshot.publishDraft?.disputes.length ?? 0}`,
+          `站队选项：${snapshot.publishDraft?.consensus.length ?? 0}`,
+          `风险提醒：${snapshot.publishDraft?.disputes.length ?? 0}`,
           snapshot.statusMessage,
         ].join("；"),
       };
@@ -77,8 +77,8 @@ function summarizeSnapshot(snapshot: RoundtableSnapshot, index: number): StageSu
 }
 
 export function printDemoSummary(snapshots: RoundtableSnapshot[]): void {
-  console.log("知乎黑客松核心 Demo：AI 圆桌问答工作流");
-  console.log("目标：从热点识别到证据辩论、发布草稿和评论反馈，跑通一条可展示闭环。");
+  console.log("知乎黑客松核心 Demo：AI 讨论组织台工作流");
+  console.log("目标：从热点识别到证据组织、主持校验、发布策划和评论复盘，跑通一条可展示闭环。");
   console.log("");
 
   snapshots.forEach((snapshot, index) => {

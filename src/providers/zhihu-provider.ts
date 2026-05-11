@@ -1,11 +1,15 @@
-import type { ApiQuotaStatus, CommentInsight, Evidence, PublishDraft, ReactionType, Topic } from "../core/types.js";
+import { createHash, createHmac, randomUUID } from "node:crypto";
+import type { ApiQuotaKey, ApiQuotaStatus, CommentInsight, Evidence, PublishDraft, ReactionType, Topic } from "../core/types.js";
 import { ApiQuotaManager } from "../backend/quota.js";
+import { JsonFileCache } from "../backend/cache.js";
 import {
   demoCommentInsights,
   demoEvidence,
   demoPublishDrafts,
   demoTopics,
 } from "../demo/demo-data.js";
+
+export const HACKATHON_DEFAULT_RING_ID = "2029619126742656657";
 
 export type RingDetail = {
   id: string;
@@ -61,10 +65,32 @@ export interface ZhihuProvider {
 
 type LiveZhihuProviderOptions = {
   baseUrl: string;
+  /** Legacy alias for the Hackathon app_key/user token. */
   accessToken?: string;
+  /** Official app_key: user token copied from the Zhihu profile URL. */
+  appKey?: string;
+  /** Official app_secret: Hackathon app secret from Zhihu. */
+  appSecret?: string;
+  extraInfo?: string;
+  ringId?: string;
+  hotListHours?: string;
   fetchImpl?: typeof fetch;
   quota?: ApiQuotaManager;
+  readCache?: JsonFileCache | false;
 };
+
+type CachedZhihuResponse =
+  | { ok: true; json: unknown }
+  | { ok: false; message: string };
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+
+function envMs(key: string, fallback: number): number {
+  const parsed = Number(process.env[key]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 export class MockZhihuProvider implements ZhihuProvider {
   readonly mode = "mock";
@@ -111,7 +137,7 @@ export class MockZhihuProvider implements ZhihuProvider {
     }
 
     return [
-      ...insight.highQualityComments,
+      ...insight.highQualityComments.map((item, index) => (index === 0 ? `支持：${item}` : item)),
       ...insight.newDisputes.map((item) => `质疑：${item}`),
       ...insight.nextRoundSuggestions.map((item) => `建议：${item}`),
     ];
@@ -174,6 +200,13 @@ function asArray(value: unknown): unknown[] {
     }
   }
 
+  const data = asRecord(record.data);
+  for (const key of ["contents", "comments", "items", "list", "results"]) {
+    if (Array.isArray(data[key])) {
+      return data[key] as unknown[];
+    }
+  }
+
   return [];
 }
 
@@ -188,6 +221,20 @@ function stringValue(value: unknown, fallback = ""): string {
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function officialStatusError(json: unknown): string | undefined {
+  const record = asRecord(json);
+  const status = record.status ?? record.code;
+  if (status === undefined || status === null || Number(status) === 0) {
+    return undefined;
+  }
+
+  return stringValue(record.msg ?? asRecord(record.error).message, `status=${String(status)}`);
+}
+
+function contentTokenFrom(data: Record<string, unknown>, fallback: string): string {
+  return stringValue(data.content_token ?? data.pin_id ?? data.id ?? data.comment_id, fallback);
 }
 
 function topicFromApi(item: unknown, index: number): Topic {
@@ -236,6 +283,7 @@ export class LiveZhihuProvider implements ZhihuProvider {
   readonly failures: ZhihuProviderFailure[] = [];
   private readonly fetchImpl: typeof fetch;
   private readonly quota: ApiQuotaManager;
+  private readonly readCache?: JsonFileCache;
 
   constructor(private readonly options: LiveZhihuProviderOptions) {
     if (!options.fetchImpl) {
@@ -243,11 +291,18 @@ export class LiveZhihuProvider implements ZhihuProvider {
     }
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.quota = options.quota ?? new ApiQuotaManager();
+    this.readCache = options.readCache === false
+      ? undefined
+      : options.readCache ?? (options.fetchImpl ? undefined : defaultZhihuReadCache());
   }
 
   async getHotTopics(): Promise<Topic[]> {
-    this.quota.consume("hot_list");
-    const json = await this.request("/api/v1/content/hot_list");
+    const json = await this.request("/api/v1/content/hot_list", {
+      hours: this.options.hotListHours,
+    }, undefined, {
+      quotaKey: "hot_list",
+      cacheTtlMs: envMs("ZHIHU_CACHE_HOT_TTL_MS", 30 * MINUTE_MS),
+    });
     const topics = asArray(json).map(topicFromApi);
 
     if (topics.length === 0) {
@@ -258,10 +313,14 @@ export class LiveZhihuProvider implements ZhihuProvider {
   }
 
   async searchEvidence(topic: Topic): Promise<Evidence[]> {
-    this.quota.consume("zhihu_search");
-    const zhihu = await this.request("/api/v1/content/zhihu_search", { q: topic.title });
-    this.quota.consume("global_search");
-    const global = await this.request("/api/v1/content/global_search", { q: topic.title });
+    const zhihu = await this.request("/api/v1/content/zhihu_search", { q: topic.title }, undefined, {
+      quotaKey: "zhihu_search",
+      cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
+    });
+    const global = await this.request("/api/v1/content/global_search", { q: topic.title }, undefined, {
+      quotaKey: "global_search",
+      cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
+    });
 
     return [
       ...asArray(zhihu).map((item, index) => evidenceFromApi(item, index, "zhihu")),
@@ -270,24 +329,32 @@ export class LiveZhihuProvider implements ZhihuProvider {
   }
 
   async getDefaultRing(): Promise<RingDetail> {
-    this.quota.consume("ring_detail");
-    const json = asRecord(await this.request("/openapi/ring/detail"));
-    const data = asRecord(json.data ?? json.ring ?? json);
+    const json = asRecord(await this.request("/openapi/ring/detail", {
+      ring_id: this.options.ringId ?? HACKATHON_DEFAULT_RING_ID,
+      page_num: "1",
+      page_size: "20",
+    }, undefined, {
+      quotaKey: "ring_detail",
+      cacheTtlMs: envMs("ZHIHU_CACHE_RING_TTL_MS", DAY_MS),
+    }));
+    const data = asRecord(json.data ?? json);
+    const ringInfo = asRecord(data.ring_info ?? data.ring ?? json.ring ?? data);
 
     return {
-      id: stringValue(data.id ?? data.ring_id, "default-ring"),
-      name: stringValue(data.name ?? data.title, "知乎圆桌圈子"),
-      description: stringValue(data.description ?? data.desc, "由知乎 API 返回的默认圈子。"),
+      id: stringValue(ringInfo.id ?? ringInfo.ring_id, this.options.ringId ?? HACKATHON_DEFAULT_RING_ID),
+      name: stringValue(ringInfo.name ?? ringInfo.ring_name ?? ringInfo.title, "知乎圆桌圈子"),
+      description: stringValue(ringInfo.description ?? ringInfo.ring_desc ?? ringInfo.desc, "由知乎 API 返回的默认圈子。"),
     };
   }
 
   async publishDraft(input: { draft: PublishDraft; ringId?: string }): Promise<PublishResult> {
     this.quota.consume("publish_pin");
+    const ringId = input.ringId ?? this.options.ringId ?? HACKATHON_DEFAULT_RING_ID;
     const json = asRecord(
       await this.request("/openapi/publish/pin", undefined, {
         method: "POST",
         body: JSON.stringify({
-          ring_id: input.ringId,
+          ring_id: ringId,
           title: input.draft.title,
           content: [
             input.draft.opening,
@@ -308,15 +375,16 @@ export class LiveZhihuProvider implements ZhihuProvider {
     );
     const data = asRecord(json.data ?? json);
     const ringData = asRecord(data.ring ?? data.ring_detail);
+    const contentToken = contentTokenFrom(data, `live-pin-${Date.now()}`);
     const ring = {
-      id: stringValue(input.ringId ?? data.ring_id ?? ringData.id ?? ringData.ring_id, "default-ring"),
+      id: stringValue(ringId ?? data.ring_id ?? ringData.id ?? ringData.ring_id, "default-ring"),
       name: stringValue(ringData.name ?? ringData.title, "知乎圆桌圈子"),
       description: stringValue(ringData.description ?? ringData.desc, "发布接口返回的圈子信息。"),
     };
 
     return {
-      id: stringValue(data.id ?? data.pin_id, `live-pin-${Date.now()}`),
-      url: stringValue(data.url, `https://www.zhihu.com/pin/${stringValue(data.id ?? data.pin_id, "unknown")}`),
+      id: contentToken,
+      url: stringValue(data.url, `https://www.zhihu.com/pin/${contentToken}`),
       ring,
       draft: input.draft,
       mode: "live",
@@ -325,10 +393,14 @@ export class LiveZhihuProvider implements ZhihuProvider {
   }
 
   async listComments(input: { topicId: string; publishId?: string }): Promise<string[]> {
-    this.quota.consume("comment_list");
     const json = await this.request("/openapi/comment/list", {
-      topic_id: input.topicId,
-      pin_id: input.publishId,
+      content_token: input.publishId ?? input.topicId,
+      content_type: "pin",
+      page_num: "1",
+      page_size: "50",
+    }, undefined, {
+      quotaKey: "comment_list",
+      cacheTtlMs: envMs("ZHIHU_CACHE_COMMENT_TTL_MS", MINUTE_MS),
     });
 
     return asArray(json)
@@ -345,7 +417,8 @@ export class LiveZhihuProvider implements ZhihuProvider {
       await this.request("/openapi/comment/create", undefined, {
         method: "POST",
         body: JSON.stringify({
-          pin_id: input.publishId,
+          content_token: input.publishId,
+          content_type: "pin",
           content: input.content,
         }),
       }),
@@ -353,7 +426,7 @@ export class LiveZhihuProvider implements ZhihuProvider {
     const data = asRecord(json.data ?? json);
 
     return {
-      id: stringValue(data.id ?? data.comment_id, `live-comment-${Date.now()}`),
+      id: contentTokenFrom(data, `live-comment-${Date.now()}`),
       content: input.content,
       mode: "live",
       createdAt: new Date().toISOString(),
@@ -366,8 +439,10 @@ export class LiveZhihuProvider implements ZhihuProvider {
       await this.request("/openapi/reaction", undefined, {
         method: "POST",
         body: JSON.stringify({
-          target_id: input.targetId,
-          reaction: input.type,
+          content_token: input.targetId,
+          content_type: "pin",
+          action_type: "like",
+          action_value: input.type === "neutral" ? 0 : 1,
         }),
       }),
     );
@@ -394,6 +469,7 @@ export class LiveZhihuProvider implements ZhihuProvider {
     path: string,
     query?: Record<string, string | undefined>,
     init: RequestInit = {},
+    options: { quotaKey?: ApiQuotaKey; cacheTtlMs?: number; negativeCacheTtlMs?: number } = {},
   ): Promise<unknown> {
     const url = new URL(path, this.options.baseUrl.replace(/\/$/, "") + "/");
 
@@ -402,23 +478,101 @@ export class LiveZhihuProvider implements ZhihuProvider {
         url.searchParams.set(key, value);
       }
     }
+    const method = (init.method ?? "GET").toUpperCase();
+    const authHeaders = this.officialAuthHeaders();
+    const cacheKey = method === "GET" && options.cacheTtlMs !== 0
+      ? this.cacheKey(method, url)
+      : undefined;
+    const cached = cacheKey ? this.readCache?.get<CachedZhihuResponse>(cacheKey) : undefined;
+
+    if (cached) {
+      if (cached.ok) {
+        return cached.json;
+      }
+      throw new Error(cached.message);
+    }
+
+    if (options.quotaKey) {
+      this.quota.consume(options.quotaKey);
+    }
 
     const response = await this.fetchImpl(url, {
       ...init,
       headers: {
         accept: "application/json",
         "content-type": "application/json",
-        ...(this.options.accessToken ? { authorization: `Bearer ${this.options.accessToken}` } : {}),
+        ...authHeaders,
         ...(init.headers ?? {}),
       },
     });
 
     if (!response.ok) {
-      throw new Error(`知乎 API ${response.status}: ${await response.text()}`);
+      const message = `知乎 API ${response.status}: ${await response.text()}`;
+      this.storeNegativeCache(cacheKey, message, options.negativeCacheTtlMs);
+      throw new Error(message);
     }
 
-    return response.json();
+    const json = await response.json();
+    const businessError = officialStatusError(json);
+    if (businessError) {
+      const message = `知乎 API 业务错误: ${businessError}`;
+      this.storeNegativeCache(cacheKey, message, options.negativeCacheTtlMs);
+      throw new Error(message);
+    }
+
+    if (cacheKey && options.cacheTtlMs && this.readCache) {
+      this.readCache.set<CachedZhihuResponse>(cacheKey, { ok: true, json }, options.cacheTtlMs);
+    }
+
+    return json;
   }
+
+  private officialAuthHeaders(): Record<string, string> {
+    const appKey = this.options.appKey ?? this.options.accessToken;
+    const appSecret = this.options.appSecret;
+    if (!appKey) {
+      return {};
+    }
+
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    const logId = `zhihu-roundtable-${randomUUID()}`;
+    const extraInfo = this.options.extraInfo ?? "";
+    const headers: Record<string, string> = {
+      "X-App-Key": appKey,
+      "X-Timestamp": timestamp,
+      "X-Log-Id": logId,
+      "X-Extra-Info": extraInfo,
+    };
+
+    if (appSecret) {
+      const signString = `app_key:${appKey}|ts:${timestamp}|logid:${logId}|extra_info:${extraInfo}`;
+      headers["X-Sign"] = createHmac("sha256", appSecret).update(signString).digest("base64");
+    }
+
+    return headers;
+  }
+
+  private cacheKey(method: string, url: URL): string {
+    const appKey = this.options.appKey ?? this.options.accessToken ?? "anonymous";
+    const appKeyHash = createHash("sha256").update(appKey).digest("hex").slice(0, 12);
+    const normalized = new URL(url.toString());
+    normalized.searchParams.sort();
+    return `zhihu-openapi:${appKeyHash}:${method}:${normalized.pathname}?${normalized.searchParams.toString()}`;
+  }
+
+  private storeNegativeCache(cacheKey: string | undefined, message: string, ttlMs = envMs("ZHIHU_CACHE_ERROR_TTL_MS", 15 * MINUTE_MS)): void {
+    if (!cacheKey || !this.readCache || ttlMs <= 0) {
+      return;
+    }
+    this.readCache.set<CachedZhihuResponse>(cacheKey, { ok: false, message }, ttlMs);
+  }
+}
+
+function defaultZhihuReadCache(): JsonFileCache | undefined {
+  if (process.env.ZHIHU_CACHE_ENABLED === "false") {
+    return undefined;
+  }
+  return new JsonFileCache(process.env.ZHIHU_CACHE_FILE ?? ".cache/zhihu-openapi-cache.json");
 }
 
 function assertSafeZhihuBaseUrl(baseUrl: string): void {
@@ -520,6 +674,10 @@ export class FallbackZhihuProvider implements ZhihuProvider {
 }
 
 export function createDefaultZhihuProvider(): ZhihuProvider {
+  if (process.env.ZHIHU_PROVIDER === "mock") {
+    return new MockZhihuProvider();
+  }
+
   const useLive = process.env.ZHIHU_PROVIDER === "live" || Boolean(process.env.ZHIHU_API_BASE_URL);
 
   if (!useLive) {
@@ -528,8 +686,13 @@ export function createDefaultZhihuProvider(): ZhihuProvider {
 
   return new FallbackZhihuProvider(
     new LiveZhihuProvider({
-      baseUrl: process.env.ZHIHU_API_BASE_URL ?? "https://api.zhihu.com",
+      baseUrl: process.env.ZHIHU_API_BASE_URL ?? "https://openapi.zhihu.com",
       accessToken: process.env.ZHIHU_ACCESS_TOKEN,
+      appKey: process.env.ZHIHU_APP_KEY ?? process.env.ZHIHU_ACCESS_TOKEN,
+      appSecret: process.env.ZHIHU_APP_SECRET ?? process.env.ZHIHU_APP_KEY_SECRET,
+      extraInfo: process.env.ZHIHU_EXTRA_INFO ?? "",
+      ringId: process.env.ZHIHU_RING_ID,
+      hotListHours: process.env.ZHIHU_HOT_LIST_HOURS,
     }),
     new MockZhihuProvider(),
   );

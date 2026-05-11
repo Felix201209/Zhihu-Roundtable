@@ -1,13 +1,19 @@
+import { createHmac } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
+import { JsonFileCache } from "../src/backend/cache.js";
 import {
   createModelPolicy,
   createRoutedLlmProvider,
   MockLlmProvider,
+  OpenAiCompatibleJsonProvider,
   RoutedLlmProvider,
   type LlmCallResult,
   type LlmProvider,
 } from "../src/providers/llm-provider.js";
-import { FallbackZhihuProvider, LiveZhihuProvider, MockZhihuProvider } from "../src/providers/zhihu-provider.js";
+import { createDefaultZhihuProvider, FallbackZhihuProvider, LiveZhihuProvider, MockZhihuProvider } from "../src/providers/zhihu-provider.js";
 
 class FailingLlmProvider extends MockLlmProvider implements LlmProvider {
   override async rewriteQuestion(): Promise<LlmCallResult<{ rewrittenQuestion: string; rationale: string; evidenceIds: string[] }>> {
@@ -77,6 +83,40 @@ describe("provider integrations", () => {
     }
   });
 
+  it("parses fenced and mixed live model JSON without real API keys", async () => {
+    const responses = [
+      "```json\n{\"rewrittenQuestion\":\"AI 工具会如何改变新人评价？\",\"rationale\":\"把热榜改成可讨论问题\",\"evidenceIds\":[\"ev-1\"]}\n```",
+      "模型先解释一句：[{\"id\":\"A\",\"title\":\"效率版\",\"oneLiner\":\"30 秒生成选题\",\"highlight\":\"快\",\"risk\":\"容易同质化\"},{\"id\":\"B\",\"title\":\"防撞版\",\"oneLiner\":\"发前查重\",\"highlight\":\"实用\",\"risk\":\"社区感不足\"},{\"id\":\"C\",\"title\":\"众测版\",\"oneLiner\":\"让真实用户投票吐槽\",\"highlight\":\"社区反馈强\",\"risk\":\"需要冷启动\"}]",
+    ];
+    const provider = new OpenAiCompatibleJsonProvider({
+      provider: "deepseek-v4-pro",
+      model: "deepseek-v4-pro",
+      apiKey: "test-key",
+      baseUrl: "https://llm.example.test/v1",
+      preferredRoles: ["question", "synthesis"],
+      fetchImpl: async () => Response.json({
+        choices: [{ message: { content: responses.shift() } }],
+      }),
+    });
+
+    const rewritten = await provider.rewriteQuestion({
+      topic: {
+        id: "topic-1",
+        title: "AI 工具是否改变新人评价？",
+        hotScore: 90,
+        debateScore: 88,
+        evidenceScore: 82,
+        reason: "demo",
+      },
+      evidence: [],
+    });
+    const variants = await provider.generateIdeaVariants({ idea: "AI 选题工具" });
+
+    expect(rewritten.value.rewrittenQuestion).toContain("新人评价");
+    expect(variants.value).toHaveLength(3);
+    expect(variants.value[2]).toMatchObject({ id: "C", title: "众测版" });
+  });
+
   it("maps live Zhihu API endpoints into backend topic/evidence/publish shapes", async () => {
     const requested: string[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -98,23 +138,23 @@ describe("provider integrations", () => {
       }
 
       if (url.includes("/openapi/ring/detail")) {
-        return Response.json({ data: { id: "r1", name: "AI 圈子", description: "圈子描述" } });
+        return Response.json({ status: 0, msg: "success", data: { ring_info: { ring_id: "r1", ring_name: "AI 圈子", ring_desc: "圈子描述" } } });
       }
 
       if (url.includes("/openapi/publish/pin")) {
-        return Response.json({ data: { id: "p1", url: "https://zhihu.com/pin/p1" } });
+        return Response.json({ status: 0, msg: "success", data: { content_token: "p1" } });
       }
 
       if (url.includes("/openapi/comment/list")) {
-        return Response.json({ comments: [{ content: "支持，但想看更多证据" }] });
+        return Response.json({ status: 0, msg: "success", data: { comments: [{ content: "支持，但想看更多证据" }] } });
       }
 
       if (url.includes("/openapi/comment/create")) {
-        return Response.json({ data: { id: "c1" } });
+        return Response.json({ code: 0, msg: "success", data: { comment_id: "c1" } });
       }
 
       if (url.includes("/openapi/reaction")) {
-        return Response.json({ data: { id: "rx1" } });
+        return Response.json({ status: 0, msg: "success", data: { success: true } });
       }
 
       return Response.json({}, { status: 404 });
@@ -147,7 +187,7 @@ describe("provider integrations", () => {
     expect(publish).toMatchObject({ id: "p1", mode: "live" });
     expect(comments).toEqual(["支持，但想看更多证据"]);
     expect(comment).toMatchObject({ id: "c1", mode: "live" });
-    expect(reaction).toMatchObject({ id: "rx1", type: "support" });
+    expect(reaction).toMatchObject({ targetId: publish.id, type: "support", mode: "live" });
     expect(provider.getQuotaStatus().find((quota) => quota.key === "comment_create")?.used).toBe(1);
     expect(requested).toEqual(
       expect.arrayContaining([
@@ -162,6 +202,147 @@ describe("provider integrations", () => {
     );
   });
 
+  it("passes official HMAC credentials, ring id and hot-list window to live Zhihu requests", async () => {
+    const seen: Array<{ path: string; search: string; headers: Headers; body?: string }> = [];
+    const fetchImpl: typeof fetch = async (input, init) => {
+      const url = new URL(input.toString());
+      seen.push({
+        path: url.pathname,
+        search: url.search,
+        headers: new Headers(init?.headers),
+        body: typeof init?.body === "string" ? init.body : undefined,
+      });
+
+      if (url.pathname.includes("/api/v1/content/hot_list")) {
+        return Response.json({ status: 0, msg: "success", data: [{ id: "q1", title: "热榜", heat: 90 }] });
+      }
+      if (url.pathname.includes("/openapi/ring/detail")) {
+        return Response.json({ status: 0, msg: "success", data: { ring_info: { ring_id: "ring-official", ring_name: "黑客松脑洞补给站" } } });
+      }
+      if (url.pathname.includes("/openapi/publish/pin")) {
+        return Response.json({ status: 0, msg: "success", data: { content_token: "pin-1" } });
+      }
+      if (url.pathname.includes("/openapi/comment/list")) {
+        return Response.json({ status: 0, msg: "success", data: { comments: [] } });
+      }
+
+      return Response.json({});
+    };
+    const provider = new LiveZhihuProvider({
+      baseUrl: "https://example.test",
+      appKey: "user-token",
+      appSecret: "official-secret",
+      ringId: "ring-official",
+      hotListHours: "12",
+      fetchImpl,
+    });
+
+    await provider.getHotTopics();
+    await provider.getDefaultRing();
+    await provider.publishDraft({
+      draft: {
+        title: "标题",
+        opening: "开场",
+        consensus: ["共识"],
+        disputes: ["争议"],
+        questions: ["问题"],
+        disclosure: "AI 辅助整理",
+      },
+    });
+    await provider.listComments({ topicId: "q1", publishId: "pin-1" });
+
+    expect(seen.find((item) => item.path.includes("/api/v1/content/hot_list"))?.search).toContain("hours=12");
+    expect(seen.find((item) => item.path.includes("/openapi/ring/detail"))?.search).toContain("ring_id=ring-official");
+    expect(seen.find((item) => item.path.includes("/openapi/comment/list"))?.search).toContain("content_type=pin");
+    expect(seen.find((item) => item.path.includes("/openapi/comment/list"))?.search).toContain("content_token=pin-1");
+    expect(seen.every((item) => item.headers.get("X-App-Key") === "user-token")).toBe(true);
+    expect(seen.every((item) => item.headers.get("X-Timestamp"))).toBe(true);
+    expect(seen.every((item) => item.headers.get("X-Log-Id"))).toBe(true);
+    expect(seen.every((item) => item.headers.get("X-Sign"))).toBe(true);
+    expect(seen.every((item) => item.headers.has("X-Extra-Info"))).toBe(true);
+    const first = seen[0];
+    const signString = `app_key:user-token|ts:${first.headers.get("X-Timestamp")}|logid:${first.headers.get("X-Log-Id")}|extra_info:`;
+    expect(first.headers.get("X-Sign")).toBe(createHmac("sha256", "official-secret").update(signString).digest("base64"));
+    expect(seen.find((item) => item.path.includes("/openapi/publish/pin"))?.body).toContain("\"ring_id\":\"ring-official\"");
+  });
+
+  it("caches successful live read requests before consuming quota again", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "zhihu-cache-"));
+    try {
+      let fetchCount = 0;
+      const cache = new JsonFileCache(join(dir, "cache.json"));
+      const fetchImpl: typeof fetch = async () => {
+        fetchCount += 1;
+        return Response.json({ status: 0, msg: "success", data: [{ id: "q1", title: "热榜", heat: 90 }] });
+      };
+      const provider = new LiveZhihuProvider({
+        baseUrl: "https://example.test",
+        appKey: "user-token",
+        appSecret: "official-secret",
+        fetchImpl,
+        readCache: cache,
+      });
+
+      await provider.getHotTopics();
+      await provider.getHotTopics();
+
+      expect(fetchCount).toBe(1);
+      expect(provider.getQuotaStatus().find((quota) => quota.key === "hot_list")?.used).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("negative-caches failed live read requests to avoid repeated quota burn", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "zhihu-cache-"));
+    try {
+      let fetchCount = 0;
+      const cache = new JsonFileCache(join(dir, "cache.json"));
+      const fetchImpl: typeof fetch = async () => {
+        fetchCount += 1;
+        return Response.json({ error: "missing" }, { status: 404 });
+      };
+      const provider = new LiveZhihuProvider({
+        baseUrl: "https://example.test",
+        appKey: "user-token",
+        appSecret: "official-secret",
+        fetchImpl,
+        readCache: cache,
+      });
+
+      await expect(provider.getHotTopics()).rejects.toThrow(/知乎 API 404/);
+      await expect(provider.getHotTopics()).rejects.toThrow(/知乎 API 404/);
+
+      expect(fetchCount).toBe(1);
+      expect(provider.getQuotaStatus().find((quota) => quota.key === "hot_list")?.used).toBe(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("lets an explicit mock provider override live Zhihu env configuration", () => {
+    const previous = {
+      ZHIHU_PROVIDER: process.env.ZHIHU_PROVIDER,
+      ZHIHU_API_BASE_URL: process.env.ZHIHU_API_BASE_URL,
+      ZHIHU_APP_KEY: process.env.ZHIHU_APP_KEY,
+      ZHIHU_APP_SECRET: process.env.ZHIHU_APP_SECRET,
+    };
+
+    try {
+      process.env.ZHIHU_PROVIDER = "mock";
+      process.env.ZHIHU_API_BASE_URL = "https://openapi.zhihu.com";
+      process.env.ZHIHU_APP_KEY = "local-user-token";
+      process.env.ZHIHU_APP_SECRET = "local-secret";
+
+      expect(createDefaultZhihuProvider().mode).toBe("mock");
+    } finally {
+      restoreEnv("ZHIHU_PROVIDER", previous.ZHIHU_PROVIDER);
+      restoreEnv("ZHIHU_API_BASE_URL", previous.ZHIHU_API_BASE_URL);
+      restoreEnv("ZHIHU_APP_KEY", previous.ZHIHU_APP_KEY);
+      restoreEnv("ZHIHU_APP_SECRET", previous.ZHIHU_APP_SECRET);
+    }
+  });
+
   it("keeps a successful live publish result even when ring detail would fail", async () => {
     const requested: string[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -169,7 +350,7 @@ describe("provider integrations", () => {
       requested.push(`${init?.method ?? "GET"} ${new URL(url).pathname}`);
 
       if (url.includes("/openapi/publish/pin")) {
-        return Response.json({ data: { id: "p1", url: "https://zhihu.com/pin/p1" } });
+        return Response.json({ status: 0, msg: "success", data: { content_token: "p1" } });
       }
 
       if (url.includes("/openapi/ring/detail")) {
@@ -197,7 +378,7 @@ describe("provider integrations", () => {
 
     expect(publish).toMatchObject({
       id: "p1",
-      url: "https://zhihu.com/pin/p1",
+      url: "https://www.zhihu.com/pin/p1",
       mode: "live",
       ring: { id: "ring-selected-by-user" },
     });
@@ -244,3 +425,12 @@ describe("provider integrations", () => {
     expect(() => new LiveZhihuProvider({ baseUrl: "https://api.zhihu.com" })).not.toThrow();
   });
 });
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+    return;
+  }
+
+  process.env[key] = value;
+}

@@ -2,6 +2,7 @@ import type {
   ApiQuotaStatus,
   DebateTurn,
   HackathonReadinessReport,
+  IdeaExperiment,
   ModelUsage,
   RoundtableSnapshot,
   Topic,
@@ -18,6 +19,22 @@ export type WorkflowRunResponse = {
   providerFailures?: ZhihuProviderFailure[];
   publishResult?: PublishResult;
   publishConfirmation?: ConfirmationPayload;
+};
+
+export type TopicsResponse = {
+  topics: Topic[];
+};
+
+export type ExperimentResponse = {
+  experiment: IdeaExperiment;
+  modelUsages: ModelUsage[];
+  nodeResults: WorkflowNodeResult[];
+  demoData?: boolean;
+  publishConfirmation?: ConfirmationPayload;
+};
+
+export type ExperimentReportResponse = ExperimentResponse & {
+  report: IdeaExperiment["report"];
 };
 
 export type ConfirmationPayload = {
@@ -44,7 +61,11 @@ export type QuotaResponse = {
 export type ZhihuStatusResponse = {
   mode: "mock" | "live";
   accessTokenConfigured: boolean;
+  appCredentialsConfigured?: boolean;
+  appSecretConfigured?: boolean;
   baseUrlConfigured: boolean;
+  ringIdConfigured?: boolean;
+  hotListHours?: string;
   failures: ZhihuProviderFailure[];
   quotas: ApiQuotaStatus[];
 };

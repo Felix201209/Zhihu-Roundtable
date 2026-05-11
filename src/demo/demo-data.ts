@@ -14,7 +14,7 @@ export const demoTopics: Topic[] = [
     hotScore: 92,
     debateScore: 88,
     evidenceScore: 84,
-    reason: "招聘、试用期和新人培养都在被 AI 协作方式重写，适合展开低敏圆桌讨论。",
+    reason: "招聘、试用期和新人培养都在被 AI 协作方式重写，适合展开低敏圈子讨论。",
   },
   {
     id: "ai-resume-portfolio",
@@ -227,28 +227,28 @@ export const demoViewpointMaps: Record<string, ViewpointMap> = {
 
 export const demoPublishDrafts: Record<string, PublishDraft> = {
   "ai-newcomer-evaluation": {
-    title: "AI 工具正在改变职场新人评价：真正被考察的是什么？",
-    opening: "这场讨论的共识不是“新人变强了”或“新人变弱了”，而是评价维度正在从结果表面转向过程质量。",
-    consensus: ["AI 可以提升新人初稿质量。", "企业需要更多过程型证据。", "基础能力和工具能力都不能被忽略。"],
+    title: "AI 工具正在改变职场新人评价，你更看重结果还是过程？",
+    opening: "这条热榜适合发起一场圈子讨论：AI 让新人交付变快，但也让管理者更难判断真实能力。想邀请创作者、职场新人和管理者一起聊聊判断标准。",
+    consensus: ["站 A：会用 AI 本身已经是现代工作能力。", "站 B：只看漂亮结果会高估新人独立能力。", "站 C：关键不是禁用 AI，而是保留过程证据。"],
     disputes: ["AI 使用能力是否应该成为硬性评价项。", "新人是否必须披露每一次 AI 辅助。"],
     questions: ["试用期任务怎样保留过程证据？", "管理者如何避免只看 polished output？", "新人如何证明自己不是只会复制答案？"],
-    disclosure: "本文为知乎圆桌 demo 缓存内容，证据和案例均为演示数据。",
+    disclosure: "本文为 AI 讨论组织台辅助策划，发布前经过用户确认；演示证据和案例均为缓存数据。",
   },
   "ai-resume-portfolio": {
-    title: "AI 参与作品集之后，评审应该看什么？",
-    opening: "作品集不再只是成品展示，也越来越像一次过程说明：候选人如何提出问题、使用工具、做出取舍。",
-    consensus: ["AI 辅助不必一概扣分。", "披露边界能提升信任。", "过程材料比单张成品更有判断价值。"],
+    title: "AI 参与作品集之后，候选人到底该怎么披露？",
+    opening: "这条热榜可以转成一个很适合创作者和招聘者参与的讨论：作品集不再只是成品展示，也越来越像一次过程说明。",
+    consensus: ["站 A：AI 辅助不必一概扣分。", "站 B：披露边界能提升信任。", "站 C：过程材料比单张成品更有判断价值。"],
     disputes: ["披露标准是否应统一。", "AI 生成内容占比高时是否仍能代表个人能力。"],
     questions: ["作品集应如何标注 AI 参与？", "评审是否应该要求版本记录？", "提示词和修改记录是否需要提交？"],
-    disclosure: "本文为知乎圆桌 demo 缓存内容，证据和案例均为演示数据。",
+    disclosure: "本文为 AI 讨论组织台辅助策划，发布前经过用户确认；演示证据和案例均为缓存数据。",
   },
   "ai-workplace-mentoring": {
-    title: "AI 助手普及后，职场导师还重要吗？",
-    opening: "AI 改变了新人求助路径，但没有替代导师对上下文、风险和组织经验的解释。",
-    consensus: ["AI 能降低基础提问门槛。", "导师价值会转向校准和复盘。", "新人仍需要暴露自己的理解过程。"],
+    title: "AI 助手普及后，职场导师的价值会变少还是变贵？",
+    opening: "这条热榜适合做圈子讨论：AI 改变了新人求助路径，但导师对上下文、风险和组织经验的解释仍然不可替代。",
+    consensus: ["站 A：AI 能降低基础提问门槛。", "站 B：导师价值会转向校准和复盘。", "站 C：新人仍需要暴露自己的理解过程。"],
     disputes: ["AI 是否会减少真人沟通。", "导师应该鼓励还是限制新人先问 AI。"],
     questions: ["导师如何查看 AI 中间过程？", "哪些问题必须找真人确认？", "团队是否需要 AI 使用规范？"],
-    disclosure: "本文为知乎圆桌 demo 缓存内容，证据和案例均为演示数据。",
+    disclosure: "本文为 AI 讨论组织台辅助策划，发布前经过用户确认；演示证据和案例均为缓存数据。",
   },
 };
 
@@ -261,7 +261,7 @@ export const demoCommentInsights: Record<string, CommentInsight> = {
       "公司也要给规则，不能让新人自己猜哪些场景能用 AI。",
     ],
     newDisputes: ["是否应要求新人提交 AI 对话记录。", "基础岗位是否会因此更难进入。"],
-    nextRoundSuggestions: ["邀请 HR 讨论试用期评价模板。", "补一轮新人视角：怎样合理披露 AI 使用。"],
+    nextRoundSuggestions: ["下一轮圈子话题：新人如何证明自己不是只会复制 AI 答案？", "下一篇内容方向：整理一份试用期 AI 使用披露模板。"],
   },
   "ai-resume-portfolio": {
     sentiment: { support: 39, oppose: 37, neutral: 24 },
@@ -270,7 +270,7 @@ export const demoCommentInsights: Record<string, CommentInsight> = {
       "评审可以给同一个约束现场追问，能看出是不是本人做的。",
     ],
     newDisputes: ["AI 作品集是否需要行业统一标签。", "提示词能力是否属于创作能力。"],
-    nextRoundSuggestions: ["整理一份作品集 AI 披露模板。", "邀请设计、产品、研发岗位分别给标准。"],
+    nextRoundSuggestions: ["下一轮圈子话题：作品集里提示词和修改记录算不算作品的一部分？", "下一篇内容方向：整理一份作品集 AI 披露模板。"],
   },
   "ai-workplace-mentoring": {
     sentiment: { support: 52, oppose: 22, neutral: 26 },
@@ -279,6 +279,6 @@ export const demoCommentInsights: Record<string, CommentInsight> = {
       "AI 先问一轮很好，但新人要带着自己的判断来问导师。",
     ],
     newDisputes: ["AI 是否会让新人减少主动沟通。", "导师是否有义务检查 AI 使用过程。"],
-    nextRoundSuggestions: ["增加导师操作清单。", "补充新人周报中的 AI 使用复盘样例。"],
+    nextRoundSuggestions: ["下一轮圈子话题：新人周报要不要加入 AI 使用复盘？", "下一篇内容方向：写一份导师检查 AI 中间过程的操作清单。"],
   },
 };

@@ -10,6 +10,9 @@ import type { RoundtableSnapshot, RoundtableStage, Topic } from "./types.js";
 
 const STAGE_ORDER: RoundtableStage[] = ["radar", "prepare", "debate", "publish", "feedback"];
 
+// Demo runner only: deterministic cached snapshots for tests, screenshots, and offline judging.
+// Production workflow logic lives in backend/workflow-service.ts.
+
 function cloneTopic(topic: Topic): Topic {
   return { ...topic };
 }
@@ -98,7 +101,7 @@ export function runDebate(snapshot: RoundtableSnapshot): RoundtableSnapshot {
   const viewpointMap = demoViewpointMaps[selectedTopic.id];
 
   if (!turns || !viewpointMap) {
-    throw new Error(`话题 ${selectedTopic.id} 缺少圆桌讨论缓存。`);
+    throw new Error(`话题 ${selectedTopic.id} 缺少主持校验缓存。`);
   }
 
   return {
@@ -107,6 +110,7 @@ export function runDebate(snapshot: RoundtableSnapshot): RoundtableSnapshot {
     turns: turns.map((turn) => ({
       ...turn,
       evidenceIds: [...turn.evidenceIds],
+      claimSources: turn.claimSources?.map((source) => ({ ...source })),
     })),
     viewpointMap: {
       support: [...viewpointMap.support],
@@ -116,7 +120,7 @@ export function runDebate(snapshot: RoundtableSnapshot): RoundtableSnapshot {
       disputes: [...viewpointMap.disputes],
       followups: [...viewpointMap.followups],
     },
-    statusMessage: "圆桌已完成",
+    statusMessage: "主持校验已完成",
   };
 }
 
@@ -138,6 +142,7 @@ export function generatePublishDraft(snapshot: RoundtableSnapshot): RoundtableSn
       consensus: [...publishDraft.consensus],
       disputes: [...publishDraft.disputes],
       questions: [...publishDraft.questions],
+      claimSources: publishDraft.claimSources?.map((source) => ({ ...source })),
     },
     statusMessage: "发布稿已生成",
   };

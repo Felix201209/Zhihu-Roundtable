@@ -1,10 +1,13 @@
 import { z } from "zod";
 import type {
+  ClaimSource,
   CommentInsight,
   AgentBrief,
   DebateQuality,
   DebateTurn,
   EvidencePool,
+  ExperimentReport,
+  IdeaVariant,
   PublishDraft,
   PublishPackage,
   TopicScore,
@@ -12,6 +15,82 @@ import type {
 } from "../core/types.js";
 
 const NonEmptyStringSchema = z.string().trim().min(1);
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function stringFromItem(value: unknown): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  const record = asRecord(value);
+  for (const key of ["text", "content", "claim", "point", "summary", "title", "reason", "comment", "question", "label"]) {
+    if (typeof record[key] === "string" && record[key].trim()) {
+      return record[key].trim();
+    }
+  }
+
+  if (Object.keys(record).length > 0) {
+    return JSON.stringify(record);
+  }
+
+  return "";
+}
+
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    const single = stringFromItem(value);
+    return single ? [single] : [];
+  }
+
+  return value
+    .map(stringFromItem)
+    .filter(Boolean);
+}
+
+function normalizeViewpointMapInput(input: unknown): unknown {
+  const record = asRecord(input);
+  return {
+    support: stringArray(record.support),
+    oppose: stringArray(record.oppose),
+    neutral: stringArray(record.neutral),
+    facts: stringArray(record.facts),
+    disputes: stringArray(record.disputes),
+    followups: stringArray(record.followups ?? record.followUpQuestions ?? record.questions),
+  };
+}
+
+function normalizeCommentInsightInput(input: unknown): unknown {
+  const record = asRecord(input);
+  const sentiment = asRecord(record.sentiment);
+  return {
+    sentiment: {
+      support: Number(sentiment.support ?? record.supportCount ?? record.support ?? 0) || 0,
+      oppose: Number(sentiment.oppose ?? record.opposeCount ?? record.oppose ?? 0) || 0,
+      neutral: Number(sentiment.neutral ?? record.neutralCount ?? record.neutral ?? 0) || 0,
+    },
+    highQualityComments: stringArray(record.highQualityComments ?? record.qualityComments ?? record.representativeComments ?? record.comments),
+    newDisputes: stringArray(record.newDisputes ?? record.disputes ?? record.newOpposingViews),
+    nextRoundSuggestions: stringArray(record.nextRoundSuggestions ?? record.suggestions ?? record.nextQuestions ?? record.followups),
+  };
+}
+
+export const ClaimSourceSchema: z.ZodType<ClaimSource> = z
+  .object({
+    id: NonEmptyStringSchema,
+    label: NonEmptyStringSchema,
+    type: z.enum(["zhihu", "global", "ai_reasoning", "comment", "unverified"]),
+    confidence: z.enum(["high", "medium", "low"]),
+  })
+  .strict();
 
 export const QuestionRewriteSchema = z
   .object({
@@ -27,6 +106,7 @@ export const DebateTurnSchema: z.ZodType<DebateTurn> = z
     speaker: z.enum(["liu", "expert", "opponent", "public"]),
     content: NonEmptyStringSchema,
     evidenceIds: z.array(NonEmptyStringSchema),
+    claimSources: z.array(ClaimSourceSchema).optional(),
     claim: NonEmptyStringSchema.optional(),
     nextQuestion: NonEmptyStringSchema.optional(),
   })
@@ -50,6 +130,7 @@ export const PublishDraftSchema: z.ZodType<PublishDraft> = z
     consensus: z.array(NonEmptyStringSchema),
     disputes: z.array(NonEmptyStringSchema),
     questions: z.array(NonEmptyStringSchema),
+    claimSources: z.array(ClaimSourceSchema).optional(),
     disclosure: NonEmptyStringSchema,
   })
   .strict();
@@ -143,6 +224,43 @@ export const PublishPackageSchema: z.ZodType<PublishPackage> = z
   })
   .strict();
 
+export const IdeaVariantSchema: z.ZodType<IdeaVariant> = z
+  .object({
+    id: z.enum(["A", "B", "C"]),
+    title: NonEmptyStringSchema,
+    oneLiner: NonEmptyStringSchema,
+    highlight: NonEmptyStringSchema,
+    risk: NonEmptyStringSchema,
+  })
+  .strict();
+
+export const IdeaVariantsSchema = z
+  .array(IdeaVariantSchema)
+  .length(3)
+  .refine((items) => new Set(items.map((item) => item.id)).size === 3, {
+    message: "Idea variants must contain A/B/C exactly once.",
+  });
+
+export const IdeaVariantsObjectSchema = z
+  .object({
+    variants: IdeaVariantsSchema,
+  })
+  .strict();
+
+export const ExperimentReportSchema: z.ZodType<ExperimentReport> = z
+  .object({
+    recommendedVariantId: z.enum(["A", "B", "C"]),
+    recommendedTitle: NonEmptyStringSchema,
+    conclusion: NonEmptyStringSchema,
+    whyWinner: z.array(NonEmptyStringSchema).min(1),
+    userConcerns: z.array(NonEmptyStringSchema).min(1),
+    finalPositioning: NonEmptyStringSchema,
+    pitchLine: NonEmptyStringSchema,
+    mvpFeatures: z.array(NonEmptyStringSchema).min(1),
+    nextActions: z.array(NonEmptyStringSchema).min(1),
+  })
+  .strict();
+
 export const parseDebateTurn = (input: unknown): DebateTurn =>
   DebateTurnSchema.parse(input);
 
@@ -156,10 +274,10 @@ export const validateDebateTurn = (input: unknown) =>
   DebateTurnSchema.safeParse(input);
 
 export const parseViewpointMap = (input: unknown): ViewpointMap =>
-  ViewpointMapSchema.parse(input);
+  ViewpointMapSchema.parse(normalizeViewpointMapInput(input));
 
 export const validateViewpointMap = (input: unknown) =>
-  ViewpointMapSchema.safeParse(input);
+  ViewpointMapSchema.safeParse(normalizeViewpointMapInput(input));
 
 export const parsePublishDraft = (input: unknown): PublishDraft =>
   PublishDraftSchema.parse(input);
@@ -168,10 +286,10 @@ export const validatePublishDraft = (input: unknown) =>
   PublishDraftSchema.safeParse(input);
 
 export const parseCommentInsight = (input: unknown): CommentInsight =>
-  CommentInsightSchema.parse(input);
+  CommentInsightSchema.parse(normalizeCommentInsightInput(input));
 
 export const validateCommentInsight = (input: unknown) =>
-  CommentInsightSchema.safeParse(input);
+  CommentInsightSchema.safeParse(normalizeCommentInsightInput(input));
 
 export const parseTopicScores = (input: unknown): TopicScore[] =>
   TopicScoresSchema.parse(input);
@@ -196,3 +314,24 @@ export const parsePublishPackage = (input: unknown): PublishPackage =>
 
 export const validatePublishPackage = (input: unknown) =>
   PublishPackageSchema.safeParse(input);
+
+export const parseIdeaVariants = (input: unknown): IdeaVariant[] => {
+  const candidate = typeof input === "object" && input !== null && "variants" in input
+    ? (input as { variants: unknown }).variants
+    : input;
+
+  return IdeaVariantsSchema.parse(candidate);
+};
+
+export const validateIdeaVariants = (input: unknown) =>
+  IdeaVariantsSchema.safeParse(
+    typeof input === "object" && input !== null && "variants" in input
+      ? (input as { variants: unknown }).variants
+      : input,
+  );
+
+export const parseExperimentReport = (input: unknown): ExperimentReport =>
+  ExperimentReportSchema.parse(input);
+
+export const validateExperimentReport = (input: unknown) =>
+  ExperimentReportSchema.safeParse(input);

@@ -1,21 +1,21 @@
 # 知辩圆桌 Hackathon Demo Plan
 
-面向 reviewer 的路演文档。目标是在 6 分钟内证明：知辩圆桌不是“AI 代写回答”，而是一个围绕知乎热榜、证据检索、多 Agent 圆桌、发布预览和评论回流的社区讨论组织系统。
+面向 reviewer 的路演文档。目标是在 3-6 分钟内证明：知辩圆桌不是“AI 代写回答”，也不是热榜摘要器，而是一个围绕知乎热榜、证据检索、刘看山主持校验、发布策划和评论回流的社区讨论组织系统。
 
 ## 1. Demo 叙事主线
 
 一句话定位：
 
-> 让知乎热榜变成一场有证据、有反驳、有共识沉淀的 AI 圆桌讨论。
+> 把知乎热榜变成可回流的高质量讨论。
 
 路演只讲一条闭环，避免分散：
 
 1. 热榜进入：系统读取/模拟知乎热榜，按讨论潜力、证据可得性和争议度评分。
 2. 议题重构：把热点标题改写成适合讨论的问题，而不是直接生成观点。
 3. 证据池：拉取知乎站内、全网与缓存证据，按支持、反对、中立、背景分组。
-4. 多 Agent 圆桌：刘看山主持，知乎大 V 深入，反方刺客挑战，吃瓜群众提出用户视角。
-5. 观点地图：沉淀支持点、反对点、事实、争议和下一轮追问。
-6. 发布预览：生成圈子帖草稿和标题候选，但保留用户确认发布。
+4. 主持校验：刘看山控场，站内观点席提炼已有观点，反方校验席挑战证据不足，普通用户席判断是否愿意参与。
+5. 讨论包生成：沉淀讨论目标、站队选项、引导评论、风险提醒和下一轮追问。
+6. 发布策划：生成圈子帖草稿和标题候选，但保留用户确认发布。
 7. 评论回流：读取/模拟评论，分析新争议，并给下一轮讨论建议。
 
 核心证明点：
@@ -24,25 +24,25 @@
 - 每个 AI 节点都有结构化输出、schema 校验、模型调用记录和 fallback。
 - 项目已经提供前端 demo、后端 service、HTTP API、SSE、readiness 自检与测试。
 
-## 2. 50+ 任务队列
+## 2. 72 项收口清单
 
-这份队列用于 reviewer 判断完成度，也用于现场排练和最终提交前检查。状态以当前代码库能力为准：`Ready` 表示已有可演示实现，`Polish` 表示主要是路演表达/视觉呈现补强，`Fallback` 表示现场兜底材料。
+这份清单用于 reviewer 判断完成度，也用于现场排练和最终提交前检查。状态以当前代码库能力为准：`Ready` 表示已有可演示实现，`Polish` 表示主要是路演表达/视觉呈现补强，`Fallback` 表示现场兜底材料。
 
 | # | 模块 | 任务 | 路演证据 | 状态 |
 |---:|---|---|---|---|
 | 1 | 项目定位 | 明确“不是 AI 写回答，而是组织讨论” | mission strip 文案 | Ready |
 | 2 | 项目定位 | 固定 6 分钟主线，不展示无关支线 | 本文第 3 节 | Ready |
-| 3 | 热榜雷达 | 展示 3 个可选热点话题 | 左侧热榜卡片 | Ready |
-| 4 | 热榜雷达 | 为话题展示热度分 | `Topic.hotScore` | Ready |
-| 5 | 热榜雷达 | 为话题展示讨论潜力分 | `discussionPotential` / `debateScore` | Ready |
-| 6 | 热榜雷达 | 为话题展示证据可得性 | `evidenceScore` | Ready |
-| 7 | 热榜雷达 | 解释为什么选择该话题 | `Topic.reason` | Ready |
-| 8 | 热榜雷达 | 对接知乎热榜接口规划 | `ZhihuProvider` contract | Ready |
+| 3 | 选题雷达 | 展示 3 个可选热点话题 | 左侧热榜卡片 | Ready |
+| 4 | 选题雷达 | 为话题展示热度分 | `Topic.hotScore` | Ready |
+| 5 | 选题雷达 | 为话题展示讨论潜力分 | `discussionPotential` / `debateScore` | Ready |
+| 6 | 选题雷达 | 为话题展示证据可得性 | `evidenceScore` | Ready |
+| 7 | 选题雷达 | 解释为什么选择该话题 | `Topic.reason` | Ready |
+| 8 | 选题雷达 | 对接知乎热榜接口规划 | `ZhihuProvider` contract | Ready |
 | 9 | 配额保护 | 展示官方接口调用配额 | `/api/quota` | Ready |
 | 10 | 配额保护 | hot_list 100 次/天保护 | quota panel | Ready |
 | 11 | 配额保护 | zhihu_search 1000 次/天保护 | quota panel | Ready |
 | 12 | 配额保护 | global_search 1000 次/天保护 | quota panel | Ready |
-| 13 | 议题重构 | 将热点标题改写成可辩论问题 | stage header | Ready |
+| 13 | 议题重构 | 将热点标题改写成开放讨论问题 | stage header | Ready |
 | 14 | 议题重构 | 说明问题重构由 DeepSeek V4 Pro 角色负责 | `modelUsages` | Ready |
 | 15 | 证据池 | 展示至少 3 条证据 | 右侧证据池 | Ready |
 | 16 | 证据池 | 区分知乎、全网、mock 来源 | source badge | Ready |
@@ -52,23 +52,23 @@
 | 20 | Agent briefing | 为每个角色生成任务卡 | `agentBriefs` | Ready |
 | 21 | Agent briefing | 角色必须引用证据 | `mustUseEvidenceIds` | Ready |
 | 22 | Agent briefing | 每个角色有语气和规避项 | `AgentBrief` | Ready |
-| 23 | 圆桌 Agent | 刘看山负责主持控场 | 圆桌舞台 | Ready |
-| 24 | 圆桌 Agent | 知乎大 V 提供深度观点 | 圆桌发言流 | Ready |
-| 25 | 圆桌 Agent | 反方刺客提出逻辑挑战 | 圆桌发言流 | Ready |
-| 26 | 圆桌 Agent | 吃瓜群众代表用户视角 | 圆桌发言流 | Ready |
-| 27 | 圆桌 Agent | 自动播放发言节奏 | 前端 timer | Ready |
-| 28 | 圆桌 Agent | 支持点击切换发言 | transcript buttons | Ready |
-| 29 | 圆桌 Agent | 每轮发言带 claim | speech bubble | Ready |
-| 30 | 圆桌 Agent | 每轮发言可关联证据 | `evidenceIds` | Ready |
-| 31 | 观点地图 | 输出支持观点 | right rail | Ready |
-| 32 | 观点地图 | 输出反对观点 | right rail | Ready |
-| 33 | 观点地图 | 输出中立/事实信息 | `ViewpointMap` | Ready |
-| 34 | 观点地图 | 输出争议点 | `disputes` | Ready |
-| 35 | 观点地图 | 输出下一轮追问 | `followups` | Ready |
+| 23 | 主持校验 | 刘看山负责主持控场 | 讨论组织台 | Ready |
+| 24 | 主持校验 | 站内观点席基于公开内容提炼观点 | 校验发言流 | Ready |
+| 25 | 主持校验 | 反方校验席提出逻辑挑战 | 校验发言流 | Ready |
+| 26 | 主持校验 | 普通用户席判断是否看得懂、愿意回 | 校验发言流 | Ready |
+| 27 | 主持校验 | 自动播放校验节奏 | 前端 timer | Ready |
+| 28 | 主持校验 | 支持点击切换校验发言 | transcript buttons | Ready |
+| 29 | 主持校验 | 每轮发言带 claim | speech bubble | Ready |
+| 30 | 主持校验 | 每轮发言可关联证据 | `evidenceIds` | Ready |
+| 31 | 讨论包 | 输出站队选项 | right rail | Ready |
+| 32 | 讨论包 | 输出反方/质疑点 | right rail | Ready |
+| 33 | 讨论包 | 输出中立/事实信息 | `ViewpointMap` | Ready |
+| 34 | 讨论包 | 输出风险提醒 | `disputes` | Ready |
+| 35 | 讨论包 | 输出下一轮追问 | `followups` | Ready |
 | 36 | 发布预览 | 生成圈子帖标题 | publish panel | Ready |
-| 37 | 发布预览 | 生成开场摘要 | publish panel | Ready |
-| 38 | 发布预览 | 生成共识清单 | `PublishDraft.consensus` | Ready |
-| 39 | 发布预览 | 生成争议清单 | `PublishDraft.disputes` | Ready |
+| 37 | 发布预览 | 生成开场引导 | publish panel | Ready |
+| 38 | 发布预览 | 生成站队选项 | `PublishDraft.consensus` | Ready |
+| 39 | 发布预览 | 生成风险提醒 | `PublishDraft.disputes` | Ready |
 | 40 | 发布预览 | 生成后续问题 | `PublishDraft.questions` | Ready |
 | 41 | 发布预览 | 明确披露 demo/缓存边界 | `disclosure` | Ready |
 | 42 | 发布控制 | 发布前保留用户确认 | `confirm-publish` endpoint | Ready |
@@ -86,7 +86,7 @@
 | 54 | 模型路由 | OpenAI-compatible JSON 调用 | backend contract | Ready |
 | 55 | 稳定性 | zod schema 校验模型输出 | `llm/schemas.ts` | Ready |
 | 56 | 稳定性 | 模型失败 fallback mock | `fallbackUsed` | Ready |
-| 57 | 稳定性 | 知乎 API 失败 fallback cache | provider failures | Ready |
+| 57 | 稳定性 | 知乎只读 API 失败 fallback cache | provider failures | Ready |
 | 58 | 稳定性 | 30 秒超时 + 1 次重试 | backend contract | Ready |
 | 59 | 可观察性 | 每个节点有 nodeResults | `nodeResults` | Ready |
 | 60 | 可观察性 | 每次模型调用有 modelUsages | `modelUsages` | Ready |
@@ -94,7 +94,7 @@
 | 62 | HTTP API | 分步 workflow | start/prepare/debate/publish/feedback | Ready |
 | 63 | HTTP API | SSE 路演流 | `/api/workflow/stream` | Ready |
 | 64 | 自检 | 官方评分 readiness report | `POST /api/readiness` | Ready |
-| 65 | 测试 | 核心状态机测试 | `npm test` | Ready |
+| 65 | 测试 | workflow / demo-runner 测试 | `npm test` | Ready |
 | 66 | 测试 | HTTP server 测试 | `tests/http-server.test.ts` | Ready |
 | 67 | 测试 | provider integration 测试 | `tests/provider-integrations.test.ts` | Ready |
 | 68 | 测试 | LLM schema 测试 | `tests/llm-schemas.test.ts` | Ready |
@@ -107,64 +107,63 @@
 
 ### 0:00 - 0:35 开场：痛点和定位
 
-画面：打开首页，停在 `知辩圆桌` mission strip 和三栏工作台。
+画面：打开首页，停在 `创作者 / 圈主 / 官方号的讨论组织台` 首屏和主按钮 `从热榜生成讨论方案`。
 
 话术：
 
 - “知乎最难的不是缺内容，而是热点下高质量讨论很难被组织起来。”
-- “我们不是让 AI 代写回答，而是让 AI 像一个圆桌编辑部：找热点、找证据、组织反驳、沉淀共识，再把评论回流到下一轮讨论。”
+- “我们不是让 AI 代写回答，而是让 AI 帮创作者把热点组织成可参与、可站队、可回流的圈子讨论。”
 
 评委要听到的关键词：知乎社区、讨论质量、证据、闭环、人确认发布。
 
-### 0:35 - 1:20 热榜雷达：选一个值得讨论的话题
+### 0:35 - 1:20 选题雷达：选一个值得讨论的话题
 
-画面：左侧热榜雷达，选择默认话题 `AI 工具是否正在改变职场新人能力评价？`
+画面：左侧选题雷达，选择默认话题 `AI 工具是否正在改变职场新人能力评价？`
 
 展示点：
 
 - 热度分、讨论潜力、证据可得性。
-- 不是所有热点都适合 AI 圆桌，系统先做“可讨论性筛选”。
+- 不是所有热点都适合组织讨论，系统先做“可讨论性筛选”。
 - 真实环境可接 `GET /api/v1/content/hot_list`，现场默认有 mock-safe 路径。
 
 ### 1:20 - 2:05 议题重构和证据池
 
-画面：stage header 的重构问题 + 右侧 `讨论沉淀` 里的证据卡。
+画面：`讨论方案准备` 页里的原始热榜、重构问题、讨论目标和证据卡。
 
 展示点：
 
 - 热榜标题被改写成开放问题，避免直接站队。
 - 证据池区分知乎、全网、缓存来源。
-- 支持、反对、中立、背景材料会进入后续 Agent briefing。
+- 支持、反对、中立、背景材料会进入后续主持校验。
 
 话术重点：
 
 - “AI 先找证据再说话，这比直接生成答案更适合社区讨论。”
 
-### 2:05 - 3:15 多 Agent 圆桌
+### 2:05 - 3:15 刘看山主持校验
 
-画面：圆桌舞台和实时发言流。
+画面：刘看山主持校验页和四个前台席位。
 
 展示点：
 
 - 刘看山：主持控场，把讨论拉回问题。
-- 知乎大 V：给出结构化深度观点。
-- 反方刺客：专门找漏洞，防止同温层。
-- 吃瓜群众：提出普通用户会问的问题。
-- 右侧 `Agent 任务卡` 展示每个 Agent 的 mission、tone、证据约束，证明多 Agent 不是随机群聊。
+- 站内观点席：基于知乎站内公开内容提炼结构化观点。
+- 反方校验席：专门找漏洞和证据不足，防止同温层。
+- 普通用户席：提出普通用户会问的问题。
+- 每个席位都有 mission、tone、证据约束，证明它们是在校验讨论方案，而不是随机聊天。
 
 操作：
 
-- 等自动播放 1-2 轮。
-- 手动点击一条反方发言，证明 transcript 可交互。
+- 展示刘看山、站内观点席、反方校验席和普通用户席的任务分工。
 - 指出每条发言都可以关联证据 ID，而不是纯口胡。
 
-### 3:15 - 4:05 观点地图和发布预览
+### 3:15 - 4:05 发布策划与圈子帖预览
 
-画面：右侧 `讨论沉淀`，展示证据、共识、追问和 `生成圈子帖` 主按钮。
+画面：`发布策划与圈子帖预览`，展示讨论目标、站队选项、引导评论、风险提醒和圈子帖草稿。
 
 展示点：
 
-- 系统把发言沉淀成支持、反对、追问。
+- 系统把校验结果沉淀成可直接发起讨论的发布包。
 - 发布稿不是最终自动发出，而是给人确认。
 - 披露字段说明 demo/缓存边界，避免把 AI 内容伪装成真实社区事实。
 
@@ -174,16 +173,15 @@
 
 ### 4:05 - 4:55 确认发布和评论回流
 
-画面：点击 `生成圈子帖`，先展示人工确认弹层，再展示 reaction / 主持评论 / feedback。
+画面：点击 `确认发布到圈子`，展示人工确认后的评论复盘页。
 
 展示点：
 
 - 发布前必须人工确认，真实环境会等待用户授权。
-- 发布后可以产生 reaction 和主持评论。
-- 评论回流会分析支持/反对/中立、新争议和下一轮建议。
+- 评论回流会分析支持/反对/中立、新反方、值得回复的评论和下一篇内容方向。
 - 这让产品从一次性生成变成社区循环。
 
-### 4:55 - 5:35 官方评分自检
+### 4:55 - 5:35 官方评委验证
 
 画面：Readiness 分数和自检面板。
 
@@ -200,9 +198,9 @@
 
 最后 25 秒只讲交付：
 
-- “完整流程可本地运行：`npm run demo:serve`、`npm run verify`、`npm run capture:demo:auto`。”
+- “完整流程可本地运行：`npm run demo:serve:mock`、`npm run verify:judge`、`npm run capture:demo:auto:mock`。”
 - “没有真实 token 也能稳定演示，有 token 时可以切 live provider。”
-- “我们提交的是一个可运行的社区 AI 圆桌系统，不是静态 mockup。”
+- “我们提交的是一个可运行的社区讨论组织系统，不是静态 mockup。”
 
 ## 4. 官方评分对齐
 
@@ -210,15 +208,15 @@
 
 | 官方维度 | 权重 | 我们怎么拿分 | 现场证据 |
 |---|---:|---|---|
-| AI 场景价值 | 35% | 直接服务知乎讨论质量：从热点到证据、多方观点、共识沉淀、评论回流 | mission strip、讨论沉淀、圆桌、反馈面板 |
-| 创新度 | 25% | 不是问答机器人，而是“社区讨论组织层”；刘看山主持 + 多角色制衡 + 观点地图 | 圆桌舞台、角色发言、观点地图 |
+| AI 场景价值 | 35% | 直接服务知乎讨论质量：从热点到证据、讨论设计、发布策划、评论回流 | mission strip、讨论包、发布策划、反馈面板 |
+| 创新度 | 25% | 不是问答机器人，而是“社区讨论组织层”；刘看山主持校验 + 站队设计 + 评论回流 | 讨论组织台、校验发言、发布策划 |
 | 完成度 | 25% | 后端 service、HTTP API、SSE、mock/live provider、配额、fallback、测试都已跑通 | `backend-contract.md`、API、测试文件 |
-| 产品体验与设计感 | 8% | 前端用圆桌舞台表达多 Agent 协作，右侧工作台持续增长证据和结论 | 首页 demo UI |
+| 产品体验与设计感 | 8% | 前端用讨论组织台表达从选题到发布再到回流的闭环 | 首页 demo UI |
 | 计划书和演示环节 | 7% | 本文提供 6 分钟节奏、任务队列、兜底策略、Q&A、提交清单 | `docs/hackathon-demo-plan.md` |
 
 最强证据：
 
-- 完整社区闭环：热榜 -> 证据 -> Agent 圆桌 -> 发布 -> 评论回流。
+- 完整社区闭环：热榜 -> 证据 -> 主持校验 -> 发布策划 -> 评论回流。
 - 模型工程不是黑盒：Kimi/DeepSeek V4 角色路由、JSON schema 校验、fallback 标记、调用日志。
 - 与知乎生态强相关：热榜、搜索、圈子发布、评论、reaction 都有接口规划和 mock-safe 实现。
 
@@ -235,7 +233,7 @@
 处理：
 
 1. 切回默认 mock provider。
-2. 打开 quota panel，说明 live provider 失败会 fallback。
+2. 打开 quota panel，说明 live 只读接口失败会 fallback，真实写操作失败不会伪装成 mock 成功。
 3. 展示 `provider.failures[]` / `fallbackUsed`，把事故转成稳定性证据。
 
 话术：
@@ -276,7 +274,7 @@ npm test
 
 1. 20 秒：痛点和定位。
 2. 40 秒：热榜 + 证据池。
-3. 70 秒：多 Agent 圆桌 + 观点地图。
+3. 70 秒：刘看山主持校验 + 讨论包。
 4. 40 秒：发布 + 评论回流。
 5. 10 秒：readiness + 可运行提交。
 
@@ -294,11 +292,11 @@ npm test
 
 ### Q2：AI 会不会制造更多低质量内容？
 
-产品设计上不让 AI 直接自动发布。AI 先组织证据和观点，再生成发布预览，最后由用户确认。系统还保留 disclosure，区分 demo/缓存/真实来源，并把反方 Agent 和证据引用作为质量约束。
+产品设计上不让 AI 直接自动发布。AI 先组织证据和观点，再生成发布预览，最后由用户确认。系统还保留 disclosure，区分 demo/缓存/真实来源，并把反方校验席和证据引用作为质量约束。
 
-### Q3：多 Agent 的价值在哪里？
+### Q3：为什么要有多个校验席位？
 
-单 Agent 容易直接给结论，多 Agent 可以形成制衡：主持人控场、专家补深度、反方找漏洞、普通用户提出追问。最后观点地图把分歧沉淀下来，比单篇回答更像知乎社区里的真实讨论。
+单次生成容易直接给结论，多个校验席位可以形成制衡：刘看山控场、站内观点席补结构、反方校验席找漏洞、普通用户席判断是否愿意参与。最后系统把分歧沉淀成站队选项、风险提醒和下一轮追问，比单篇回答更像知乎社区里的真实讨论组织。
 
 ### Q4：如果真实知乎 API 没有完全开放，项目还能成立吗？
 
@@ -308,7 +306,7 @@ npm test
 
 ### Q5：Kimi 和 DeepSeek V4 的分工是什么？
 
-默认策略是按任务路由：Kimi K2.6 更适合证据整理、辩论生成等长文本任务；DeepSeek V4 Flash 负责选题评分、briefing、评论回流等高频结构化任务；DeepSeek V4 Pro 负责问题重构、综合判断、发布稿润色等关键决策节点。所有输出都要求 JSON object，并经过 schema 校验。
+默认策略是按任务路由：Kimi K2.6 更适合证据整理、主持校验发言等长文本任务；DeepSeek V4 Flash 负责选题评分、briefing、评论回流等高频结构化任务；DeepSeek V4 Pro 负责问题重构、综合判断、发布稿润色等关键决策节点。所有输出都要求 JSON object，并经过 schema 校验。
 
 ### Q6：如何防止幻觉？
 
@@ -320,7 +318,7 @@ npm test
 
 ### Q8：和“AI 总结评论区”有什么区别？
 
-AI 总结评论区是事后摘要；知辩圆桌是事前组织讨论、事中制造高质量碰撞、事后回流评论。它覆盖完整社区循环。
+AI 总结评论区通常停在事后归纳；知辩圆桌从发帖前就开始组织讨论，先设计开放问题、站队选项和引导评论，发布后再把真实评论回流成下一轮讨论和下一篇内容方向。
 
 ### Q9：上线后如何商业化或产品化？
 
@@ -335,9 +333,10 @@ AI 总结评论区是事后摘要；知辩圆桌是事前组织讨论、事中�
 ### 必交
 
 - 源码：`src/`、`tests/`、`package.json`、`package-lock.json`、`tsconfig.json`、`vite.config.ts`、`index.html`。
-- 文档：`docs/backend-contract.md`、`docs/hackathon-demo-plan.md`、`docs/championship-redteam.md`。
+- 文档：`docs/submission-package.md`、`docs/backend-contract.md`、`docs/hackathon-demo-plan.md`、`docs/championship-redteam.md`。
 - 运行说明：安装依赖、启动前端、启动后端、运行测试。
-- Demo 截图或录屏：展示首页三栏工作台、圆桌、讨论沉淀、发布确认、评论回流、技术细节自检。
+- Demo 截图或录屏：展示首页定位、选题雷达、讨论方案准备、刘看山主持校验、发布策划、评论复盘、技术细节自检。
+- 黑客松广场 OAuth 回调地址：`https://你的线上-demo域名/api/oauth/callback`。
 
 ### 建议提交说明
 
@@ -357,7 +356,7 @@ npm run typecheck
 2. `npm run verify`
 3. `npm run backend:serve`
 4. 另开终端执行 `npm run dev`
-5. 打开前端页面，点击 `重播 Demo`、`路演模式` 和 `生成圈子帖`
+5. 打开前端页面，点击 `从热榜生成讨论方案`，完整跑到发布预览与评论回流
 6. 如需提交截图或备份材料，执行 `npm run capture:demo:auto`
 
 ### 不建议提交
@@ -372,6 +371,7 @@ npm run typecheck
 - 后端 demo 输出 `stage: feedback`。
 - `npm test` 通过。
 - 文档说明 mock/live/fallback 边界。
+- `/api/oauth/status` 能返回 callback URL。
 - 录屏不暴露 token、私人账号或本地路径敏感信息。
 
 ## 8. 路演最后一句

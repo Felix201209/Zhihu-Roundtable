@@ -1,5 +1,5 @@
 export * from "./core/types.js";
-export * from "./core/state-machine.js";
+export * from "./core/demo-runner.js";
 export * from "./demo/demo-data.js";
 export * from "./llm/prompts.js";
 export * from "./llm/schemas.js";

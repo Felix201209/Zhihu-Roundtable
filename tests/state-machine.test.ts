@@ -7,7 +7,7 @@ import {
   runDebate,
   runFullDemo,
   selectTopic,
-} from "../src/core/state-machine.js";
+} from "../src/core/demo-runner.js";
 import type { RoundtableSnapshot } from "../src/core/types.js";
 
 const expectedStages: RoundtableSnapshot["stage"][] = [
@@ -60,7 +60,7 @@ describe("demo-first state machine", () => {
 
     expect(() => prepareTopic(initial)).toThrow(/选题|select|radar/i);
     expect(() => runDebate(selected)).toThrow(/准备|prepare/i);
-    expect(() => generatePublishDraft(prepared)).toThrow(/辩论|debate/i);
+    expect(() => generatePublishDraft(prepared)).toThrow(/校验|debate/i);
     expect(() => analyzeFeedback(runDebate(prepared))).toThrow(/发布|publish/i);
   });
 

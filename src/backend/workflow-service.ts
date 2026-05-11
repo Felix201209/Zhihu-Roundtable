@@ -4,12 +4,18 @@ import type {
   DebateTurn,
   Evidence,
   EvidencePool,
+  ExperimentPostPreview,
+  ExperimentReport,
+  IdeaExperiment,
+  IdeaVariant,
+  IdeaVariantId,
   ModelPolicy,
   ModelUsage,
   PublishDraft,
   ReactionType,
   RoundtableSnapshot,
   Topic,
+  VariantFeedback,
   ViewpointMap,
   WorkflowNodeId,
   WorkflowNodeResult,
@@ -58,6 +64,7 @@ export type WorkflowRunInput = {
   publish?: boolean;
   ringId?: string;
   modelPolicy?: Partial<ModelPolicy>;
+  allowLivePublish?: boolean;
 };
 
 export type RoundtableServiceOptions = {
@@ -91,16 +98,13 @@ function cloneSnapshot(snapshot: RoundtableSnapshot): RoundtableSnapshot {
       mustUseEvidenceIds: [...brief.mustUseEvidenceIds],
       avoid: [...brief.avoid],
     })),
-    turns: snapshot.turns.map((turn) => ({ ...turn, evidenceIds: [...turn.evidenceIds] })),
+    turns: snapshot.turns.map((turn) => ({
+      ...turn,
+      evidenceIds: [...turn.evidenceIds],
+      claimSources: turn.claimSources?.map((source) => ({ ...source })),
+    })),
     viewpointMap: snapshot.viewpointMap
-      ? {
-          support: [...snapshot.viewpointMap.support],
-          oppose: [...snapshot.viewpointMap.oppose],
-          neutral: [...snapshot.viewpointMap.neutral],
-          facts: [...snapshot.viewpointMap.facts],
-          disputes: [...snapshot.viewpointMap.disputes],
-          followups: [...snapshot.viewpointMap.followups],
-        }
+      ? cloneViewpointMap(snapshot.viewpointMap)
       : undefined,
     publishDraft: snapshot.publishDraft
       ? {
@@ -108,6 +112,7 @@ function cloneSnapshot(snapshot: RoundtableSnapshot): RoundtableSnapshot {
           consensus: [...snapshot.publishDraft.consensus],
           disputes: [...snapshot.publishDraft.disputes],
           questions: [...snapshot.publishDraft.questions],
+          claimSources: snapshot.publishDraft.claimSources?.map((source) => ({ ...source })),
         }
       : undefined,
     titleOptions: snapshot.titleOptions ? [...snapshot.titleOptions] : undefined,
@@ -171,6 +176,17 @@ function appendNode(snapshot: RoundtableSnapshot, node: WorkflowNodeResult): Rou
   };
 }
 
+function cloneViewpointMap(map: ViewpointMap): ViewpointMap {
+  return {
+    support: [...map.support],
+    oppose: [...map.oppose],
+    neutral: [...map.neutral],
+    facts: [...map.facts],
+    disputes: [...map.disputes],
+    followups: [...map.followups],
+  };
+}
+
 function applyUsage<T>(
   snapshot: RoundtableSnapshot,
   result: LlmCallResult<T>,
@@ -195,6 +211,111 @@ function cloneEvidencePool(pool: EvidencePool): EvidencePool {
       background: [...pool.stancePreview.background],
     },
     warnings: [...pool.warnings],
+  };
+}
+
+const EXPERIMENT_VARIANT_IDS: IdeaVariantId[] = ["A", "B", "C"];
+
+function experimentTopicFromIdea(idea: string): Topic {
+  return {
+    id: `idea-${Buffer.from(idea).toString("base64url").slice(0, 14)}`,
+    title: idea,
+    source: "mock",
+    hotScore: 82,
+    debateScore: 88,
+    evidenceScore: 76,
+    discussionPotential: 90,
+    controversyLevel: "medium",
+    reason: "用户输入的脑洞，适合先做社区小样本测试。",
+  };
+}
+
+function cloneVariants(variants: IdeaVariant[]): IdeaVariant[] {
+  return variants.map((variant) => ({ ...variant }));
+}
+
+function selectedVariants(experiment: IdeaExperiment, selectedVariantIds?: IdeaVariantId[]): IdeaVariant[] {
+  const ids = selectedVariantIds?.length ? selectedVariantIds : experiment.selectedVariantIds;
+  const idSet = new Set(ids);
+  return experiment.variants.filter((variant) => idSet.has(variant.id));
+}
+
+function publishDraftFromPreview(preview: ExperimentPostPreview): PublishDraft {
+  return {
+    title: preview.title,
+    opening: preview.body,
+    consensus: preview.optionComments.map((comment) => `${comment.variantId}：${comment.title}`),
+    disputes: preview.optionComments.map((comment) => comment.content),
+    questions: ["你更想用哪个？为什么？", "你觉得哪个方向最不像普通 AI 工具？"],
+    disclosure: preview.disclosure,
+  };
+}
+
+function fallbackFeedback(variants: IdeaVariant[]): VariantFeedback[] {
+  const defaultScores: Record<IdeaVariantId, Omit<VariantFeedback, "variantId" | "typicalComments"> & { typicalComments: string[] }> = {
+    A: {
+      likes: 32,
+      comments: 6,
+      quality: "low",
+      currentJudgment: "容易撞车，像普通 AI 写作助手。",
+      typicalComments: ["这不就是 AI 写作助手吗？", "快是快，但我看不出为什么非得在知乎用。"],
+    },
+    B: {
+      likes: 75,
+      comments: 18,
+      quality: "medium",
+      currentJudgment: "有实用性，但需要社区反馈增强。",
+      typicalComments: ["防撞有用，但最好加真实用户投票。", "查相似内容这一步对创作者挺实际。"],
+    },
+    C: {
+      likes: 129,
+      comments: 34,
+      quality: "high",
+      currentJudgment: "最有潜力，知乎社区参与感强。",
+      typicalComments: ["这个更像知乎社区产品，不只是 AI 工具。", "让大家投票和吐槽，比 AI 自评可信。"],
+    },
+  };
+
+  return variants.map((variant) => ({
+    variantId: variant.id,
+    ...defaultScores[variant.id],
+    typicalComments: [...defaultScores[variant.id].typicalComments],
+  }));
+}
+
+function cloneExperiment(experiment: IdeaExperiment): IdeaExperiment {
+  return {
+    ...experiment,
+    variants: cloneVariants(experiment.variants),
+    selectedVariantIds: [...experiment.selectedVariantIds],
+    postPreview: experiment.postPreview
+      ? {
+          ...experiment.postPreview,
+          optionComments: experiment.postPreview.optionComments.map((comment) => ({ ...comment })),
+        }
+      : undefined,
+    publishResult: experiment.publishResult
+      ? {
+          ...experiment.publishResult,
+          optionCommentIds: [...experiment.publishResult.optionCommentIds],
+        }
+      : undefined,
+    feedback: experiment.feedback?.map((item) => ({
+      ...item,
+      typicalComments: [...item.typicalComments],
+    })),
+    report: experiment.report
+      ? {
+          ...experiment.report,
+          whyWinner: [...experiment.report.whyWinner],
+          userConcerns: [...experiment.report.userConcerns],
+          mvpFeatures: [...experiment.report.mvpFeatures],
+          nextActions: [...experiment.report.nextActions],
+        }
+      : undefined,
+    technicalSnapshot: experiment.technicalSnapshot ? cloneSnapshot(experiment.technicalSnapshot) : undefined,
+    modelUsages: experiment.modelUsages?.map((usage) => ({ ...usage })),
+    nodeResults: experiment.nodeResults?.map((node) => ({ ...node, modelUsage: node.modelUsage ? { ...node.modelUsage } : undefined })),
   };
 }
 
@@ -235,6 +356,218 @@ export class RoundtableWorkflowService {
 
   async getDefaultRing(): Promise<RingDetail> {
     return this.cache.getOrSet("ring:default", () => this.zhihuProvider.getDefaultRing());
+  }
+
+  async generateIdeaExperiment(input: {
+    idea: string;
+    selectedVariantIds?: IdeaVariantId[];
+    modelPolicy?: Partial<ModelPolicy>;
+  }): Promise<IdeaExperiment> {
+    const idea = input.idea.replace(/\s+/g, " ").trim();
+    if (!idea) {
+      throw new Error("请输入一个脑洞，才能开始试验。");
+    }
+
+    const service = this.withModelPolicy(input.modelPolicy);
+    const topic = experimentTopicFromIdea(idea);
+    const hotTopics = await service.getRadar().catch(() => [] as Topic[]);
+    const evidence = await service.cache.getOrSet(`experiment:evidence:${topic.id}`, () =>
+      service.zhihuProvider.searchEvidence(topic),
+    ).catch(() => [] as Evidence[]);
+    const node = startNode("topic_scoring", "想法试验版本生成节点");
+    const variantResult = await service.llmProvider.generateIdeaVariants({
+      idea,
+      similarEvidence: evidence,
+      hotTopics,
+    });
+    const doneNode = finishNode(node, "已生成 3 个可测试版本", variantResult.usage);
+    const technicalSnapshot: RoundtableSnapshot = appendNode(
+      {
+        stage: "prepare",
+        selectedTopic: topic,
+        rewrittenQuestion: `这个脑洞最值得测试的差异化方向是什么？`,
+        evidence,
+        turns: [],
+        statusMessage: "想法试验后台证据和版本已准备",
+      },
+      doneNode,
+    );
+
+    return {
+      id: `exp-${Date.now()}`,
+      idea,
+      stage: "Generated",
+      variants: cloneVariants(variantResult.value).sort((a, b) => EXPERIMENT_VARIANT_IDS.indexOf(a.id) - EXPERIMENT_VARIANT_IDS.indexOf(b.id)),
+      selectedVariantIds: input.selectedVariantIds?.length ? input.selectedVariantIds : ["A", "B", "C"],
+      statusMessage: "已生成 3 个可测试版本",
+      technicalSnapshot,
+      modelUsages: technicalSnapshot.modelUsages ?? [],
+      nodeResults: technicalSnapshot.nodeResults ?? [],
+    };
+  }
+
+  createExperimentPublishPreview(input: {
+    experiment: IdeaExperiment;
+    selectedVariantIds?: IdeaVariantId[];
+  }): IdeaExperiment {
+    const experiment = cloneExperiment(input.experiment);
+    const variants = selectedVariants(experiment, input.selectedVariantIds);
+    if (experiment.stage !== "Generated" && experiment.stage !== "PublishConfirm") {
+      throw new Error(`发布预览只能在 Generated/PublishConfirm 阶段生成，当前阶段是 ${experiment.stage}。`);
+    }
+    if (!variants.length) {
+      throw new Error("至少选择一个版本，才能生成圈子测试帖。");
+    }
+
+    const preview: ExperimentPostPreview = {
+      title: "我有 3 个 AI Hackathon 项目方向，想请大家帮忙选一个最有意思的",
+      body: [
+        `原始脑洞：${experiment.idea}`,
+        "",
+        "我把它拆成了几个可测试版本，想请大家帮忙判断哪个更像知乎社区里真正有价值的产品：",
+        ...variants.map((variant) => `${variant.id}：${variant.title} - ${variant.oneLiner}`),
+        "",
+        "你更想用哪个？为什么？也欢迎直接吐槽哪里像普通 AI 工具。",
+      ].join("\n"),
+      optionComments: variants.map((variant) => ({
+        variantId: variant.id,
+        title: `${variant.id} ${variant.title}`,
+        content: `${variant.id} ${variant.title}：${variant.oneLiner}`,
+      })),
+      disclosure: "本文由 AI 想法试验场辅助整理，发布前经过用户确认；系统会回收点赞、评论和回复生成试验报告。",
+    };
+
+    return {
+      ...experiment,
+      stage: "PublishConfirm",
+      selectedVariantIds: variants.map((variant) => variant.id),
+      postPreview: preview,
+      statusMessage: "圈子测试帖和 A/B/C 评论已生成，等待用户确认",
+    };
+  }
+
+  async confirmExperimentPublish(input: {
+    experiment: IdeaExperiment;
+    ringId?: string;
+    allowLiveWrite?: boolean;
+  }): Promise<IdeaExperiment> {
+    const experiment = cloneExperiment(input.experiment);
+
+    if (!experiment.postPreview) {
+      throw new Error("发布确认缺少 postPreview。请先调用 publish-preview，让用户看到主帖和选项评论后再确认。");
+    }
+    this.assertLiveWriteAllowed(input.allowLiveWrite);
+
+    const publishResult = await this.zhihuProvider.publishDraft({
+      draft: publishDraftFromPreview(experiment.postPreview),
+      ringId: input.ringId,
+    });
+    const optionCommentIds: string[] = [];
+
+    for (const comment of experiment.postPreview.optionComments) {
+      const created = await this.zhihuProvider.createComment({
+        publishId: publishResult.id,
+        content: comment.content,
+      });
+      optionCommentIds.push(created.id);
+    }
+
+    const node = finishNode(startNode("publish", "想法试验发布节点"), "用户确认后已发布主帖和 A/B/C 评论");
+    const technicalSnapshot = experiment.technicalSnapshot
+      ? appendNode(experiment.technicalSnapshot, node)
+      : undefined;
+
+    return {
+      ...experiment,
+      stage: "Collecting",
+      publishResult: {
+        id: publishResult.id,
+        url: publishResult.url,
+        mode: publishResult.mode,
+        createdAt: publishResult.createdAt,
+        optionCommentIds,
+      },
+      technicalSnapshot,
+      nodeResults: technicalSnapshot?.nodeResults ?? experiment.nodeResults ?? [],
+      modelUsages: technicalSnapshot?.modelUsages ?? experiment.modelUsages ?? [],
+      statusMessage: "实验进行中，正在收集点赞和评论反馈",
+    };
+  }
+
+  async collectExperimentFeedback(input: {
+    experiment: IdeaExperiment;
+  }): Promise<IdeaExperiment> {
+    const experiment = cloneExperiment(input.experiment);
+    const variants = selectedVariants(experiment);
+    if (experiment.stage !== "Collecting" && experiment.stage !== "ReportReady") {
+      throw new Error(`反馈收集只能在 Collecting/ReportReady 阶段调用，当前阶段是 ${experiment.stage}。`);
+    }
+
+    const comments = await this.zhihuProvider.listComments({
+      topicId: experiment.technicalSnapshot?.selectedTopic?.id ?? experiment.id,
+      publishId: experiment.publishResult?.id,
+    }).catch(() => [] as string[]);
+    const fallback = fallbackFeedback(variants);
+    const feedback = comments.length >= 3
+      ? fallback.map((item, index) => ({
+          ...item,
+          comments: Math.max(item.comments, Math.ceil(comments.length / Math.max(1, variants.length))),
+          typicalComments: comments.slice(index, index + 2).length ? comments.slice(index, index + 2) : item.typicalComments,
+        }))
+      : fallback;
+    const node = finishNode(startNode("comment_feedback", "想法试验反馈收集节点"), comments.length >= 3 ? "已读取真实评论并生成反馈面板" : "真实样本不足，已使用演示反馈兜底");
+    const technicalSnapshot = experiment.technicalSnapshot
+      ? appendNode(experiment.technicalSnapshot, node)
+      : undefined;
+
+    return {
+      ...experiment,
+      stage: "Collecting",
+      feedback,
+      demoData: comments.length < 3,
+      technicalSnapshot,
+      nodeResults: technicalSnapshot?.nodeResults ?? experiment.nodeResults ?? [],
+      modelUsages: technicalSnapshot?.modelUsages ?? experiment.modelUsages ?? [],
+      statusMessage: comments.length >= 3 ? "已收集真实评论反馈" : "当前样本较少，已启用演示数据",
+    };
+  }
+
+  async buildExperimentReport(input: {
+    experiment: IdeaExperiment;
+    modelPolicy?: Partial<ModelPolicy>;
+  }): Promise<IdeaExperiment> {
+    const service = this.withModelPolicy(input.modelPolicy);
+    const collected = input.experiment.feedback
+      ? cloneExperiment(input.experiment)
+      : await service.collectExperimentFeedback({ experiment: input.experiment });
+    const feedback = collected.feedback ?? fallbackFeedback(selectedVariants(collected));
+    const node = startNode("readiness_check", "想法试验报告节点");
+    const reportResult = await service.llmProvider.buildExperimentReport({
+      idea: collected.idea,
+      variants: selectedVariants(collected),
+      feedback,
+    });
+    const doneNode = finishNode(node, "已生成最终方向、MVP 和路演金句", reportResult.usage);
+    const technicalSnapshot = collected.technicalSnapshot
+      ? appendNode(collected.technicalSnapshot, doneNode)
+      : undefined;
+
+    return {
+      ...collected,
+      stage: "ReportReady",
+      feedback,
+      report: {
+        ...reportResult.value,
+        whyWinner: [...reportResult.value.whyWinner],
+        userConcerns: [...reportResult.value.userConcerns],
+        mvpFeatures: [...reportResult.value.mvpFeatures],
+        nextActions: [...reportResult.value.nextActions],
+      },
+      technicalSnapshot,
+      modelUsages: technicalSnapshot?.modelUsages ?? [...(collected.modelUsages ?? []), reportResult.usage],
+      nodeResults: technicalSnapshot?.nodeResults ?? [...(collected.nodeResults ?? []), doneNode],
+      statusMessage: "试验报告已生成",
+    };
   }
 
   async createInitialSnapshot(topicId?: string): Promise<RoundtableSnapshot> {
@@ -313,51 +646,76 @@ export class RoundtableWorkflowService {
     }
 
     let current = cloneSnapshot(snapshot);
-    const topic = requireTopic(current);
-    const rewrittenQuestion = current.rewrittenQuestion ?? topic.title;
 
     for (let index = 0; index < SPEAKERS.length; index += 1) {
-      const speaker = SPEAKERS[index];
-      const brief = current.agentBriefs?.find((item) => item.speaker === speaker);
-      const node = startNode("debate", `${speaker} 发言节点`);
-      const turnResult = await this.llmProvider.generateAgentTurn({
-        topic,
-        rewrittenQuestion,
-        speaker,
-        evidence: current.evidence,
-        brief,
-        priorTurns: current.turns,
-      });
-      const applied = applyUsage(current, turnResult, node, `${speaker} 已完成发言`);
-      current = {
-        ...applied.snapshot,
-        turns: [...applied.snapshot.turns, { ...applied.value, evidenceIds: [...applied.value.evidenceIds] }],
-        statusMessage: `圆桌发言 ${index + 1}/${SPEAKERS.length}`,
-      };
+      current = (await this.generateDebateTurn(current, index)).snapshot;
     }
 
+    return (await this.buildDebateDone(current)).snapshot;
+  }
+
+  private async generateDebateTurn(
+    snapshot: RoundtableSnapshot,
+    index: number,
+  ): Promise<{ snapshot: RoundtableSnapshot; turn: DebateTurn; node: WorkflowNodeResult }> {
+    const current = cloneSnapshot(snapshot);
+    const topic = requireTopic(current);
+    const rewrittenQuestion = current.rewrittenQuestion ?? topic.title;
+    const speaker = SPEAKERS[index];
+    if (!speaker) {
+      throw new Error(`圆桌发言序号 ${index} 超出范围。`);
+    }
+
+    const brief = current.agentBriefs?.find((item) => item.speaker === speaker);
+    const node = startNode("debate", `${speaker} 发言节点`);
+    const turnResult = await this.llmProvider.generateAgentTurn({
+      topic,
+      rewrittenQuestion,
+      speaker,
+      evidence: current.evidence,
+      brief,
+      priorTurns: current.turns,
+    });
+    const applied = applyUsage(current, turnResult, node, `${speaker} 已完成发言`);
+    const turn = {
+      ...applied.value,
+      evidenceIds: [...applied.value.evidenceIds],
+      claimSources: applied.value.claimSources?.map((source) => ({ ...source })),
+    };
+
+    return {
+      snapshot: {
+        ...applied.snapshot,
+        turns: [...applied.snapshot.turns, turn],
+        statusMessage: `圆桌发言 ${index + 1}/${SPEAKERS.length}`,
+      },
+      turn,
+      node: applied.node,
+    };
+  }
+
+  private async buildDebateDone(
+    snapshot: RoundtableSnapshot,
+  ): Promise<{ snapshot: RoundtableSnapshot; node: WorkflowNodeResult }> {
+    const current = cloneSnapshot(snapshot);
+    const topic = requireTopic(current);
     const consensusNode = startNode("viewpoint_map", "观点地图生成节点");
     const viewpointResult = await this.llmProvider.buildConsensus({
       topic,
-      rewrittenQuestion,
+      rewrittenQuestion: current.rewrittenQuestion ?? topic.title,
       evidence: current.evidence,
       turns: current.turns,
     });
     const applied = applyUsage(current, viewpointResult, consensusNode, "已生成观点地图、共识、争议和追问");
-    const viewpointMap = applied.value;
 
     return {
-      ...applied.snapshot,
-      stage: "debate",
-      viewpointMap: {
-        support: [...viewpointMap.support],
-        oppose: [...viewpointMap.oppose],
-        neutral: [...viewpointMap.neutral],
-        facts: [...viewpointMap.facts],
-        disputes: [...viewpointMap.disputes],
-        followups: [...viewpointMap.followups],
+      snapshot: {
+        ...applied.snapshot,
+        stage: "debate",
+        viewpointMap: cloneViewpointMap(applied.value),
+        statusMessage: "圆桌已完成",
       },
-      statusMessage: "圆桌已完成",
+      node: applied.node,
     };
   }
 
@@ -397,10 +755,15 @@ export class RoundtableWorkflowService {
     };
   }
 
-  async confirmPublish(snapshot: RoundtableSnapshot, ringId?: string): Promise<PublishResult> {
+  async confirmPublish(
+    snapshot: RoundtableSnapshot,
+    ringId?: string,
+    options: { allowLiveWrite?: boolean } = {},
+  ): Promise<PublishResult> {
     if (snapshot.stage !== "publish" || !snapshot.publishDraft) {
       throw new Error("confirmPublish 需要 publish 阶段和发布稿。");
     }
+    this.assertLiveWriteAllowed(options.allowLiveWrite);
 
     return this.zhihuProvider.publishDraft({ draft: snapshot.publishDraft, ringId });
   }
@@ -408,16 +771,14 @@ export class RoundtableWorkflowService {
   async confirmPublishWithSnapshot(
     snapshot: RoundtableSnapshot,
     ringId?: string,
+    options: { allowLiveWrite?: boolean } = {},
   ): Promise<{ snapshot: RoundtableSnapshot; publishResult: PublishResult }> {
-    const publishSnapshot: RoundtableSnapshot = snapshot.stage === "publish"
-      ? cloneSnapshot(snapshot)
-      : {
-          ...cloneSnapshot(snapshot),
-          stage: "publish",
-          commentInsight: undefined,
-          statusMessage: "等待用户确认发布",
-        };
-    const publishResult = await this.confirmPublish(publishSnapshot, ringId);
+    if (snapshot.stage !== "publish" || !snapshot.publishDraft) {
+      throw new Error(`confirmPublishWithSnapshot 只能在 publish 阶段调用，当前阶段是 ${snapshot.stage}。`);
+    }
+
+    const publishSnapshot: RoundtableSnapshot = cloneSnapshot(snapshot);
+    const publishResult = await this.confirmPublish(publishSnapshot, ringId, options);
     const node = finishNode(startNode("publish", "发布节点"), "用户确认后已发布/模拟发布");
 
     return {
@@ -426,15 +787,20 @@ export class RoundtableWorkflowService {
     };
   }
 
-  async createHostComment(input: { publishId: string; content: string }): Promise<CommentCreateResult> {
+  async createHostComment(
+    input: { publishId: string; content: string },
+    options: { allowLiveWrite?: boolean } = {},
+  ): Promise<CommentCreateResult> {
     if (!input.content.trim()) {
       throw new Error("createHostComment 需要非空评论内容。");
     }
+    this.assertLiveWriteAllowed(options.allowLiveWrite);
 
     return this.zhihuProvider.createComment(input);
   }
 
-  async react(input: { targetId: string; type: ReactionType }): Promise<ReactionResult> {
+  async react(input: { targetId: string; type: ReactionType }, options: { allowLiveWrite?: boolean } = {}): Promise<ReactionResult> {
+    this.assertLiveWriteAllowed(options.allowLiveWrite);
     return this.zhihuProvider.react(input);
   }
 
@@ -450,19 +816,28 @@ export class RoundtableWorkflowService {
     return (this.zhihuProvider.failures ?? []).map((failure) => ({ ...failure }));
   }
 
+  private assertLiveWriteAllowed(allowLiveWrite?: boolean): void {
+    if (this.zhihuProvider.mode === "live" && !allowLiveWrite && process.env.ALLOW_LIVE_WRITES !== "1") {
+      throw new Error("live 写操作需要显式用户确认；设置 ALLOW_LIVE_WRITES=1 仅用于手动联调。");
+    }
+  }
+
   async analyzeFeedback(
     snapshot: RoundtableSnapshot,
-    publishResult?: Pick<PublishResult, "id">,
+    publishResult?: Pick<PublishResult, "id"> & Partial<Pick<PublishResult, "mode">>,
   ): Promise<RoundtableSnapshot> {
     if (snapshot.stage !== "publish" || !snapshot.publishDraft) {
       throw new Error(`analyzeFeedback 只能在 publish 阶段调用，当前阶段是 ${snapshot.stage}。`);
     }
 
     const topic = requireTopic(snapshot);
-    const comments = await this.zhihuProvider.listComments({
+    let comments = await this.zhihuProvider.listComments({
       topicId: topic.id,
       publishId: publishResult?.id,
     });
+    if (comments.length === 0 && publishResult?.mode === "mock") {
+      comments = await new MockZhihuProvider().listComments({ topicId: topic.id });
+    }
     const node = startNode("comment_feedback", "评论回流分析节点");
     const result = await this.llmProvider.analyzeComments({
       publishDraft: snapshot.publishDraft,
@@ -492,7 +867,9 @@ export class RoundtableWorkflowService {
     const prepared = await service.prepareTopic(initial);
     const debated = await service.runDebate(prepared);
     const drafted = await service.generatePublishDraft(debated);
-    const publishResult = input.publish ? await service.confirmPublish(drafted, input.ringId) : undefined;
+    const publishResult = input.publish
+      ? await service.confirmPublish(drafted, input.ringId, { allowLiveWrite: input.allowLivePublish })
+      : undefined;
     const published = input.publish
       ? appendNode(
           drafted,
@@ -537,50 +914,27 @@ export class RoundtableWorkflowService {
       };
 
       let current = cloneSnapshot(snapshot);
-      const topic = requireTopic(current);
-      const rewrittenQuestion = current.rewrittenQuestion ?? topic.title;
       for (let index = 0; index < SPEAKERS.length; index += 1) {
-        const speaker = SPEAKERS[index];
-        const brief = current.agentBriefs?.find((item) => item.speaker === speaker);
-        const node = startNode("debate", `${speaker} 发言节点`);
-        const turnResult = await service.llmProvider.generateAgentTurn({
-          topic,
-          rewrittenQuestion,
-          speaker,
-          evidence: current.evidence,
-          brief,
-          priorTurns: current.turns,
-        });
-        const applied = applyUsage(current, turnResult, node, `${speaker} 已完成发言`);
-        current = {
-          ...applied.snapshot,
-          turns: [...applied.snapshot.turns, { ...applied.value, evidenceIds: [...applied.value.evidenceIds] }],
-          statusMessage: `圆桌发言 ${index + 1}/${SPEAKERS.length}`,
-        };
-        yield { type: "debate_turn", snapshot: cloneSnapshot(current), turn: applied.value, node: applied.node };
+        const applied = await service.generateDebateTurn(current, index);
+        current = applied.snapshot;
+        yield { type: "debate_turn", snapshot: cloneSnapshot(current), turn: applied.turn, node: applied.node };
       }
 
-      const consensusNode = startNode("viewpoint_map", "观点地图生成节点");
-      const viewpointResult = await service.llmProvider.buildConsensus({
-        topic,
-        rewrittenQuestion,
-        evidence: current.evidence,
-        turns: current.turns,
-      });
-      const consensus = applyUsage(current, viewpointResult, consensusNode, "已生成观点地图、共识、争议和追问");
-      const done: RoundtableSnapshot = {
-        ...consensus.snapshot,
-        stage: "debate",
-        viewpointMap: consensus.value,
-        statusMessage: "圆桌已完成",
-      };
-      yield { type: "debate_done", snapshot: cloneSnapshot(done), node: consensus.node };
+      const debateDone = await service.buildDebateDone(current);
+      const done = debateDone.snapshot;
+      yield { type: "debate_done", snapshot: cloneSnapshot(done), node: debateDone.node };
 
       const drafted = await service.generatePublishDraft(done);
-      const publishResult = input.publish ? await service.confirmPublish(drafted, input.ringId) : undefined;
+      const publishResult = input.publish
+        ? await service.confirmPublish(drafted, input.ringId, { allowLiveWrite: input.allowLivePublish })
+        : undefined;
       const publishNode = finishNode(startNode(input.publish ? "publish" : "publish_confirm", input.publish ? "发布节点" : "发布预览节点"), input.publish ? "用户确认后已发布/模拟发布" : "已生成发布预览");
       const publishSnapshot = appendNode(drafted, publishNode);
       yield { type: "publish", snapshot: cloneSnapshot(publishSnapshot), publishResult, node: publishNode };
+
+      if (!input.publish) {
+        return;
+      }
 
       const feedback = await service.analyzeFeedback(publishSnapshot, publishResult);
       yield {

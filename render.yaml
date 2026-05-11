@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: zhihu-roundtable
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24
+      - key: ZHIHU_PROVIDER
+        value: mock
+      - key: VITE_DEMO_MODEL_MODE
+        value: mock
+      - key: VITE_DEMO_DEFAULT_PROVIDER
+        value: mock
+      - key: VITE_DEMO_FALLBACK_TO_MOCK
+        value: "true"

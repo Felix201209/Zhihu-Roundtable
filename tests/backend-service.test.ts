@@ -2,7 +2,22 @@ import { describe, expect, it } from "vitest";
 import { MemoryCache } from "../src/backend/cache.js";
 import { encodeSseEvent } from "../src/backend/sse.js";
 import { RoundtableWorkflowService } from "../src/backend/workflow-service.js";
-import { MockZhihuProvider } from "../src/providers/zhihu-provider.js";
+import { MockZhihuProvider, type ZhihuProvider } from "../src/providers/zhihu-provider.js";
+
+class LiveModeMockZhihuProvider implements ZhihuProvider {
+  readonly mode = "live" as const;
+  private readonly mock = new MockZhihuProvider();
+
+  getHotTopics = () => this.mock.getHotTopics();
+  searchEvidence = (topic: Parameters<MockZhihuProvider["searchEvidence"]>[0]) => this.mock.searchEvidence(topic);
+  getDefaultRing = () => this.mock.getDefaultRing();
+  publishDraft = (input: Parameters<MockZhihuProvider["publishDraft"]>[0]) => this.mock.publishDraft(input);
+  listComments = (input: Parameters<MockZhihuProvider["listComments"]>[0]) => this.mock.listComments(input);
+  createComment = (input: Parameters<MockZhihuProvider["createComment"]>[0]) => this.mock.createComment(input);
+  react = (input: Parameters<MockZhihuProvider["react"]>[0]) => this.mock.react(input);
+  getQuotaStatus = () => this.mock.getQuotaStatus();
+  getCachedCommentInsight = (topicId: string) => this.mock.getCachedCommentInsight(topicId);
+}
 
 describe("backend workflow service", () => {
   it("runs the complete backend workflow with mock publish and feedback", async () => {
@@ -73,9 +88,61 @@ describe("backend workflow service", () => {
       "debate_turn",
       "debate_done",
       "publish",
-      "feedback",
     ]);
+    expect(events.at(-1)?.type).toBe("publish");
+  });
+
+  it("streams feedback only after publish is explicitly enabled", async () => {
+    const service = new RoundtableWorkflowService();
+    const events = [];
+
+    for await (const event of service.streamWorkflow({ publish: true })) {
+      events.push(event);
+    }
+
+    expect(events.map((event) => event.type)).toContain("feedback");
     expect(events.at(-1)?.type).toBe("feedback");
+  });
+
+  it("requires publish-stage snapshots before confirming publish", async () => {
+    const service = new RoundtableWorkflowService();
+    const initial = await service.createInitialSnapshot();
+
+    await expect(service.confirmPublishWithSnapshot(initial)).rejects.toThrow(/publish 阶段/);
+  });
+
+  it("blocks direct live publish calls unless an explicit confirmation path allows them", async () => {
+    const previous = process.env.ALLOW_LIVE_WRITES;
+    delete process.env.ALLOW_LIVE_WRITES;
+    try {
+      const service = new RoundtableWorkflowService({
+        zhihuProvider: new LiveModeMockZhihuProvider(),
+      });
+
+      await expect(service.runFullWorkflow({ publish: true })).rejects.toThrow(/live 写操作需要显式用户确认/);
+      await expect(service.createHostComment({
+        publishId: "live-pin-1",
+        content: "刘看山补充：欢迎继续围绕证据讨论。",
+      })).rejects.toThrow(/live 写操作需要显式用户确认/);
+      await expect(service.react({ targetId: "live-pin-1", type: "inspired" })).rejects.toThrow(/live 写操作需要显式用户确认/);
+
+      const generated = await service.generateIdeaExperiment({
+        idea: "帮知乎创作者把热榜改成可组织讨论的圈子活动。",
+      });
+      const preview = service.createExperimentPublishPreview({ experiment: generated });
+      await expect(service.confirmExperimentPublish({ experiment: preview })).rejects.toThrow(/live 写操作需要显式用户确认/);
+
+      await expect(service.createHostComment(
+        { publishId: "live-pin-1", content: "刘看山补充：欢迎继续围绕证据讨论。" },
+        { allowLiveWrite: true },
+      )).resolves.toMatchObject({ mode: "mock" });
+      await expect(service.react(
+        { targetId: "live-pin-1", type: "inspired" },
+        { allowLiveWrite: true },
+      )).resolves.toMatchObject({ type: "inspired" });
+    } finally {
+      process.env.ALLOW_LIVE_WRITES = previous;
+    }
   });
 
   it("caches radar topics through MemoryCache", async () => {

@@ -3,20 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "start": "STATIC_DIR=dist tsx src/backend/serve.ts",
+    "serve:app": "npm run build && STATIC_DIR=dist tsx src/backend/serve.ts",
     "demo:serve": "node scripts/serve-demo.mjs",
+    "demo:serve:mock": "ZHIHU_PROVIDER=mock VITE_DEMO_MODEL_MODE=mock VITE_DEMO_DEFAULT_PROVIDER=mock VITE_DEMO_FALLBACK_TO_MOCK=true DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 node scripts/serve-demo.mjs",
     "demo": "tsx src/demo/run-demo.ts",
     "backend:demo": "tsx src/backend/run-backend-demo.ts",
     "backend:serve": "tsx src/backend/serve.ts",
     "capture:demo": "node scripts/capture-demo-screenshots.mjs",
     "capture:demo:auto": "AUTO_START_DEMO=1 node scripts/capture-demo-screenshots.mjs",
+    "capture:demo:auto:mock": "ZHIHU_PROVIDER=mock VITE_DEMO_MODEL_MODE=mock VITE_DEMO_DEFAULT_PROVIDER=mock VITE_DEMO_FALLBACK_TO_MOCK=true DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 AUTO_START_DEMO=1 node scripts/capture-demo-screenshots.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-submission.mjs",
-    "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs",
+    "verify:production": "npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
+    "verify:public": "node scripts/verify-public-demo.mjs",
+    "verify:remote-ci": "node scripts/verify-remote-ci.mjs",
+    "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs && node --check scripts/package-source.mjs && node --check scripts/verify-public-demo.mjs && node --check scripts/verify-remote-ci.mjs && node --check scripts/verify-production-server.mjs && node --check scripts/verify-production-flow.mjs && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
+    "verify:submission": "npm run verify:judge && npm run package:source",
+    "package:source": "node scripts/package-source.mjs",
     "audit:high": "npm audit --audit-level=high"
   },
   "dependencies": {

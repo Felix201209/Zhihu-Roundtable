@@ -1,53 +1,99 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Activity,
-  AlertTriangle,
-  Bot,
+  ArrowRight,
+  BarChart3,
   CheckCircle2,
-  CircleDot,
-  ClipboardCopy,
-  Database,
-  Gauge,
-  Layers3,
+  ChevronLeft,
+  ClipboardList,
+  Lightbulb,
+  Loader2,
   MessageSquare,
-  Pause,
-  Play,
-  Radio,
   RefreshCcw,
+  Search,
   Send,
   ShieldCheck,
   Sparkles,
-  UsersRound,
-  X,
-  Zap,
+  Users,
 } from "lucide-react";
 import {
+  ApiError,
   analyzeFeedback,
+  collectExperimentFeedback,
+  confirmExperimentPublish,
   confirmPublish,
   createConfirmation,
-  createHostComment,
-  getQuota,
+  generateExperiment,
+  generateExperimentReport,
   getReadiness,
+  getTopics,
   getZhihuStatus,
-  react,
+  previewExperimentPublish,
   runWorkflow,
   streamWorkflow,
 } from "./api.js";
-import type { QuotaResponse, ReadinessResponse, WorkflowRunResponse, ZhihuStatusResponse } from "./types.js";
-import type { DebateTurn, ReactionType, RoundtableSnapshot } from "../core/types.js";
+import type { ConfirmationPayload, ReadinessResponse, ZhihuStatusResponse } from "./types.js";
+import type {
+  DebateTurn,
+  Evidence,
+  IdeaExperiment,
+  IdeaExperimentStage,
+  IdeaVariant,
+  IdeaVariantId,
+  RoundtableSnapshot,
+  Topic,
+  VariantFeedback,
+} from "../core/types.js";
 import "./styles.css";
 
-const speakerMeta: Record<DebateTurn["speaker"], { name: string; role: string; color: string }> = {
-  liu: { name: "刘看山", role: "主持控场", color: "#0f7cff" },
-  expert: { name: "知乎大 V", role: "深度观点", color: "#16a34a" },
-  opponent: { name: "反方刺客", role: "逻辑挑战", color: "#dc2626" },
-  public: { name: "吃瓜群众", role: "用户视角", color: "#f59e0b" },
+type AppMode = "home" | "roundtable" | "idea";
+type RoundtableUiStage = "radar" | "prepare" | "debate" | "publish" | "feedback";
+
+const exampleIdeas = [
+  "我想做一个 AI 工具，帮知乎创作者判断选题有没有撞车，并给出改法。",
+  "我想测一个知乎文章选题：AI 时代，新人作品集到底该不该披露工具使用过程？",
+  "我想做一个产品功能脑洞：圈子里的新争议能不能自动触发下一轮讨论策划？",
+];
+
+const roundtableStageLabels: Record<RoundtableUiStage, string> = {
+  radar: "选题雷达",
+  prepare: "讨论方案",
+  debate: "主持校验",
+  publish: "发布策划",
+  feedback: "评论复盘",
 };
 
-type CommunityAction =
-  | { kind: "reaction"; type: ReactionType; title: string; body: string; confirmText: string }
-  | { kind: "comment"; content: string; title: string; body: string; confirmText: string };
+const ideaStageLabels: Record<IdeaExperimentStage, string> = {
+  Draft: "输入脑洞",
+  Generated: "生成版本",
+  PublishConfirm: "发布确认",
+  Collecting: "回收反馈",
+  ReportReady: "试验报告",
+  Iterate: "继续优化",
+};
+
+const speakerMeta: Record<DebateTurn["speaker"], { name: string; role: string; source: string }> = {
+  liu: {
+    name: "刘看山主持",
+    role: "控场、追问、降温",
+    source: "主持规则 + 证据池",
+  },
+  expert: {
+    name: "站内观点席",
+    role: "基于知乎站内搜索提炼已有观点",
+    source: "知乎站内 + 全网资料",
+  },
+  opponent: {
+    name: "反方校验席",
+    role: "挑战逻辑漏洞和证据不足",
+    source: "AI 逻辑校验 + 待验证问题",
+  },
+  public: {
+    name: "普通用户席",
+    role: "提出真实用户会关心的问题",
+    source: "用户视角 + 评论回流",
+  },
+};
 
 export function normalizeSentiment(sentiment?: { support: number; oppose: number; neutral: number }) {
   const support = Math.max(0, sentiment?.support ?? 0);
@@ -66,756 +112,1182 @@ export function normalizeSentiment(sentiment?: { support: number; oppose: number
   };
 }
 
+function friendlyError(error: unknown, fallback: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 403 && error.code?.startsWith("confirmation")) {
+      return "真实知乎写操作需要重新授权或完成用户确认；你也可以切回演示模式继续路演。";
+    }
+    if (error.status === 403) {
+      return "当前操作没有权限完成，请检查知乎授权、后端代理或演示模式设置。";
+    }
+    if (error.status === 401) {
+      return "知乎授权已失效，请重新登录或切换演示模式。";
+    }
+    return error.message;
+  }
+
+  return error instanceof Error ? error.message : fallback;
+}
+
+function scrollToTop() {
+  if (typeof window !== "undefined") {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+}
+
 export function App() {
-  const [data, setData] = React.useState<WorkflowRunResponse | null>(null);
-  const [quota, setQuota] = React.useState<QuotaResponse | null>(null);
+  const [mode, setMode] = React.useState<AppMode>("home");
+  const [roundtableStage, setRoundtableStage] = React.useState<RoundtableUiStage>("radar");
+  const [topics, setTopics] = React.useState<Topic[]>([]);
+  const [snapshot, setSnapshot] = React.useState<RoundtableSnapshot | null>(null);
+  const [idea, setIdea] = React.useState("");
+  const [experiment, setExperiment] = React.useState<IdeaExperiment | null>(null);
+  const [selectedVariantIds, setSelectedVariantIds] = React.useState<IdeaVariantId[]>(["A", "B", "C"]);
+  const [publishConfirmation, setPublishConfirmation] = React.useState<ConfirmationPayload | undefined>();
   const [readiness, setReadiness] = React.useState<ReadinessResponse | null>(null);
   const [zhihuStatus, setZhihuStatus] = React.useState<ZhihuStatusResponse | null>(null);
-  const [activeTurn, setActiveTurn] = React.useState(0);
-  const [status, setStatus] = React.useState("后端待连接");
+  const [busy, setBusy] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [isStreaming, setIsStreaming] = React.useState(false);
-  const [isPaused, setIsPaused] = React.useState(false);
-  const [publishDialogOpen, setPublishDialogOpen] = React.useState(false);
-  const [publishBusy, setPublishBusy] = React.useState(false);
-  const [pendingCommunityAction, setPendingCommunityAction] = React.useState<CommunityAction | null>(null);
-  const [communityActionBusy, setCommunityActionBusy] = React.useState(false);
-  const streamCancelRef = React.useRef<(() => void) | null>(null);
 
-  const refreshSystem = React.useCallback(async (snapshot?: RoundtableSnapshot) => {
-    const [quotaResult, zhihuResult] = await Promise.all([getQuota(), getZhihuStatus()]);
-    setQuota(quotaResult);
-    setZhihuStatus(zhihuResult);
-    if (snapshot) {
-      setReadiness(await getReadiness(snapshot));
-    }
+  React.useEffect(() => {
+    getZhihuStatus()
+      .then(setZhihuStatus)
+      .catch(() => undefined);
+    loadTopics().catch(() => undefined);
   }, []);
 
-  const load = React.useCallback(async (publish = false, topicId?: string) => {
-    streamCancelRef.current?.();
-    setIsStreaming(false);
-    setError(null);
-    setStatus("正在组织知乎圆桌...");
-    const result = await runWorkflow(publish, topicId);
-    setData(result);
-    await refreshSystem(result.snapshot);
-    setActiveTurn(0);
-    setIsPaused(false);
-    setStatus("完整闭环已就绪");
-  }, [refreshSystem]);
-
-  const playStream = React.useCallback((publish = false, topicId?: string) => {
-    streamCancelRef.current?.();
-    setError(null);
-    setIsStreaming(true);
-    setStatus("路演模式：SSE 正在逐节点播放");
-    const cancel = streamWorkflow({
-      publish,
-      topicId,
-      onEvent: (event) => {
-        if (event.type === "error") {
-          setError(event.message);
-          return;
-        }
-        setData((previous) => ({
-          topics: event.type === "radar" ? event.topics : previous?.topics ?? [],
-          snapshot: event.snapshot,
-          providerMode: previous?.providerMode ?? "mock",
-          providerFailures: previous?.providerFailures ?? [],
-          modelUsages: event.snapshot.modelUsages ?? [],
-          nodeResults: event.snapshot.nodeResults ?? [],
-          publishResult: event.type === "publish" ? event.publishResult : previous?.publishResult,
-        }));
-        setActiveTurn(Math.max(0, (event.snapshot.turns.length ?? 1) - 1));
-        setStatus(streamLabel(event.type));
-        if (event.type === "feedback") {
-          void refreshSystem(event.snapshot);
-        }
-      },
-      onError: setError,
-      onDone: () => {
-        setIsStreaming(false);
-        setStatus("路演播放完成");
-      },
-    });
-    streamCancelRef.current = cancel;
-  }, [refreshSystem]);
-
   React.useEffect(() => {
-    load(false).catch((err) => {
-      setError(err instanceof Error ? err.message : "后端连接失败");
-      setStatus("使用后端接口时遇到问题");
-    });
-    return () => streamCancelRef.current?.();
-  }, [load]);
+    const activeSnapshot = mode === "idea" ? experiment?.technicalSnapshot : snapshot;
+    if (!activeSnapshot) return;
+    getReadiness(activeSnapshot)
+      .then(setReadiness)
+      .catch(() => undefined);
+  }, [experiment?.technicalSnapshot, mode, snapshot]);
 
-  React.useEffect(() => {
-    if (!data?.snapshot.turns.length || isStreaming || isPaused) return;
-    const timer = window.setInterval(() => {
-      setActiveTurn((index) => (index + 1) % data.snapshot.turns.length);
-    }, 2600);
-    return () => window.clearInterval(timer);
-  }, [data, isStreaming, isPaused]);
+  const ideaStage: IdeaExperimentStage = experiment?.stage ?? "Draft";
 
-  const snapshot = data?.snapshot;
-  const readinessItems = readiness?.report.items ?? [];
-  const readyDimensionCount = readinessItems.filter((item) => item.score >= 80).length;
-  const readinessValue = !data?.publishResult && snapshot?.publishDraft
-    ? "就绪"
-    : readinessItems.length
-      ? `${readyDimensionCount}/${readinessItems.length}`
-      : readiness
-        ? "就绪"
-        : "--";
-  const readinessLabel = !data?.publishResult && snapshot?.publishDraft
-    ? "发布确认后回流"
-    : readiness
-      ? "评分维度就绪"
-      : "等待自检";
+  async function loadTopics() {
+    const result = await getTopics();
+    setTopics(result.topics);
+  }
 
-  const confirmAndPublish = React.useCallback(async () => {
-    if (!snapshot?.publishDraft) {
-      setError("发布稿尚未生成，不能确认发布。");
-      return;
-    }
-
-    setPublishBusy(true);
-    try {
-      const publishConfirmation = data?.publishConfirmation ?? (
-        data?.providerMode === "live"
-          ? await createConfirmation({ action: "publish", snapshot })
-          : undefined
-      );
-      const published = await confirmPublish(snapshot, publishConfirmation?.token);
-      const feedback = await analyzeFeedback(published.snapshot, published.publishResult?.id);
-      const nextData = {
-        ...data,
-        ...published,
-        snapshot: feedback.snapshot,
-        publishResult: published.publishResult,
-        modelUsages: feedback.modelUsages,
-        nodeResults: feedback.nodeResults,
-      };
-      setData(nextData);
-      await refreshSystem(feedback.snapshot);
-      setActiveTurn(Math.max(0, feedback.snapshot.turns.length - 1));
-      setIsPaused(false);
-      setStatus("已确认发布并完成评论回流");
-      setPublishDialogOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "发布闭环失败");
-    } finally {
-      setPublishBusy(false);
-    }
-  }, [data, refreshSystem, snapshot]);
-
-  const active = snapshot?.turns[activeTurn];
-  const copyDraft = React.useCallback(() => {
-    if (!snapshot?.publishDraft) {
-      setStatus("发布稿尚未生成");
-      return;
-    }
-
-    const text = formatDraft(snapshot);
-    if (!navigator.clipboard?.writeText) {
-      setStatus("当前浏览器不支持一键复制，请在发布预览中手动选取。");
-      return;
-    }
-
-    void navigator.clipboard.writeText(text)
-      .then(() => setStatus("发布草稿已复制"))
-      .catch(() => setError("复制草稿失败，请手动选取发布预览内容。"));
-  }, [snapshot]);
-
-  const requestCommunityAction = React.useCallback((action: CommunityAction) => {
-    if (!data?.publishResult) {
-      setStatus("请先生成圈子帖并完成发布确认，再进行社区互动。");
-      return;
-    }
-
-    setPendingCommunityAction(action);
-  }, [data?.publishResult]);
-
-  const confirmCommunityAction = React.useCallback(async () => {
-    if (!pendingCommunityAction || !data?.publishResult) {
-      setPendingCommunityAction(null);
-      return;
-    }
-
-    setCommunityActionBusy(true);
+  async function openRoundtable() {
+    setMode("roundtable");
+    setRoundtableStage("radar");
+    setExperiment(null);
     setError(null);
-    try {
-      if (pendingCommunityAction.kind === "reaction") {
-        const confirmation = data.providerMode === "live"
-          ? await createConfirmation({ action: "reaction", subject: data.publishResult.id })
-          : undefined;
-        await react(data.publishResult.id, pendingCommunityAction.type, confirmation?.token);
-        setStatus("社区互动已确认发送");
-      } else {
-        const confirmation = data.providerMode === "live"
-          ? await createConfirmation({ action: "comment", subject: data.publishResult.id })
-          : undefined;
-        await createHostComment(data.publishResult.id, pendingCommunityAction.content, confirmation?.token);
-        setStatus("刘看山主持评论已确认发送");
+    if (!topics.length) {
+      setBusy("正在拉取知乎热榜...");
+      try {
+        await loadTopics();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "热榜加载失败，已准备使用演示缓存。");
+      } finally {
+        setBusy(null);
       }
-      setPendingCommunityAction(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "社区互动发送失败");
-    } finally {
-      setCommunityActionBusy(false);
     }
-  }, [data?.publishResult, pendingCommunityAction]);
+  }
+
+  async function startRoundtable(topicId: string) {
+    setBusy("正在开启实时工作流：拉取热榜...");
+    setError(null);
+    setSnapshot(null);
+    setRoundtableStage("radar");
+    setMode("roundtable");
+
+    try {
+      if (typeof window === "undefined" || !("EventSource" in window)) {
+        setBusy("当前环境不支持 SSE，正在使用一次性兜底流程...");
+        const result = await runWorkflow(false, topicId);
+        setTopics(result.topics);
+        setSnapshot(result.snapshot);
+        setPublishConfirmation(result.publishConfirmation);
+        setRoundtableStage("prepare");
+        scrollToTop();
+        return;
+      }
+
+      streamWorkflow({
+        topicId,
+        publish: false,
+        maxRetries: 1,
+        onEvent: (event) => {
+          if (event.type === "radar") {
+            setTopics(event.topics);
+            setSnapshot(event.snapshot);
+            setBusy("热榜已锁定，正在重构议题...");
+            return;
+          }
+          if (event.type === "prepare") {
+            setSnapshot(event.snapshot);
+            setRoundtableStage("prepare");
+            setBusy("证据池已完成，正在生成可发起的讨论方案...");
+            scrollToTop();
+            return;
+          }
+          if (event.type === "agent_briefing") {
+            setSnapshot(event.snapshot);
+            setBusy("主持任务卡已生成，正在校验讨论是否有张力、证据和参与空间...");
+            return;
+          }
+          if (event.type === "debate_turn") {
+            setSnapshot(event.snapshot);
+            setBusy(`${speakerMeta[event.turn.speaker].name} 正在发言...`);
+            return;
+          }
+          if (event.type === "debate_done") {
+            setSnapshot(event.snapshot);
+            setBusy("讨论方案已完成，正在生成圈子帖和引导问题...");
+            return;
+          }
+          if (event.type === "publish") {
+            setSnapshot(event.snapshot);
+            setPublishConfirmation(undefined);
+            setBusy("发布预览已生成，可以继续查看主持校验和圈子帖草稿。");
+            return;
+          }
+          if (event.type === "feedback") {
+            setSnapshot(event.snapshot);
+            setRoundtableStage("feedback");
+            return;
+          }
+          if (event.type === "error") {
+            setError(event.message);
+          }
+        },
+        onError: (message) => {
+          setError(message);
+          void startRoundtableFallback(topicId);
+        },
+        onRetry: () => {
+          setBusy("实时流连接抖动，正在自动重连一次...");
+        },
+        onDone: () => {
+          setBusy(null);
+        },
+      });
+    } catch (err) {
+      setError(friendlyError(err, "讨论方案生成失败"));
+      setBusy(null);
+    }
+  }
+
+  async function startRoundtableFallback(topicId: string) {
+    setBusy("正在查站内证据、全网背景并生成讨论方案...");
+    setError(null);
+    try {
+      const result = await runWorkflow(false, topicId);
+      setTopics(result.topics);
+      setSnapshot(result.snapshot);
+      setPublishConfirmation(result.publishConfirmation);
+      setRoundtableStage("prepare");
+      setMode("roundtable");
+      scrollToTop();
+    } catch (err) {
+      setError(friendlyError(err, "讨论方案生成失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmRoundtablePublish() {
+    if (!snapshot?.publishDraft) return;
+
+    setBusy("正在用户确认后发布，并回收圈子评论做复盘...");
+    setError(null);
+    try {
+      const confirmation = publishConfirmation ?? await createConfirmation({
+        action: "publish",
+        snapshot,
+      });
+      const published = await confirmPublish(snapshot, confirmation.token);
+      const feedback = await analyzeFeedback(published.snapshot, published.publishResult);
+      setSnapshot(feedback.snapshot);
+      setPublishConfirmation(undefined);
+      setRoundtableStage("feedback");
+    } catch (err) {
+      setError(friendlyError(err, "发布或评论回流失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function resetRoundtable() {
+    setRoundtableStage("radar");
+    setSnapshot(null);
+    setPublishConfirmation(undefined);
+    setError(null);
+    scrollToTop();
+  }
+
+  function openIdeaLab() {
+    setMode("idea");
+    setExperiment(null);
+    setPublishConfirmation(undefined);
+    setError(null);
+    scrollToTop();
+  }
+
+  async function startExperiment(nextIdea = idea) {
+    const cleanIdea = nextIdea.trim();
+    if (!cleanIdea) {
+      setError("先写一个脑洞，我们再帮它上场测试。");
+      return;
+    }
+
+    setBusy("正在生成 3 个可测试版本...");
+    setError(null);
+    try {
+      const result = await generateExperiment(cleanIdea);
+      setExperiment(result.experiment);
+      setSelectedVariantIds(result.experiment.selectedVariantIds);
+      setPublishConfirmation(undefined);
+      setMode("idea");
+    } catch (err) {
+      setError(friendlyError(err, "生成试验失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function openExperimentPublishPreview() {
+    if (!experiment) return;
+    if (!selectedVariantIds.length) {
+      setError("至少选择一个版本才能发起测试。");
+      return;
+    }
+
+    setBusy("正在生成圈子帖和 A/B/C 评论...");
+    setError(null);
+    try {
+      const result = await previewExperimentPublish(experiment, selectedVariantIds);
+      setExperiment(result.experiment);
+      setPublishConfirmation(result.publishConfirmation);
+    } catch (err) {
+      setError(friendlyError(err, "发布预览生成失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmExperimentFlowPublish() {
+    if (!experiment) return;
+
+    setBusy("正在发布并创建测试选项...");
+    setError(null);
+    try {
+      const published = await confirmExperimentPublish(experiment, publishConfirmation?.token);
+      const collected = await collectExperimentFeedback(published.experiment);
+      setExperiment(collected.experiment);
+      setPublishConfirmation(undefined);
+    } catch (err) {
+      setError(friendlyError(err, "发布或反馈回收失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function buildExperimentFlowReport() {
+    if (!experiment) return;
+
+    setBusy("正在把真实反馈转成决策报告...");
+    setError(null);
+    try {
+      const result = await generateExperimentReport(experiment);
+      setExperiment(result.experiment);
+    } catch (err) {
+      setError(friendlyError(err, "报告生成失败"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function toggleVariant(id: IdeaVariantId) {
+    setSelectedVariantIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((item) => item !== id);
+      }
+      return [...current, id].sort((a, b) => ["A", "B", "C"].indexOf(a) - ["A", "B", "C"].indexOf(b));
+    });
+  }
+
+  function iterateIdea() {
+    const nextIdea = experiment?.report?.finalPositioning ?? experiment?.idea ?? idea;
+    setIdea(nextIdea);
+    setExperiment(null);
+    setPublishConfirmation(undefined);
+    setError(null);
+    scrollToTop();
+  }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <div className="brand">知辩圆桌</div>
-          <div className="subtitle">刘看山主持的知乎 AI 观点实验室</div>
-        </div>
-        <div className="top-flow" aria-label="Demo 流程">
-          {["热榜", "证据", "圆桌", "发布", "回流"].map((step) => (
-            <span key={step}>{step}</span>
-          ))}
-        </div>
-        <div className="top-actions">
-          <button className="ghost-button" onClick={() => load(false, snapshot?.selectedTopic?.id)}>
-            <RefreshCcw size={16} /> 重播 Demo
-          </button>
-          <button className="ghost-button" onClick={() => playStream(false, snapshot?.selectedTopic?.id)}>
-            <Radio size={16} /> 路演模式
-          </button>
-          <button className="ghost-button" onClick={() => setIsPaused((value) => !value)}>
-            {isPaused ? <Play size={16} /> : <Pause size={16} />} {isPaused ? "继续轮播" : "暂停轮播"}
-          </button>
-          <button className="primary-button" onClick={() => setPublishDialogOpen(true)}>
-            <Send size={16} /> 生成圈子帖
-          </button>
-        </div>
+    <main className="experiment-shell">
+      <header className="experiment-topbar">
+        <button className="brand-lockup brand-button" onClick={() => setMode("home")} aria-label="回到知辩圆桌首页">
+          <span>创作者和圈主的 AI 讨论组织台</span>
+          <strong>知辩圆桌</strong>
+        </button>
+        {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
       </header>
 
-      {error ? <div className="error-strip"><AlertTriangle size={16} /> {error}</div> : null}
+      {error ? <div className="error-strip">{error}</div> : null}
+      {busy ? <BusyStrip label={busy} /> : null}
 
-      <section className="hero-strip">
-        <div>
-          <span className="mission-label">知乎热榜研究室</span>
-          <h1>把热榜变成一场有证据、有反驳、有共识的圆桌讨论</h1>
-          <p>AI 的位置不是替用户下结论，而是帮知乎把散乱讨论组织成可发布、可回流、可继续追问的社区议题。</p>
-        </div>
-        <div className="mission-proof">
-          <span>夺奖自检</span>
-          <strong>{readinessValue}</strong>
-          <small>{readinessLabel}</small>
-        </div>
-      </section>
+      {mode === "home" ? (
+        <HomeEntry onRoundtable={() => void openRoundtable()} onIdeaLab={openIdeaLab} />
+      ) : null}
 
-      <section className="workspace">
-        <aside className="left-rail">
-          <PanelTitle icon={<Gauge size={17} />} title="热榜雷达" />
-          {data?.topics.slice(0, 3).map((topic, index) => (
-            <button
-              key={topic.id}
-              className={`topic-card ${topic.id === snapshot?.selectedTopic?.id ? "selected" : ""}`}
-              onClick={() => load(false, topic.id).catch((err) => {
-                setError(err instanceof Error ? err.message : "切换热榜话题失败");
-                setStatus("热榜话题切换失败");
-              })}
-            >
-              <span><em>{index + 1}</em>{topic.title}</span>
-              <strong>讨论潜力 {topic.discussionPotential ?? topic.debateScore}</strong>
-              <small>{topic.reason}</small>
-            </button>
-          ))}
-          <button className="text-link" onClick={() => setStatus("路演默认展示前三个高潜话题，完整热榜由 hot_list provider 保留。")}>查看完整热榜 &gt;</button>
-          <QuotaPanel quota={quota} />
-          <StatusPanel status={zhihuStatus} failures={data?.providerFailures ?? []} />
-        </aside>
+      {mode === "roundtable" && roundtableStage === "radar" ? (
+        <HotRadar topics={topics} onSelect={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
+      ) : null}
 
-        <section className="stage">
-          <div className="stage-header">
-            <div>
-              <span className="stage-kicker">{status}</span>
-              <h2>{snapshot?.rewrittenQuestion ?? "正在等待议题重构"}</h2>
-            </div>
-            <div className="stage-badge"><Sparkles size={16} /> {stageLabel(snapshot?.stage)}</div>
-          </div>
+      {mode === "roundtable" && roundtableStage === "prepare" && snapshot ? (
+        <EvidencePrep snapshot={snapshot} onNext={() => setRoundtableStage("debate")} />
+      ) : null}
 
-          <Roundtable activeSpeaker={active?.speaker ?? "liu"} turns={snapshot?.turns ?? []} />
+      {mode === "roundtable" && roundtableStage === "debate" && snapshot ? (
+        <RoundtableView snapshot={snapshot} onBack={() => setRoundtableStage("prepare")} onNext={() => setRoundtableStage("publish")} />
+      ) : null}
 
-          <div className="transcript">
-            <PanelTitle icon={<MessageSquare size={17} />} title="实时发言流" />
-            {snapshot?.turns.map((turn, index) => (
-              <button
-                key={turn.id}
-                className={`line ${index === activeTurn ? "active" : ""}`}
-                onClick={() => setActiveTurn(index)}
-              >
-                <span>{speakerMeta[turn.speaker].name}</span>
-                <p>{turn.content}</p>
-              </button>
-            ))}
-          </div>
-        </section>
+      {mode === "roundtable" && roundtableStage === "publish" && snapshot ? (
+        <RoundtablePublishView snapshot={snapshot} onBack={() => setRoundtableStage("debate")} onConfirm={() => void confirmRoundtablePublish()} />
+      ) : null}
 
-        <aside className="right-rail">
-          <DiscussionSummaryPanel
-            data={data}
-            onPublish={() => setPublishDialogOpen(true)}
-            onCopy={copyDraft}
-          />
-          <FeedbackPanel snapshot={snapshot} published={Boolean(data?.publishResult)} />
-          <details className="advanced-details">
-            <summary>技术细节 / 评分自检</summary>
-            <EvidencePanel snapshot={snapshot} />
-            <ViewpointPanel snapshot={snapshot} />
-            <PublishPanel
-              data={data}
-              onCopy={copyDraft}
-              onReaction={() => requestCommunityAction({
-                kind: "reaction",
-                type: "inspired",
-                title: "确认发送「有启发」互动？",
-                body: "真实知乎环境下，这一步会调用 reaction 接口。为了避免自动替用户互动，必须由你二次确认。",
-                confirmText: "确认发送互动",
-              })}
-              onHostComment={() => requestCommunityAction({
-                kind: "comment",
-                content: "刘看山补充：欢迎继续围绕证据讨论。",
-                title: "确认让刘看山补充主持评论？",
-                body: "真实知乎环境下，这一步会调用评论创建接口。评论发布前必须由用户确认。",
-                confirmText: "确认发送评论",
-              })}
-            />
-            <AgentBriefPanel snapshot={snapshot} />
-            <ModelPanel data={data} />
-            <NodeTimeline snapshot={snapshot} />
-            <ReadinessPanel readiness={readiness} />
-          </details>
-        </aside>
-      </section>
+      {mode === "roundtable" && roundtableStage === "feedback" && snapshot ? (
+        <RoundtableFeedbackView snapshot={snapshot} onNextRound={resetRoundtable} />
+      ) : null}
 
-      <PublishConfirmDialog
-        open={publishDialogOpen}
-        busy={publishBusy}
-        snapshot={snapshot}
-        onCancel={() => setPublishDialogOpen(false)}
-        onConfirm={confirmAndPublish}
-      />
-      <CommunityActionDialog
-        action={pendingCommunityAction}
-        busy={communityActionBusy}
-        onCancel={() => setPendingCommunityAction(null)}
-        onConfirm={confirmCommunityAction}
-      />
+      {mode === "idea" && ideaStage === "Draft" ? (
+        <IdeaHome
+          idea={idea}
+          onIdeaChange={setIdea}
+          onStart={() => void startExperiment()}
+          onExample={(value) => {
+            setIdea(value);
+            setError(null);
+          }}
+          onBack={() => setMode("home")}
+        />
+      ) : null}
+
+      {mode === "idea" && ideaStage === "Generated" && experiment ? (
+        <VariantSelection
+          experiment={experiment}
+          selectedVariantIds={selectedVariantIds}
+          onToggle={toggleVariant}
+          onRegenerate={() => void startExperiment(experiment.idea)}
+          onPublish={() => void openExperimentPublishPreview()}
+        />
+      ) : null}
+
+      {mode === "idea" && ideaStage === "PublishConfirm" && experiment ? (
+        <PublishPreview
+          experiment={experiment}
+          onBack={() => setExperiment({ ...experiment, stage: "Generated" })}
+          onConfirm={() => void confirmExperimentFlowPublish()}
+        />
+      ) : null}
+
+      {mode === "idea" && ideaStage === "Collecting" && experiment ? (
+        <ExperimentProgress experiment={experiment} onReport={() => void buildExperimentFlowReport()} />
+      ) : null}
+
+      {mode === "idea" && ideaStage === "ReportReady" && experiment ? (
+        <ExperimentReportView
+          experiment={experiment}
+          onIterate={iterateIdea}
+          onPitch={() => setError("路演稿生成会接在下一步；当前报告里的金句已经可直接上台使用。")}
+          onRetest={() => void startExperiment(experiment.report?.finalPositioning ?? experiment.idea)}
+        />
+      ) : null}
+
+      {(snapshot || experiment) ? (
+        <AdvancedDetails
+          snapshot={mode === "idea" ? experiment?.technicalSnapshot : snapshot}
+          experiment={experiment}
+          readiness={readiness}
+          zhihuStatus={zhihuStatus}
+          activeStage={mode === "idea" ? ideaStageLabels[ideaStage] : roundtableStageLabels[roundtableStage]}
+        />
+      ) : null}
     </main>
   );
 }
 
-function streamLabel(type: string) {
-  const labels: Record<string, string> = {
-    radar: "热榜雷达已锁定高潜议题",
-    prepare: "议题重构与证据池已准备",
-    agent_briefing: "四位 Agent 已拿到任务卡",
-    debate_turn: "圆桌正在发言和引用证据",
-    debate_done: "观点地图正在沉淀",
-    publish: "圈子发布预览已生成",
-    feedback: "评论回流分析已完成",
-  };
-  return labels[type] ?? "AI 圆桌运行中";
-}
-
-function stageLabel(stage?: RoundtableSnapshot["stage"]) {
-  const labels: Record<RoundtableSnapshot["stage"], string> = {
-    radar: "热榜雷达",
-    prepare: "议题准备",
-    debate: "圆桌讨论",
-    publish: "发布预览",
-    feedback: "评论回流",
-  };
-  return stage ? labels[stage] : "热榜雷达";
-}
-
-function PanelTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
-  return <div className="panel-title">{icon}<span>{title}</span></div>;
-}
-
-function Roundtable({ activeSpeaker, turns }: { activeSpeaker: DebateTurn["speaker"]; turns: DebateTurn[] }) {
-  const speakers: DebateTurn["speaker"][] = ["expert", "liu", "opponent", "public"];
+function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onIdeaLab: () => void }) {
   return (
-    <div className="roundtable">
-      <div className="table-core">
-        <div className="table-ring" />
-        <div className="table-center">共识沉淀</div>
+    <section className="hero-entry zhihu-hero">
+      <div className="hero-copy">
+        <span className="eyebrow">创作者 / 圈主 / 官方号的讨论组织台</span>
+        <h1>知辩圆桌</h1>
+        <p>把知乎热榜自动转化成高质量圈子讨论，并从评论区回收新观点，生成下一轮创作方向。</p>
       </div>
-      {speakers.map((speaker, index) => (
-        <div key={speaker} className={`agent agent-${index} ${activeSpeaker === speaker ? "speaking" : ""}`}>
-          <div className="avatar" style={{ borderColor: speakerMeta[speaker].color }}>
-            {speaker === "liu" ? "山" : speakerMeta[speaker].name.slice(0, 1)}
-          </div>
-          <strong>{speakerMeta[speaker].name}</strong>
-          <span>{speakerMeta[speaker].role}</span>
-        </div>
-      ))}
-      <div className="speech-bubble">
-        <strong>{speakerMeta[activeSpeaker].name}</strong>
-        <p>{turns.find((turn) => turn.speaker === activeSpeaker)?.claim ?? "正在把讨论拉回证据和问题本身。"}</p>
-      </div>
-    </div>
-  );
-}
-
-function EvidencePanel({ snapshot }: { snapshot?: RoundtableSnapshot }) {
-  return (
-    <section className="panel">
-      <PanelTitle icon={<CircleDot size={17} />} title="证据池" />
-      {snapshot?.evidence.slice(0, 4).map((ev) => (
-        <div key={ev.id} className="evidence">
-          <div><span className={`source ${ev.source}`}>{sourceLabel(ev.source)}</span><span>{ev.qualityScore}</span></div>
-          <strong>{ev.title}</strong>
-          <p>{ev.summary}</p>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function sourceLabel(source: string) {
-  if (source === "zhihu") return "知乎站内";
-  if (source === "global") return "全网背景";
-  return "Mock 兜底";
-}
-
-function DiscussionSummaryPanel({
-  data,
-  onPublish,
-  onCopy,
-}: {
-  data: WorkflowRunResponse | null;
-  onPublish: () => void;
-  onCopy: () => void;
-}) {
-  const snapshot = data?.snapshot;
-  const map = snapshot?.viewpointMap;
-  const firstEvidence = snapshot?.evidence.slice(0, 2) ?? [];
-  const draft = snapshot?.publishDraft;
-
-  return (
-    <section className="panel summary-panel">
-      <PanelTitle icon={<Activity size={17} />} title="讨论沉淀" />
-      <div className="summary-card evidence-summary">
-        <strong>证据</strong>
-        {firstEvidence.length ? (
-          firstEvidence.map((ev) => (
-            <p key={ev.id}><span className={`source ${ev.source}`}>{sourceLabel(ev.source)}</span>{ev.summary}</p>
-          ))
-        ) : (
-          <p>等待知乎站内与全网背景证据。</p>
-        )}
-      </div>
-      <div className="summary-card">
-        <strong>共识</strong>
-        {(map?.support.length ? map.support : draft?.consensus ?? []).slice(0, 2).map((item) => <p key={item}>{item}</p>)}
-      </div>
-      <div className="summary-card followup">
-        <strong>追问</strong>
-        <p>{map?.followups.at(0) ?? draft?.questions.at(0) ?? "下一轮会从评论区的新争议继续。"} </p>
-      </div>
-      <div className="summary-actions">
-        <button className="primary-button" onClick={onPublish}>
-          <Send size={16} /> 生成圈子帖
+      <div className="hero-actions">
+        <button className="primary-button hero-main-action" onClick={onRoundtable}>
+          从热榜生成讨论方案 <ArrowRight size={19} />
         </button>
-        <button className="ghost-button compact" onClick={onCopy}>
-          <ClipboardCopy size={15} /> 复制草稿
+        <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
+          测试一个脑洞 <Lightbulb size={17} />
         </button>
       </div>
-      <p className="summary-disclosure">{draft?.disclosure ?? "由 AI 圆桌辅助整理，发布前必须经过用户确认。"}</p>
-    </section>
-  );
-}
-
-function ViewpointPanel({ snapshot }: { snapshot?: RoundtableSnapshot }) {
-  const map = snapshot?.viewpointMap;
-  return (
-    <section className="panel">
-      <PanelTitle icon={<Activity size={17} />} title="观点地图" />
-      <MiniList title="支持" items={map?.support ?? []} />
-      <MiniList title="反对" items={map?.oppose ?? []} />
-      <MiniList title="事实" items={map?.facts ?? []} />
-      <MiniList title="追问" items={map?.followups ?? []} />
-    </section>
-  );
-}
-
-function PublishPanel({
-  data,
-  onCopy,
-  onReaction,
-  onHostComment,
-}: {
-  data: WorkflowRunResponse | null;
-  onCopy: () => void;
-  onReaction: () => void;
-  onHostComment: () => void;
-}) {
-  const draft = data?.snapshot.publishDraft;
-  return (
-    <section className="panel publish">
-      <PanelTitle icon={<Send size={17} />} title="发布预览" />
-      <h3>{draft?.title ?? "等待生成发布稿"}</h3>
-      <div className="title-options">
-        {data?.snapshot.titleOptions?.slice(0, 3).map((title) => <span key={title}>{title}</span>)}
-      </div>
-      <p>{draft?.opening}</p>
-      <button className="ghost-button compact" onClick={onCopy}><ClipboardCopy size={15} /> 复制草稿</button>
-      <div className="action-row">
-        <button className="mini-button" onClick={onReaction}>有启发</button>
-        <button className="mini-button" onClick={onHostComment}>主持评论</button>
+      <div className="promise-grid" aria-label="知辩圆桌能力">
+        <article>
+          <Search size={19} />
+          <strong>从热榜筛选适合组织讨论的话题</strong>
+          <span>判断争议度、资料丰富度、参与空间和后续创作价值。</span>
+        </article>
+        <article>
+          <ShieldCheck size={19} />
+          <strong>生成完整讨论包和圈子帖草稿</strong>
+          <span>包含开放问题、站队选项、引导评论、风险提醒和发布说明。</span>
+        </article>
+        <article>
+          <MessageSquare size={19} />
+          <strong>评论回流成下一轮内容来源</strong>
+          <span>识别高质量评论、新反方、真实经验和下一篇选题方向。</span>
+        </article>
       </div>
     </section>
   );
 }
 
-function FeedbackPanel({ snapshot, published }: { snapshot?: RoundtableSnapshot; published: boolean }) {
-  const insight = snapshot?.commentInsight;
-  const sentiment = normalizeSentiment(insight?.sentiment);
+function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: (topicId: string) => void; onIdeaLab: () => void }) {
   return (
-    <section className="panel">
-      <PanelTitle icon={<MessageSquare size={17} />} title="评论回流" />
-      {insight && published ? (
-        <>
-          <div className="sentiment">
-            <span data-testid="sentiment-support" style={{ width: `${sentiment.support}%` }} />
-            <span data-testid="sentiment-oppose" style={{ width: `${sentiment.oppose}%` }} />
-            <span data-testid="sentiment-neutral" style={{ width: `${sentiment.neutral}%` }} />
-          </div>
-          <MiniList title="高质量评论" items={insight.highQualityComments} />
-          <MiniList title="新争议" items={insight.newDisputes} />
-          <MiniList title="下一轮圆桌" items={insight.nextRoundSuggestions} />
-        </>
-      ) : (
-        <p className="empty-note">发布后会拉回评论，分析情绪、好观点和下一轮议题。</p>
-      )}
+    <section className="flow-card">
+      <PageHeading
+        icon={<BarChart3 size={20} />}
+        title="选题雷达"
+        subtitle="先从知乎热榜里挑一个值得组织讨论的话题。系统关注争议度、资料丰富度、普通用户参与空间和能否产生下一轮内容。"
+      />
+      <div className="topic-grid">
+        {topics.slice(0, 5).map((topic) => (
+          <TopicCard key={topic.id} topic={topic} onSelect={() => onSelect(topic.id)} />
+        ))}
+      </div>
+      <div className="flow-actions split">
+        <button className="ghost-button" onClick={onIdeaLab}>
+          不是热榜？测试一个脑洞 <Lightbulb size={16} />
+        </button>
+      </div>
     </section>
   );
 }
 
-function AgentBriefPanel({ snapshot }: { snapshot?: RoundtableSnapshot }) {
-  const briefs = snapshot?.agentBriefs ?? [];
+function TopicCard({ topic, onSelect }: { topic: Topic; onSelect: () => void }) {
+  const controversy = topic.controversyLevel === "high" || topic.debateScore >= 85 ? "高" : topic.debateScore >= 70 ? "中" : "低";
+  const evidence = topic.evidenceScore >= 82 ? "高" : topic.evidenceScore >= 68 ? "中" : "低";
+
   return (
-    <section className="panel">
-      <PanelTitle icon={<UsersRound size={17} />} title="Agent 任务卡" />
-      {briefs.length ? (
-        <div className="brief-grid">
-          {briefs.map((brief) => (
-            <div key={brief.speaker} className="brief-card">
-              <strong>{speakerMeta[brief.speaker].name}</strong>
-              <p>{brief.mission}</p>
-              <div>
-                <span>{brief.tone}</span>
-                <span>{brief.mustUseEvidenceIds.length ? `证据 ${brief.mustUseEvidenceIds.length}` : "用户视角"}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="empty-note">议题准备后会展示每个 Agent 的 mission、tone 和证据约束。</p>
-      )}
+    <article className="topic-card">
+      <div className="topic-card-header">
+        <span>热度 {topic.hotScore}</span>
+        <span>争议度 {controversy}</span>
+        <span>资料 {evidence}</span>
+      </div>
+      <h2>{topic.title}</h2>
+      <p>{topic.reason}</p>
+      <button className="primary-button" onClick={onSelect}>
+        生成讨论方案 <ArrowRight size={16} />
+      </button>
+    </article>
+  );
+}
+
+function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNext: () => void }) {
+  const topic = snapshot.selectedTopic;
+  const stance = snapshot.stancePreview;
+
+  return (
+    <section className="flow-card">
+      <PageHeading
+        icon={<ShieldCheck size={20} />}
+        title="讨论方案准备"
+        subtitle="AI 已把热榜标题改写成开放问题，并先建立证据池。接下来不是让 AI 自嗨聊天，而是为创作者生成可发布、可引导评论的讨论包。"
+      />
+      <div className="prep-grid">
+        <section className="prep-summary">
+          <span>原始热榜</span>
+          <h2>{topic?.title}</h2>
+          <span>重构后的知乎式问题</span>
+          <p>{snapshot.rewrittenQuestion}</p>
+          <span>讨论目标</span>
+          <p>让创作者、普通用户和圈子成员围绕这个开放问题给出立场、经验和反例，而不是只看一段摘要。</p>
+          <small>AI 会标注观点来源；无法核验的内容会被标为待验证。</small>
+        </section>
+        <section className="stance-card">
+          <h2>初步讨论设计</h2>
+          <MiniList title="支持观点" items={stance?.support ?? []} />
+          <MiniList title="反对观点" items={stance?.oppose ?? []} />
+          <MiniList title="背景事实" items={stance?.background ?? []} />
+          <MiniList title="适合参与的人" items={["相关创作者", "普通用户", "圈主/社区运营者", "有亲历经验的人"]} />
+        </section>
+      </div>
+      <div className="evidence-grid">
+        {snapshot.evidence.slice(0, 6).map((item) => (
+          <EvidenceCard key={item.id} evidence={item} />
+        ))}
+      </div>
+      <div className="flow-actions single">
+        <button className="primary-button" onClick={onNext} disabled={!snapshot.turns.length}>
+          {snapshot.turns.length ? "让刘看山校验讨论方案" : "正在生成主持校验..."} <ArrowRight size={16} />
+        </button>
+      </div>
     </section>
   );
 }
 
-function ModelPanel({ data }: { data: WorkflowRunResponse | null }) {
-  const usages = data?.modelUsages ?? [];
+function EvidenceCard({ evidence }: { evidence: Evidence }) {
   return (
-    <section className="panel">
-      <PanelTitle icon={<Bot size={17} />} title="模型分工" />
-      {usages.slice(-6).map((usage) => (
-        <div key={`${usage.role}-${usage.task}-${usage.latencyMs ?? 0}`} className="model-row">
-          <span>{usage.role}</span>
-          <strong>{usage.provider}/{usage.model}</strong>
-        </div>
-      ))}
-    </section>
+    <article className="evidence-card">
+      <SourceBadge evidence={evidence} />
+      <h3>{evidence.title}</h3>
+      <p>{evidence.summary}</p>
+      <small>质量分 {evidence.qualityScore} / 立场 {stanceLabel(evidence.stance)}</small>
+    </article>
   );
 }
 
-function NodeTimeline({ snapshot }: { snapshot?: RoundtableSnapshot }) {
+function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnapshot; onBack: () => void; onNext: () => void }) {
+  const activeSpeaker = snapshot.turns.at(-1)?.speaker ?? "liu";
+
   return (
-    <section className="panel">
-      <PanelTitle icon={<Layers3 size={17} />} title="工作流节点" />
-      <div className="timeline">
-        {snapshot?.nodeResults?.slice(-10).map((node) => (
-          <div key={`${node.id}-${node.startedAt}`} className={`node ${node.status}`}>
-            <span />
+    <section className="flow-card">
+      <PageHeading
+        icon={<Users size={20} />}
+        title="刘看山主持校验"
+        subtitle="刘看山不是陪聊 Bot，而是讨论主持人：检查标题是否可讨论、证据是否够用、反方是否成立、普通用户是否愿意回复。站内观点席不模拟具体知乎用户。"
+      />
+      <div className="seat-grid">
+        {(Object.keys(speakerMeta) as DebateTurn["speaker"][]).map((speaker) => (
+          <article key={speaker} className={`seat-card ${speaker} ${activeSpeaker === speaker ? "active" : ""}`}>
+            <div className="seat-avatar" aria-hidden="true">{seatInitial(speaker)}</div>
             <div>
-              <strong>{node.label}</strong>
-              <p>{node.summary}</p>
+              <strong>{speakerMeta[speaker].name}</strong>
+              <span>{speakerMeta[speaker].role}</span>
+              <small>{activeSpeaker === speaker ? "正在发言" : speakerMeta[speaker].source}</small>
             </div>
+          </article>
+        ))}
+        <div className="roundtable-center" aria-hidden="true">
+          <span>讨论包</span>
+        </div>
+      </div>
+      <div className="roundtable-layout">
+        <aside className="topic-rail">
+          <span>当前议题</span>
+          <h2>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</h2>
+          <MiniList title="发帖目标" items={["引发站队", "征集真实经验", "收集反方质疑", "沉淀下一篇内容方向"]} />
+          <MiniList title="事实证据" items={snapshot.viewpointMap?.facts ?? []} />
+        </aside>
+        <section className="turn-feed">
+          {snapshot.turns.map((turn) => (
+            <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
+          ))}
+        </section>
+        <aside className="viewpoint-rail">
+          <MiniList title="支持观点" items={snapshot.viewpointMap?.support ?? []} />
+          <MiniList title="反对观点" items={snapshot.viewpointMap?.oppose ?? []} />
+          <MiniList title="站队/追问素材" items={buildStandOptions(snapshot).concat(snapshot.viewpointMap?.followups ?? []).slice(0, 6)} />
+        </aside>
+      </div>
+      <div className="safety-note">
+        所有发言都服务于“讨论是否能被组织起来”：缺少证据的判断会被标记为待验证，容易引战的表达会被改成开放追问。
+      </div>
+      <div className="flow-actions">
+        <button className="ghost-button" onClick={onBack}>
+          <ChevronLeft size={16} /> 返回讨论方案
+        </button>
+        <button className="primary-button" onClick={onNext} disabled={!snapshot.publishDraft}>
+          {snapshot.publishDraft ? "生成发布策划" : "正在生成发布策划..."} <ArrowRight size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }) {
+  const usedEvidence = evidence.filter((item) => turn.evidenceIds.includes(item.id));
+
+  return (
+    <article className={`turn-card speaker-${turn.speaker}`}>
+      <div>
+        <strong>{speakerMeta[turn.speaker].name}</strong>
+        <span>{turn.claim}</span>
+      </div>
+      <p>{turn.content}</p>
+      <SourceLine evidence={usedEvidence} fallback={turn.evidenceIds.length === 0 ? "来源：AI 逻辑校验，待真人补充" : undefined} />
+      {turn.nextQuestion ? <small>追问：{turn.nextQuestion}</small> : null}
+    </article>
+  );
+}
+
+function seatInitial(speaker: DebateTurn["speaker"]) {
+  if (speaker === "liu") return "刘";
+  if (speaker === "expert") return "观";
+  if (speaker === "opponent") return "校";
+  return "问";
+}
+
+function RoundtablePublishView({ snapshot, onBack, onConfirm }: { snapshot: RoundtableSnapshot; onBack: () => void; onConfirm: () => void }) {
+  const draft = snapshot.publishDraft;
+
+  return (
+    <section className="flow-card publish-confirm">
+      <PageHeading
+        icon={<ClipboardList size={20} />}
+        title="发布策划与圈子帖预览"
+        subtitle="这里的核心产物不是总结，而是一套创作者可以直接用的讨论包：标题、开放问题、站队选项、引导评论、风险提醒和下一轮追问。所有发布内容均需用户确认。"
+      />
+      <div className="publish-grid">
+        <ReportBlock title="讨论目标" items={[draft?.opening ?? "把热点改写成可参与、可站队、可继续追问的圈子讨论。"]} />
+        <ReportBlock title="站队选项" items={buildStandOptions(snapshot)} />
+        <ReportBlock title="引导评论" items={draft?.questions.slice(0, 3) ?? []} />
+        <ReportBlock title="风险提醒" items={buildRiskReminders(snapshot)} />
+      </div>
+      <div className="post-preview">
+        <span>圈子帖草稿</span>
+        <h2>{draft?.title}</h2>
+        <pre>{formatPublishDraft(draft)}</pre>
+      </div>
+      <div className="flow-actions">
+        <button className="ghost-button" onClick={onBack}>
+          <ChevronLeft size={16} /> 返回主持校验
+        </button>
+        <button className="primary-button" onClick={onConfirm}>
+          确认发布到圈子 <Send size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function RoundtableFeedbackView({ snapshot, onNextRound }: { snapshot: RoundtableSnapshot; onNextRound: () => void }) {
+  const insight = snapshot.commentInsight;
+  const sentiment = normalizeSentiment(insight?.sentiment);
+
+  return (
+    <section className="flow-card feedback-view">
+      <PageHeading
+        icon={<MessageSquare size={20} />}
+        title="评论复盘与下一轮创作"
+        subtitle="发帖不是终点。知辩圆桌会把评论区里的站队、真实经验、反方质疑和补充资料，转成创作者下一步行动。"
+      />
+      <div className="feedback-hero">
+        <span>下一轮创作/讨论建议</span>
+        <h1>{insight?.nextRoundSuggestions[0] ?? `围绕「${snapshot.selectedTopic?.title}」继续讨论。`}</h1>
+        <p>因为评论区出现了新的反方视角、补充证据、真实经验和用户最关心的问题。</p>
+      </div>
+      <div className="sentiment-grid">
+        <SentimentCard label="支持当前方案" value={sentiment.support} />
+        <SentimentCard label="提出反方或质疑" value={sentiment.oppose} />
+        <SentimentCard label="中立补充证据" value={sentiment.neutral} />
+      </div>
+      <div className="report-grid">
+        <ReportBlock title="值得回复的评论" items={insight?.highQualityComments ?? []} />
+        <ReportBlock title="新的反方/追问" items={insight?.newDisputes ?? []} />
+        <ReportBlock title="下一篇内容方向" items={insight?.nextRoundSuggestions ?? []} />
+      </div>
+      <div className="flow-actions single">
+        <button className="primary-button" onClick={onNextRound}>
+          开启下一轮讨论策划 <ArrowRight size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function IdeaHome({
+  idea,
+  onIdeaChange,
+  onStart,
+  onExample,
+  onBack,
+}: {
+  idea: string;
+  onIdeaChange: (value: string) => void;
+  onStart: () => void;
+  onExample: (value: string) => void;
+  onBack: () => void;
+}) {
+  return (
+    <section className="hero-entry idea-lab-entry">
+      <div className="hero-copy">
+        <span className="eyebrow">脑洞众测模式</span>
+        <h1>想法试验场</h1>
+        <p>同一套社区反馈引擎，也可以帮创作者和参赛者在投入前测试一个想法。</p>
+      </div>
+      <div className="idea-box">
+        <textarea
+          value={idea}
+          onChange={(event) => onIdeaChange(event.target.value)}
+          placeholder="例如：我想做一个 AI 工具，帮知乎创作者找到更有新意的选题。"
+          aria-label="输入你的脑洞"
+        />
+        <button className="primary-button large" onClick={onStart}>
+          开始试验 <ArrowRight size={18} />
+        </button>
+      </div>
+      <div className="example-row" aria-label="示例脑洞">
+        {exampleIdeas.map((item, index) => (
+          <button key={item} onClick={() => onExample(item)}>
+            <Lightbulb size={16} />
+            {index === 0 ? "测一个 Hackathon 项目 idea" : index === 1 ? "测一个知乎文章选题" : "测一个产品功能脑洞"}
+          </button>
+        ))}
+      </div>
+      <button className="ghost-button inline-back" onClick={onBack}>
+        <ChevronLeft size={16} /> 回到热榜讨论组织台
+      </button>
+    </section>
+  );
+}
+
+function VariantSelection({
+  experiment,
+  selectedVariantIds,
+  onToggle,
+  onRegenerate,
+  onPublish,
+}: {
+  experiment: IdeaExperiment;
+  selectedVariantIds: IdeaVariantId[];
+  onToggle: (id: IdeaVariantId) => void;
+  onRegenerate: () => void;
+  onPublish: () => void;
+}) {
+  return (
+    <section className="flow-card">
+      <PageHeading
+        icon={<Sparkles size={20} />}
+        title="生成了 3 个可测试版本"
+        subtitle="每个版本只保留标题、一句话、亮点和风险，避免评委和用户迷路。"
+      />
+      <div className="variant-grid">
+        {experiment.variants.map((variant) => (
+          <VariantCard
+            key={variant.id}
+            variant={variant}
+            selected={selectedVariantIds.includes(variant.id)}
+            onToggle={() => onToggle(variant.id)}
+          />
+        ))}
+      </div>
+      <div className="flow-actions">
+        <button className="ghost-button" onClick={onRegenerate}>
+          <RefreshCcw size={16} /> 重新生成
+        </button>
+        <button className="primary-button" onClick={onPublish}>
+          发布到圈子测试 <Send size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function VariantCard({ variant, selected, onToggle }: { variant: IdeaVariant; selected: boolean; onToggle: () => void }) {
+  return (
+    <article className={`variant-card ${selected ? "selected" : ""}`}>
+      <label>
+        <input type="checkbox" checked={selected} onChange={onToggle} />
+        <span>{variant.id}</span>
+      </label>
+      <h2>{variant.title}</h2>
+      <p>{variant.oneLiner}</p>
+      <div>
+        <strong>亮点</strong>
+        <span>{variant.highlight}</span>
+      </div>
+      <div className="risk">
+        <strong>风险</strong>
+        <span>{variant.risk}</span>
+      </div>
+    </article>
+  );
+}
+
+function PublishPreview({
+  experiment,
+  onBack,
+  onConfirm,
+}: {
+  experiment: IdeaExperiment;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
+  const preview = experiment.postPreview;
+
+  return (
+    <section className="flow-card publish-confirm">
+      <PageHeading
+        icon={<ClipboardList size={20} />}
+        title="发布前确认"
+        subtitle="系统只负责生成主帖和三个选项评论，真正发布前必须由你确认。"
+      />
+      <div className="post-preview">
+        <span>主帖预览</span>
+        <h2>{preview?.title}</h2>
+        <pre>{preview?.body}</pre>
+        <small>{preview?.disclosure}</small>
+      </div>
+      <div className="comment-preview-grid">
+        {preview?.optionComments.map((comment) => (
+          <article key={comment.variantId}>
+            <strong>评论 {comment.variantId}</strong>
+            <p>{comment.content}</p>
+          </article>
+        ))}
+      </div>
+      <div className="flow-actions">
+        <button className="ghost-button" onClick={onBack}>
+          <ChevronLeft size={16} /> 返回修改
+        </button>
+        <button className="primary-button" onClick={onConfirm}>
+          确认发布 <Send size={16} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ExperimentProgress({ experiment, onReport }: { experiment: IdeaExperiment; onReport: () => void }) {
+  const feedback = experiment.feedback ?? [];
+
+  return (
+    <section className="flow-card">
+      <PageHeading
+        icon={<BarChart3 size={20} />}
+        title="实验进行中"
+        subtitle="主帖负责说明，三个评论负责投票和吐槽；AI 把反馈转成决策建议。"
+      />
+      <div className="status-pills">
+        <span>已发布到圈子</span>
+        <span>已创建 {experiment.postPreview?.optionComments.length ?? 3} 个测试选项</span>
+        <span>{experiment.demoData ? "演示数据" : "真实反馈"}</span>
+      </div>
+      <div className="feedback-table" role="table" aria-label="实验反馈">
+        <div className="feedback-head" role="row">
+          <span>版本</span>
+          <span>点赞</span>
+          <span>评论</span>
+          <span>反馈质量</span>
+          <span>当前判断</span>
+        </div>
+        {feedback.map((item) => (
+          <div key={item.variantId} className="feedback-row" role="row">
+            <strong>{item.variantId} {variantTitle(experiment, item.variantId)}</strong>
+            <span>{item.likes}</span>
+            <span>{item.comments}</span>
+            <span>{qualityLabel(item.quality)}</span>
+            <span>{item.currentJudgment}</span>
           </div>
         ))}
       </div>
-    </section>
-  );
-}
-
-function StatusPanel({ status, failures }: { status: ZhihuStatusResponse | null; failures: NonNullable<WorkflowRunResponse["providerFailures"]> }) {
-  const visibleFailures = [...(status?.failures ?? []), ...failures].slice(-2);
-  return (
-    <section className="quota">
-      <PanelTitle icon={<ShieldCheck size={17} />} title="知乎接入状态" />
-      <div className="status-grid">
-        <span>Provider</span>
-        <strong>{status?.mode ?? "mock"}</strong>
-        <span>Token</span>
-        <strong>{status?.accessTokenConfigured ? "ready" : "demo"}</strong>
-      </div>
-      {visibleFailures.length ? (
-        <div className="fallback-note">
-          <Database size={14} /> API 暂不可用时已自动切换缓存案例
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function ReadinessPanel({ readiness }: { readiness: ReadinessResponse | null }) {
-  return (
-    <section className="panel">
-      <PanelTitle icon={<Zap size={17} />} title="夺奖自检" />
-      {readiness?.report.items.map((item) => (
-        <div key={item.key} className="score-row">
-          <span>{item.label}</span>
-          <strong>{item.score >= 80 ? "已就绪" : "需补强"}</strong>
-        </div>
-      ))}
-      <div className="targets">
-        <span>冲奖方向</span>
-        {readiness?.report.awardTargets.map((target) => <span key={target}>{target}</span>)}
+      <TypicalComments feedback={feedback} />
+      <div className="flow-actions single">
+        <button className="primary-button" onClick={onReport}>
+          生成试验报告 <ArrowRight size={16} />
+        </button>
+        <small>{experiment.demoData ? "当前样本较少，报告可信度中等；路演现场可切换真实评论。" : "真实评论已回流，报告可信度较高。"}</small>
       </div>
     </section>
   );
 }
 
-function QuotaPanel({ quota }: { quota: QuotaResponse | null }) {
+function ExperimentReportView({
+  experiment,
+  onIterate,
+  onPitch,
+  onRetest,
+}: {
+  experiment: IdeaExperiment;
+  onIterate: () => void;
+  onPitch: () => void;
+  onRetest: () => void;
+}) {
+  const report = experiment.report;
+
   return (
-    <section className="quota">
-      <PanelTitle icon={<CheckCircle2 size={17} />} title="API 配额" />
-      {quota?.quotas.slice(0, 3).map((item) => (
-        <div key={item.key} className="quota-row">
-          <span>{item.key}</span>
-          <strong>{item.remaining}/{item.limit}</strong>
-        </div>
-      ))}
+    <section className="flow-card report-view">
+      <div className="recommendation">
+        <span>推荐方向</span>
+        <h1>{report?.recommendedTitle}</h1>
+        <p>{report?.conclusion}</p>
+      </div>
+      <div className="report-grid">
+        <ReportBlock title="为什么它赢" items={report?.whyWinner ?? []} />
+        <ReportBlock title="用户真正关心什么" items={report?.userConcerns ?? []} />
+        <section className="report-block wide">
+          <h2>最终产品定位</h2>
+          <p>{report?.finalPositioning}</p>
+          <h3>路演金句</h3>
+          <blockquote>{report?.pitchLine}</blockquote>
+        </section>
+        <ReportBlock title="MVP 功能" items={report?.mvpFeatures ?? []} />
+      </div>
+      <div className="flow-actions three">
+        <button className="primary-button" onClick={onIterate}>继续优化这个方向</button>
+        <button className="ghost-button" onClick={onPitch}>生成路演稿</button>
+        <button className="ghost-button" onClick={onRetest}>再做一轮测试</button>
+      </div>
     </section>
   );
 }
 
-function PublishConfirmDialog({
-  open,
-  busy,
+function AdvancedDetails({
   snapshot,
-  onCancel,
-  onConfirm,
+  experiment,
+  readiness,
+  zhihuStatus,
+  activeStage,
 }: {
-  open: boolean;
-  busy: boolean;
-  snapshot?: RoundtableSnapshot;
-  onCancel: () => void;
-  onConfirm: () => void;
+  snapshot?: RoundtableSnapshot | null;
+  experiment?: IdeaExperiment | null;
+  readiness: ReadinessResponse | null;
+  zhihuStatus: ZhihuStatusResponse | null;
+  activeStage: string;
 }) {
-  if (!open) return null;
+  const modelUsages = experiment?.modelUsages ?? snapshot?.modelUsages ?? [];
+  const nodes = experiment?.nodeResults ?? snapshot?.nodeResults ?? [];
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="publish-confirm-title">
-        <button className="icon-button" aria-label="关闭发布确认" onClick={onCancel}>
-          <X size={18} />
-        </button>
-        <span className="dialog-label">人工确认节点</span>
-        <h2 id="publish-confirm-title">确认把圆桌结果发布到圈子？</h2>
-        <p>
-          真实知乎环境下，这一步会等待用户授权和二次确认。Demo 会模拟发布、初始化互动入口，并拉回评论做下一轮分析。
-        </p>
-        <div className="draft-preview">
-          <strong>{snapshot?.publishDraft?.title ?? "发布稿正在生成"}</strong>
-          <span>{snapshot?.publishDraft?.disclosure ?? "由 AI 圆桌辅助整理，用户确认发布。"}</span>
-        </div>
-        <div className="dialog-actions">
-          <button className="ghost-button" onClick={onCancel} disabled={busy}>返回修改</button>
-          <button className="primary-button" onClick={onConfirm} disabled={busy}>
-            <Send size={16} /> {busy ? "发布并回流中..." : "确认发布并回流"}
-          </button>
-        </div>
-      </section>
+    <details className="advanced-details">
+      <summary>技术细节 / 评委验证</summary>
+      <div className="advanced-grid">
+        <section>
+          <h2>调用接口</h2>
+          <p>热榜 API / 知乎站内搜索 / 全网搜索 / 圈子发布 / 评论列表 / reaction / 直答 Agent 可选。</p>
+          <p>
+            知乎 Provider：{zhihuStatus?.mode ?? "mock"}，
+            {zhihuStatus?.accessTokenConfigured || zhihuStatus?.appCredentialsConfigured ? "真实凭证已配置" : "当前演示兜底"}，
+            写操作必须用户确认。
+          </p>
+          {zhihuStatus?.hotListHours ? <p>热榜时间窗：最近 {zhihuStatus.hotListHours} 小时。</p> : null}
+          <p>当前阶段：{activeStage}</p>
+        </section>
+        <section>
+          <h2>证据与热榜</h2>
+          {(snapshot?.evidence ?? []).slice(0, 3).map((item) => (
+            <p key={item.id}><strong>{sourceLabel(item.source)}</strong> {item.summary}</p>
+          ))}
+          {!(snapshot?.evidence ?? []).length ? <p>当前使用演示兜底，真实接口可接入知乎站内搜索和全网搜索。</p> : null}
+        </section>
+        <section>
+          <h2>模型策略</h2>
+          <p>DeepSeek Flash 快速生成与分类，Kimi 负责中文表达，Mock 兜底。</p>
+          {modelUsages.length ? modelUsages.slice(-4).map((usage, index) => (
+            <p key={`${usage.role}-${usage.task}-${usage.model}-${index}`}>{usage.task}：{usage.provider}/{usage.model}{usage.fallbackUsed ? " fallback" : ""}</p>
+          )) : <p>完成主流程后将展示每次模型调用和 fallback 证据。</p>}
+        </section>
+        <section>
+          <h2>工作流节点</h2>
+          {nodes.length ? nodes.slice(-6).map((node, index) => (
+            <p key={`${node.id}-${node.startedAt}-${index}`}>{node.label}：{node.summary}</p>
+          )) : <p>实时工作流启动后会逐步出现节点记录。</p>}
+        </section>
+        <section>
+          <h2>安全边界</h2>
+          <p>不伪造真人，不自动发布，待验证标注，读接口失败可演示模式兜底。</p>
+          <p>站内观点席不模拟任何具体知乎用户，只提炼公开内容中的观点结构。</p>
+        </section>
+        <section>
+          <h2>完成度自检</h2>
+          <p>总分：{readiness?.report.totalScore ?? "--"}</p>
+          <p>{readiness?.report.awardTargets.join(" / ") ?? "等待完整报告"}</p>
+        </section>
+      </div>
+    </details>
+  );
+}
+
+function RoundtableStageStepper({ stage }: { stage: RoundtableUiStage }) {
+  const steps: RoundtableUiStage[] = ["radar", "prepare", "debate", "publish", "feedback"];
+  const activeIndex = Math.max(0, steps.indexOf(stage));
+
+  return (
+    <nav className="stage-stepper" aria-label="讨论组织流程">
+      {steps.map((step, index) => (
+        <span key={step} className={index <= activeIndex ? "active" : ""}>
+          {roundtableStageLabels[step]}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function IdeaStageStepper({ stage }: { stage: IdeaExperimentStage }) {
+  const steps: IdeaExperimentStage[] = ["Draft", "Generated", "PublishConfirm", "Collecting", "ReportReady"];
+  const activeIndex = Math.max(0, steps.indexOf(stage));
+
+  return (
+    <nav className="stage-stepper" aria-label="试验流程">
+      {steps.map((step, index) => (
+        <span key={step} className={index <= activeIndex ? "active" : ""}>
+          {ideaStageLabels[step]}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
+function BusyStrip({ label }: { label: string }) {
+  return (
+    <div className="busy-strip">
+      <Loader2 size={16} className="spin" />
+      {label}
     </div>
   );
 }
 
-function CommunityActionDialog({
-  action,
-  busy,
-  onCancel,
-  onConfirm,
-}: {
-  action: CommunityAction | null;
-  busy: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  if (!action) return null;
-
+function PageHeading({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="community-confirm-title">
-        <button className="icon-button" aria-label="关闭社区互动确认" onClick={onCancel}>
-          <X size={18} />
-        </button>
-        <span className="dialog-label">社区互动确认</span>
-        <h2 id="community-confirm-title">{action.title}</h2>
-        <p>{action.body}</p>
-        <div className="draft-preview">
-          <strong>{action.kind === "reaction" ? "Reaction" : "Comment"}</strong>
-          <span>{action.kind === "reaction" ? action.type : action.content}</span>
-        </div>
-        <div className="dialog-actions">
-          <button className="ghost-button" onClick={onCancel} disabled={busy}>取消</button>
-          <button className="primary-button" onClick={onConfirm} disabled={busy}>
-            <Send size={16} /> {busy ? "发送中..." : action.confirmText}
-          </button>
-        </div>
-      </section>
+    <div className="page-heading">
+      <span>{icon}</span>
+      <div>
+        <h1>{title}</h1>
+        <p>{subtitle}</p>
+      </div>
     </div>
   );
+}
+
+function TypicalComments({ feedback }: { feedback: VariantFeedback[] }) {
+  const comments = feedback.flatMap((item) =>
+    item.typicalComments.slice(0, 1).map((comment) => ({ id: item.variantId, comment })),
+  );
+
+  return (
+    <section className="typical-comments">
+      <h2><MessageSquare size={17} /> 典型评论</h2>
+      {comments.map((item) => (
+        <p key={`${item.id}-${item.comment}`}><strong>{item.id}</strong>{item.comment}</p>
+      ))}
+    </section>
+  );
+}
+
+function ReportBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <section className="report-block">
+      <h2>{title}</h2>
+      {items.slice(0, 4).map((item) => (
+        <p key={item}><CheckCircle2 size={15} /> {item}</p>
+      ))}
+    </section>
+  );
+}
+
+function buildStandOptions(snapshot: RoundtableSnapshot): string[] {
+  const draft = snapshot.publishDraft;
+  const support = snapshot.viewpointMap?.support ?? [];
+  const disputes = snapshot.viewpointMap?.disputes ?? [];
+  const questions = draft?.questions ?? snapshot.viewpointMap?.followups ?? [];
+
+  return [
+    `A. ${support[0] ?? draft?.consensus[0] ?? "这个话题值得发起讨论，重点应看真实经验和过程证据。"}`,
+    `B. ${disputes[0] ?? "现在证据还不够，应该先把反方疑问摆出来。"}`,
+    `C. ${questions[0] ?? "普通用户更关心这个问题和自己有什么关系。"}`,
+    "D. 关键不在站队，而在具体场景、证据和参与者经验。",
+  ];
+}
+
+function buildRiskReminders(snapshot: RoundtableSnapshot): string[] {
+  const warnings = [
+    "不要把 AI 整理当成事实本身，无法核验的内容需要标注待验证。",
+    "不要替评论区预设唯一答案，问题要能容纳站队和反例。",
+    "所有发布内容必须用户确认，不能自动代表用户发帖或评论。",
+  ];
+
+  if ((snapshot.evidence.length ?? 0) < 3) {
+    warnings.unshift("当前证据数量偏少，适合先用作讨论引子，不适合作最终结论。");
+  }
+
+  return warnings;
 }
 
 function MiniList({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="mini-list">
       <strong>{title}</strong>
-      {items.slice(0, 2).map((item) => <p key={item}>{item}</p>)}
+      {items.slice(0, 3).map((item) => (
+        <span key={item}>{item}</span>
+      ))}
+      {!items.length ? <span>等待更多证据回流。</span> : null}
     </div>
   );
 }
 
-function formatDraft(snapshot: RoundtableSnapshot) {
-  const draft = snapshot.publishDraft;
+function SourceBadge({ evidence }: { evidence: Evidence }) {
+  return <span className={`source-badge ${evidence.source}`}>{sourceLabel(evidence.source)}</span>;
+}
+
+function SourceLine({ evidence, fallback }: { evidence: Evidence[]; fallback?: string }) {
+  if (!evidence.length) {
+    return <span className="source-line">{fallback ?? "来源：待验证"}</span>;
+  }
+
+  const counts = new Map<string, number>();
+  for (const item of evidence) {
+    const label = sourceLabel(item.source);
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+
+  return (
+    <span className="source-line">
+      来源：{[...counts.entries()].map(([label, count]) => `${label} ${count} 条`).join(" / ")}
+    </span>
+  );
+}
+
+function SentimentCard({ label, value }: { label: string; value: number }) {
+  return (
+    <article className="sentiment-card">
+      <span>{label}</span>
+      <strong>{value}%</strong>
+      <div><i style={{ width: `${value}%` }} /></div>
+    </article>
+  );
+}
+
+function formatPublishDraft(draft: RoundtableSnapshot["publishDraft"]) {
   if (!draft) return "";
+
   return [
-    draft.title,
-    "",
+    "【讨论背景】",
     draft.opening,
     "",
-    "共识：",
-    ...draft.consensus.map((item, index) => `${index + 1}. ${item}`),
+    "【开放问题】",
+    draft.questions[0] ?? "如果你站在创作者 / 普通用户 / 平台生态的角度，会如何判断这个问题？",
     "",
-    "争议：",
-    ...draft.disputes.map((item, index) => `${index + 1}. ${item}`),
+    "【可以直接站队】",
+    ...draft.consensus.slice(0, 2).map((item, index) => `${String.fromCharCode(65 + index)}. ${item}`),
+    ...draft.disputes.slice(0, 2).map((item, index) => `${String.fromCharCode(67 + index)}. ${item}`),
     "",
-    "继续讨论：",
-    ...draft.questions.map((item, index) => `${index + 1}. ${item}`),
+    "【想邀请大家补充】",
+    ...draft.questions.slice(0, 3).map((item, index) => `${index + 1}. ${item}`),
     "",
     draft.disclosure,
   ].join("\n");
+}
+
+function sourceLabel(source: Evidence["source"]) {
+  if (source === "zhihu") return "知乎站内";
+  if (source === "global") return "全网背景";
+  return "AI 整理";
+}
+
+function stanceLabel(stance: Evidence["stance"]) {
+  if (stance === "support") return "支持";
+  if (stance === "oppose") return "反对";
+  if (stance === "neutral") return "中立";
+  return "背景";
+}
+
+function variantTitle(experiment: IdeaExperiment, id: IdeaVariantId) {
+  return experiment.variants.find((variant) => variant.id === id)?.title ?? id;
+}
+
+function qualityLabel(quality: VariantFeedback["quality"]) {
+  return quality === "high" ? "高" : quality === "medium" ? "中" : "低";
 }
 
 const rootElement = document.getElementById("root");

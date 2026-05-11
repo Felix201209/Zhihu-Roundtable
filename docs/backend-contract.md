@@ -82,9 +82,31 @@ DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
 
 - `ZHIHU_PROVIDER=live`
 - `ZHIHU_API_BASE_URL`
-- `ZHIHU_ACCESS_TOKEN`
+- `ZHIHU_APP_KEY`，官方文档里的 `app_key`，即知乎用户 token
+- `ZHIHU_APP_SECRET`，官方文档里的 `app_secret`
+- `ZHIHU_ACCESS_TOKEN`，`app_key` 的兼容别名
+- `ZHIHU_RING_ID`，指定默认发布圈子；不填时使用 `2029619126742656657`（黑客松脑洞补给站）
+- `ZHIHU_HOT_LIST_HOURS`，指定热榜最近 N 小时时间窗
 
-使用真实 `fetch` 时，`ZHIHU_API_BASE_URL` 必须是 `https://*.zhihu.com`，避免把 bearer token 发送到非知乎域；单元测试可通过 `fetchImpl` 注入假域。
+使用真实 `fetch` 时，`ZHIHU_API_BASE_URL` 必须是知乎 HTTPS 域名，避免把官方 HMAC 凭证发送到非知乎域；单元测试可通过 `fetchImpl` 注入假域。
+
+OpenAPI 鉴权按官方 HMAC 规则生成：
+
+```text
+sign_str = app_key:{app_key}|ts:{timestamp}|logid:{log_id}|extra_info:{extra_info}
+X-Sign = base64(hmac_sha256(sign_str, app_secret))
+```
+
+所有 live 请求都会带：
+
+```text
+X-App-Key
+X-Timestamp
+X-Log-Id
+X-Sign
+X-Extra-Info
+Content-Type: application/json
+```
 
 Live provider 对齐方案里的官方接口规划：
 
@@ -96,8 +118,11 @@ Live provider 对齐方案里的官方接口规划：
 - `POST /openapi/comment/create`
 - `GET /openapi/comment/list`
 - `POST /openapi/reaction`
+- 可选 `GET /openapi/feed/following`、`GET /openapi/user/following`、`GET /openapi/user/followers` 作为后续个性化入口；当前不放进主线，避免稀释“热榜讨论组织器”。
+- 可选故事/知识接口作为内容创意补充；当前主线不依赖，避免踩付费内容署名和非商用边界。
+- 可选知乎直答 Agent：通过 `defaultProvider=custom` + `CUSTOM_LLM_BASE_URL=https://api.zhihu.com/v1` 或 `ZHIHU_DIRECT_AGENT_BASE_URL` 接入 OpenAI-compatible `/chat/completions`。
 
-接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装；任何 live 失败都会记录在 `provider.failures[]` 并使用缓存案例继续演示。
+接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装；live 只读接口失败会记录在 `provider.failures[]` 并使用缓存或 mock 案例继续演示，live 写操作失败必须显式失败。
 
 官方限制已进入后端保护：
 
@@ -107,6 +132,38 @@ Live provider 对齐方案里的官方接口规划：
 - 其他圈子/发布/评论/reaction 也有本地 quota 计数。
 - `GET /api/quota` 可查看当前配额状态；读接口 live 配额耗尽会触发 fallback，不让路演中断。
 - 发布、评论、reaction 是真实社区写操作：live 模式下不会 fallback 成 mock 成功，必须显式失败或由用户切回 mock-safe 路演。
+- 服务层默认拒绝 live 写操作；HTTP 层只有在消费一次性 confirmation token 后，才会以 `allowLiveWrite: true` 调用发布、主持评论、reaction 或想法试验发布。
+
+live 只读接口还有本地文件缓存，默认写入 `.cache/zhihu-openapi-cache.json`：
+
+- `ring/detail`：24 小时
+- `hot_list`：30 分钟
+- `zhihu_search` / `global_search`：12 小时
+- `comment/list`：1 分钟
+- 失败/404：15 分钟负缓存
+
+缓存命中不会消耗本地 quota，也不会触发真实 HTTP 请求。写接口不缓存。
+
+## Zhihu OAuth
+
+为满足黑客松广场“知乎登录回调地址”字段，后端提供一组轻量 OAuth 端点：
+
+- `GET /api/oauth/status`
+  - 返回 `{ configured, clientIdConfigured, clientSecretConfigured, openApiAppKeyConfigured, openApiAppSecretConfigured, authorizeUrlConfigured, tokenUrlConfigured, callbackUrl, mode }`。
+- `GET /api/oauth/start`
+  - 未配置官方授权地址时返回 mock-safe 说明页，并展示可提交的 callback URL。
+  - 配置 `ZHIHU_OAUTH_AUTHORIZE_URL`、`ZHIHU_OAUTH_CLIENT_ID`、`ZHIHU_OAUTH_CLIENT_SECRET` 后跳转知乎授权页。
+- `GET /api/oauth/callback`
+  - 校验 `state` 和 `code`。
+  - 配置 `ZHIHU_OAUTH_TOKEN_URL` 后会向官方 token endpoint 换 token。
+
+线上提报时建议填写：
+
+```text
+https://你的线上-demo域名/api/oauth/callback
+```
+
+OAuth 不改变主线的开发者绑定接口：热榜、搜索、圈子发布、评论回流仍通过 `ZhihuProvider` 调用，写操作继续需要用户确认 token。
 
 ## HTTP API
 
@@ -119,7 +176,7 @@ Live provider 对齐方案里的官方接口规划：
   - 返回默认模型策略、Kimi/DeepSeek/知乎 token 是否配置。
 - `GET /api/zhihu/status`
   - 返回 `{ mode, accessTokenConfigured, baseUrlConfigured, failures, quotas }`。
-  - 用于 UI 显示 live/mock 状态、官方接口配额、以及现场 API 失败后的 fallback 证据。
+- 用于 UI 显示 live/mock 状态、官方接口配额、以及现场只读 API 失败后的 fallback 证据。
 - `GET /api/quota`
   - 返回 `{ quotas: ApiQuotaStatus[] }`。
 - `GET /api/ring/default`
@@ -139,6 +196,7 @@ Live provider 对齐方案里的官方接口规划：
 - `POST /api/workflow/confirmation`
   - body: `{ action: "publish" | "comment" | "reaction", snapshot?: RoundtableSnapshot, subject?: string }`
   - 为 live 写操作生成一次性确认 token。`publish` 绑定当前 snapshot；`comment/reaction` 绑定 publishId/targetId。
+  - token 消费后立即失效；action、subject 或 snapshot hash 不匹配会返回 `confirmation_mismatch`。
 - `POST /api/workflow/confirm-publish`
   - body: `{ snapshot: RoundtableSnapshot, ringId?: string, confirmationToken?: string }`
   - 用户确认后发布或 mock 发布。
@@ -146,10 +204,10 @@ Live provider 对齐方案里的官方接口规划：
   - 返回 `{ snapshot, publishResult, modelUsages, nodeResults }`，其中 `snapshot.nodeResults` 会追加 `publish` 节点。
 - `POST /api/workflow/comment`
   - body: `{ publishId: string, content: string, confirmationToken?: string }`
-  - 用户确认后让刘看山补主持评论。
+  - 用户确认后让刘看山补主持评论；live 模式缺 token 返回 `confirmation_required`。
 - `POST /api/workflow/reaction`
   - body: `{ targetId: string, type: "support" | "oppose" | "inspired" | "neutral", confirmationToken?: string }`
-  - 初始化或模拟“支持/反对/有启发”等轻互动入口。
+  - 初始化或模拟“支持/反对/有启发”等轻互动入口；live 模式缺 token 返回 `confirmation_required`。
 - `POST /api/workflow/feedback`
   - body: `{ snapshot: RoundtableSnapshot, publishResult?: { id: string }, publishId?: string, modelPolicy?: Partial<ModelPolicy> }`
   - 拉评论并用 AI 生成回流分析。
@@ -163,7 +221,8 @@ Live provider 对齐方案里的官方接口规划：
   - 返回 `{ topics, snapshot, publishResult?, providerMode, modelPolicy, modelUsages, nodeResults }`。
   - 同时返回 `providerFailures[]`，用于证明 live API 异常时系统不会中断路演。
 - `GET /api/workflow/stream?topicId=&publish=&ringId=&modelMode=&defaultProvider=&kimiModel=&deepseekFlashModel=&deepseekProModel=&fallbackToMock=`
-  - SSE 输出事件：`radar`、`prepare`、`agent_briefing`、`debate_turn`、`debate_done`、`publish`、`feedback`、`error`。
+  - SSE 输出事件：`radar`、`prepare`、`agent_briefing`、`debate_turn`、`debate_done`、`publish`、`error`。
+  - 只有 `publish=true` 且 mock-safe 场景才继续输出 `feedback`；live 模式禁止通过 SSE 自动发布。
 
 错误语义：
 
@@ -206,7 +265,7 @@ Live provider 对齐方案里的官方接口规划：
 - 议题重构：`question_rewrite`
 - 证据池：`evidence_pool`
 - 角色任务卡：`agent_briefing`
-- 多 Agent 圆桌：`debate`
+- 刘看山主持校验：`debate`
 - 观点地图：`viewpoint_map`
 - 发布预览：`publish_draft`、`publish_confirm`
 - 用户确认发布：`publish`
@@ -218,7 +277,7 @@ Live provider 对齐方案里的官方接口规划：
 UI 第一版只需要接两种方式之一：
 
 - 快速版：`POST /api/workflow/run` 一次拿完整结果，前端自己按阶段播放。
-- 路演版：`GET /api/workflow/stream` 用 SSE 逐步驱动圆桌动画和右侧面板增长。
+- 路演版：`GET /api/workflow/stream` 用 SSE 逐步驱动主持校验和右侧面板增长。
 - 手动版：`start -> prepare -> debate -> publish-draft -> confirm-publish -> feedback`，每一步都能传 `modelPolicy`，适合前端做“暂停/继续/重新生成”。
 
 所有发布默认 mock；接入真实知乎 API 时，写操作必须走确认 token，且失败不会被伪装为 mock 成功。前端不需要知道模型具体是谁，只读 `snapshot.modelUsages` 和 `snapshot.nodeResults` 做“AI 正在工作”的可视化。

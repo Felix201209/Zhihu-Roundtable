@@ -2,11 +2,25 @@ import type {
   QuotaResponse,
   ReadinessResponse,
   ConfirmationPayload,
+  ExperimentReportResponse,
+  ExperimentResponse,
+  TopicsResponse,
   WorkflowRunResponse,
   WorkflowStreamEvent,
   ZhihuStatusResponse,
 } from "./types.js";
-import type { RoundtableSnapshot } from "../core/types.js";
+import type { IdeaExperiment, IdeaVariantId, RoundtableSnapshot } from "../core/types.js";
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 const frontendModelKeys = [
   "modelMode",
@@ -28,7 +42,7 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(body.message ?? `${path} failed with ${response.status}`);
+    throw new ApiError(body.message ?? `${path} failed with ${response.status}`, response.status, body.error);
   }
 
   return response.json() as Promise<T>;
@@ -46,6 +60,13 @@ export async function runWorkflow(publish = false, topicId?: string): Promise<Wo
   });
 }
 
+export async function getTopics(): Promise<TopicsResponse> {
+  const params = new URLSearchParams();
+  applyFrontendModelQuery(params);
+  const query = params.toString();
+  return jsonFetch<TopicsResponse>(`/api/topics${query ? `?${query}` : ""}`);
+}
+
 export async function getQuota(): Promise<QuotaResponse> {
   return jsonFetch<QuotaResponse>("/api/quota");
 }
@@ -61,6 +82,53 @@ export async function getReadiness(snapshot: RoundtableSnapshot): Promise<Readin
   });
 }
 
+export async function generateExperiment(idea: string): Promise<ExperimentResponse> {
+  return jsonFetch<ExperimentResponse>("/api/experiment/generate", {
+    method: "POST",
+    body: JSON.stringify({
+      idea,
+      modelPolicy: getFrontendModelPolicy(),
+    }),
+  });
+}
+
+export async function previewExperimentPublish(
+  experiment: IdeaExperiment,
+  selectedVariantIds: IdeaVariantId[],
+): Promise<ExperimentResponse> {
+  return jsonFetch<ExperimentResponse>("/api/experiment/publish-preview", {
+    method: "POST",
+    body: JSON.stringify({ experiment, selectedVariantIds }),
+  });
+}
+
+export async function confirmExperimentPublish(
+  experiment: IdeaExperiment,
+  confirmationToken?: string,
+): Promise<ExperimentResponse> {
+  return jsonFetch<ExperimentResponse>("/api/experiment/confirm-publish", {
+    method: "POST",
+    body: JSON.stringify({ experiment, confirmationToken }),
+  });
+}
+
+export async function collectExperimentFeedback(experiment: IdeaExperiment): Promise<ExperimentResponse> {
+  return jsonFetch<ExperimentResponse>("/api/experiment/collect", {
+    method: "POST",
+    body: JSON.stringify({ experiment }),
+  });
+}
+
+export async function generateExperimentReport(experiment: IdeaExperiment): Promise<ExperimentReportResponse> {
+  return jsonFetch<ExperimentReportResponse>("/api/experiment/report", {
+    method: "POST",
+    body: JSON.stringify({
+      experiment,
+      modelPolicy: getFrontendModelPolicy(),
+    }),
+  });
+}
+
 export async function confirmPublish(snapshot: RoundtableSnapshot, confirmationToken?: string): Promise<WorkflowRunResponse> {
   return jsonFetch<WorkflowRunResponse>("/api/workflow/confirm-publish", {
     method: "POST",
@@ -68,10 +136,13 @@ export async function confirmPublish(snapshot: RoundtableSnapshot, confirmationT
   });
 }
 
-export async function analyzeFeedback(snapshot: RoundtableSnapshot, publishId?: string): Promise<Pick<WorkflowRunResponse, "snapshot" | "modelUsages" | "nodeResults">> {
+export async function analyzeFeedback(
+  snapshot: RoundtableSnapshot,
+  publishResult?: WorkflowRunResponse["publishResult"],
+): Promise<Pick<WorkflowRunResponse, "snapshot" | "modelUsages" | "nodeResults">> {
   return jsonFetch<Pick<WorkflowRunResponse, "snapshot" | "modelUsages" | "nodeResults">>("/api/workflow/feedback", {
     method: "POST",
-    body: JSON.stringify({ snapshot, publishId }),
+    body: JSON.stringify({ snapshot, publishResult }),
   });
 }
 
@@ -107,6 +178,8 @@ export function streamWorkflow(input: {
   onEvent: (event: WorkflowStreamEvent) => void;
   onError: (message: string) => void;
   onDone: () => void;
+  onRetry?: (attempt: number) => void;
+  maxRetries?: number;
 }) {
   const params = new URLSearchParams({
     publish: String(input.publish ?? false),
@@ -115,7 +188,10 @@ export function streamWorkflow(input: {
   if (input.topicId) {
     params.set("topicId", input.topicId);
   }
-  const source = new EventSource(`/api/workflow/stream?${params.toString()}`);
+  let source: EventSource | undefined;
+  let closed = false;
+  let retries = 0;
+  const maxRetries = input.maxRetries ?? 1;
   const eventNames: WorkflowStreamEvent["type"][] = [
     "radar",
     "prepare",
@@ -127,34 +203,60 @@ export function streamWorkflow(input: {
     "error",
   ];
 
-  eventNames.forEach((name) => {
-    source.addEventListener(name, (message) => {
-      let parsed: WorkflowStreamEvent;
+  const close = () => {
+    closed = true;
+    source?.close();
+  };
 
-      try {
-        parsed = JSON.parse((message as MessageEvent).data) as WorkflowStreamEvent;
-      } catch {
-        input.onError("SSE 事件解析失败，已停止本轮实时流。");
-        input.onDone();
-        source.close();
+  const finish = () => {
+    input.onDone();
+    close();
+  };
+
+  const connect = () => {
+    source?.close();
+    source = new window.EventSource(`/api/workflow/stream?${params.toString()}`);
+
+    eventNames.forEach((name) => {
+      source?.addEventListener(name, (message) => {
+        let parsed: WorkflowStreamEvent;
+
+        try {
+          parsed = JSON.parse((message as MessageEvent).data) as WorkflowStreamEvent;
+        } catch {
+          input.onError("SSE 事件解析失败，已停止本轮实时流。");
+          finish();
+          return;
+        }
+
+        input.onEvent(parsed);
+        if (parsed.type === "publish" && !input.publish) {
+          finish();
+        }
+
+        if (parsed.type === "feedback" || parsed.type === "error") {
+          finish();
+        }
+      });
+    });
+
+    source.onerror = () => {
+      source?.close();
+      if (closed) return;
+      if (retries < maxRetries) {
+        retries += 1;
+        input.onRetry?.(retries);
+        window.setTimeout(connect, 400);
         return;
       }
 
-      input.onEvent(parsed);
-      if (parsed.type === "feedback" || parsed.type === "error") {
-        input.onDone();
-        source.close();
-      }
-    });
-  });
-
-  source.onerror = () => {
-    input.onError("SSE 连接中断，已保留当前快照。");
-    input.onDone();
-    source.close();
+      input.onError("SSE 连接中断，正在切换到一次性兜底流程。");
+      input.onDone();
+    };
   };
 
-  return () => source.close();
+  connect();
+  return close;
 }
 
 function getFrontendModelPolicy(): Record<string, unknown> {

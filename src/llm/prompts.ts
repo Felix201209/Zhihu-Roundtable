@@ -4,8 +4,10 @@ import type {
   DebateTurn,
   Evidence,
   EvidencePool,
+  IdeaVariant,
   PublishDraft,
   Topic,
+  VariantFeedback,
   ViewpointMap,
 } from "../core/types.js";
 
@@ -23,7 +25,9 @@ export type LlmPrompt = {
     | "agent_turn"
     | "consensus"
     | "publish_draft"
-    | "comment_analysis";
+    | "comment_analysis"
+    | "idea_variants"
+    | "experiment_report";
   messages: LlmMessage[];
   responseSchemaName: string;
 };
@@ -31,11 +35,12 @@ export type LlmPrompt = {
 export type AgentPersona = DebateTurn["speaker"];
 
 const jsonSystemPrompt = [
-  "你是知乎圆桌讨论的结构化写作助手。",
+  "你是知乎创作者和圈子运营者的 AI 讨论组织助手。",
   "只输出一个合法 JSON 对象，不要 Markdown，不要代码块，不要额外解释。",
   "凡是涉及事实、引用、案例或统计，必须使用输入 evidence 里的 evidenceIds。",
   "不能伪造来源、链接、数据、机构、人名或未提供的证据。",
-  "语气要像知乎高质量讨论：克制、具体、讲证据，允许保留分歧。",
+  "目标不是总结热点，也不是替用户写回答，而是帮助创作者把话题组织成可发布、可站队、可回流的圈子讨论。",
+  "语气要像知乎高质量讨论策划：克制、具体、讲证据，允许保留分歧，并明确下一步行动。",
 ].join("\n");
 
 const formatEvidence = (evidence: Evidence[]) =>
@@ -85,9 +90,9 @@ export const buildQuestionRewritePrompt = (input: {
     {
       role: "user",
       content: [
-        "请把候选知乎热点改写成一个适合圆桌讨论的问题。",
+        "请把候选知乎热点改写成一个适合圈子讨论的开放问题。",
         "输出 JSON 字段：rewrittenQuestion(string), rationale(string), evidenceIds(string[])。",
-        "rewrittenQuestion 要开放、可辩、不过度标题党。",
+        "rewrittenQuestion 要开放、可站队、可邀请真实经验，不能只是新闻标题或摘要。",
         "evidenceIds 只能来自输入 evidence；没有证据就输出空数组。",
         "",
         "topic:",
@@ -108,9 +113,9 @@ export const buildTopicScoringPrompt = (input: { topics: Topic[] }): LlmPrompt =
     {
       role: "user",
       content: [
-        "请为知乎热榜候选话题做讨论潜力评分。",
+        "请为知乎热榜候选话题做讨论组织潜力评分。",
         "输出必须是 JSON 数组，每项符合 TopicScore：topicId, debateScore, evidenceScore, discussionPotential, controversyLevel, reason。",
-        "评分标准：事实复杂度、争议程度、公众相关性、知乎讨论适配度、资料丰富度。",
+        "评分标准：事实复杂度、争议程度、普通用户参与空间、知乎圈子讨论适配度、资料丰富度、能否产生下一轮内容。",
         "过滤纯娱乐、纯广告、信息不足、强敏感风险话题；但不要删除输入，只通过低分和 reason 表达。",
         "",
         "topics:",
@@ -159,11 +164,11 @@ export const buildAgentBriefingPrompt = (input: {
     {
       role: "user",
       content: [
-        "请为知乎 AI 圆桌生成四个前台 Agent 的任务卡。",
+        "请为知乎讨论组织台生成四个前台席位的任务卡。",
         "输出必须是 AgentBrief 数组，speaker 必须且仅包含 liu、expert、opponent、public。",
-        "刘看山是主持人和社区气氛调节器；expert 是知乎大 V；opponent 是反方刺客；public 是吃瓜群众。",
+        "刘看山是讨论主持人和圈子控场员；expert 是站内观点席，只能基于站内公开内容和证据池提炼已有观点结构；opponent 是反方校验席；public 是普通用户席。",
         "每个 brief 必须包含 mission、tone、mustUseEvidenceIds、avoid。",
-        "avoid 必须强调不人身攻击、不伪造证据、不自动替用户发布。",
+        "avoid 必须强调不人身攻击、不伪造证据、不伪造具体知乎用户或大 V、不自动替用户发布。",
         "",
         "topic:",
         formatTopic(input.topic),
@@ -192,9 +197,9 @@ export const buildAgentTurnPrompt = (input: {
     {
       role: "user",
       content: [
-        `请以 ${input.speaker} 的身份生成一轮知乎圆桌发言。`,
+        `请以 ${input.speaker} 的身份生成一轮知乎讨论组织校验发言。`,
         "输出必须符合 DebateTurn JSON：id, speaker, content, evidenceIds, claim?, nextQuestion?。",
-        "content 要像知乎讨论，不站上帝视角；每个事实性判断都要能追到 evidenceIds。",
+        "content 要服务于创作者发起讨论：指出问题是否可讨论、站队是否清楚、评论区可能怎么回应；每个事实性判断都要能追到 evidenceIds。",
         "不要引用 evidence 中没有的来源；如果证据不足，要明确说证据不足。",
         "",
         "topic:",
@@ -228,10 +233,10 @@ export const buildConsensusPrompt = (input: {
     {
       role: "user",
       content: [
-        "请归纳圆桌讨论的观点地图。",
+        "请归纳这场讨论策划的观点地图。",
         "输出必须符合 ViewpointMap JSON：support, oppose, neutral, facts, disputes, followups。",
         "facts 只能写有 evidenceIds 支撑的事实；disputes 要保留真实分歧，不要强行和稀泥。",
-        "followups 要像知乎追问，具体、可继续讨论。",
+        "followups 要像知乎圈子下一轮追问，具体、能引导评论或下一篇创作。",
         "",
         "topic:",
         formatTopic(input.topic),
@@ -262,13 +267,14 @@ export const buildPublishDraftPrompt = (input: {
     {
       role: "user",
       content: [
-        "请生成可发布到知乎圈子的讨论草稿和发布质量判断。",
+        "请生成可发布到知乎圈子的讨论策划草稿和发布质量判断。",
         "输出必须符合 PublishPackage JSON：draft, titleOptions, quality。",
         "draft 必须符合 PublishDraft：title, opening, consensus, disputes, questions, disclosure。",
-        "title 像知乎问题或圆桌标题；opening 克制引入，不夸大。",
-        "consensus/disputes/questions 都必须基于输入讨论和证据。",
-        "disclosure 必须说明这是 AI 辅助整理，并说明不伪造来源。",
-        "titleOptions 给 3 个标题候选；quality 判断这场讨论是否值得发布到圈子。",
+        "title 要像一个能引发圈子回复的开放问题；opening 是讨论背景，不要写成结论文章。",
+        "consensus 用作站队选项或可讨论立场，不要包装成最终结论；disputes 写反方和风险；questions 写引导评论和下一轮追问。",
+        "必须邀请不同人群参与，例如创作者、普通用户、圈主/运营者、亲历者；不能预设唯一答案。",
+        "disclosure 必须说明这是 AI 辅助讨论策划，并说明不伪造来源、发布前需用户确认。",
+        "titleOptions 给 3 个标题候选；quality 判断这条讨论帖是否值得发布到圈子，以及有哪些跑偏/引战风险。",
         "",
         "topic:",
         formatTopic(input.topic),
@@ -299,17 +305,80 @@ export const buildCommentAnalysisPrompt = (input: {
     {
       role: "user",
       content: [
-        "请分析知乎评论反馈。",
+        "请把知乎评论反馈分析成创作者下一步行动指南。",
         "输出必须符合 CommentInsight JSON：sentiment, highQualityComments, newDisputes, nextRoundSuggestions。",
         "sentiment 用非负数字计数或权重；不要臆造评论中没有的新观点。",
-        "highQualityComments 只摘取输入评论里的高质量内容，可做轻微概括。",
-        "nextRoundSuggestions 要能指导下一轮圆桌追问。",
+        "highQualityComments 只摘取输入评论里的高质量内容，可做轻微概括，并优先保留真实经验、补充资料和可追问评论。",
+        "newDisputes 写新的反方、质疑或跑偏风险。",
+        "nextRoundSuggestions 要能直接变成下一轮圈子话题、下一篇回答/文章选题或刘看山追问。",
         "",
         "publishDraft:",
         JSON.stringify(input.publishDraft, null, 2),
         "",
         "comments:",
         input.comments.map((comment, index) => `- c${index + 1}: ${comment}`).join("\n"),
+      ].join("\n"),
+    },
+  ],
+});
+
+export const buildIdeaVariantsPrompt = (input: {
+  idea: string;
+  similarEvidence?: Evidence[];
+  hotTopics?: Topic[];
+}): LlmPrompt => ({
+  task: "idea_variants",
+  responseSchemaName: "IdeaVariant[]",
+  messages: [
+    { role: "system", content: jsonSystemPrompt },
+    {
+      role: "user",
+      content: [
+        "请把用户的一个脑洞改写成 3 个可发到知乎圈子测试的产品版本。",
+        "输出必须是合法 JSON 对象，唯一顶层字段为 variants。",
+        "variants 必须是数组，长度为 3，id 必须分别是 A、B、C。",
+        "每项必须符合 IdeaVariant：id, title, oneLiner, highlight, risk。",
+        "title 要短，oneLiner 要一眼能懂，highlight 写为什么可能有人感兴趣，risk 写为什么可能失败。",
+        "A 通常偏效率工具，B 通常偏防撞/实用，C 通常偏社区众测/知乎感；但要贴合用户输入。",
+        "不要输出超过 3 个版本，不要写长段落。",
+        "",
+        `idea: ${input.idea}`,
+        "",
+        "zhihuSimilarEvidence:",
+        formatEvidence(input.similarEvidence ?? []),
+        "",
+        "hotTopics:",
+        (input.hotTopics ?? []).slice(0, 5).map((topic) => formatTopic(topic)).join("\n---\n"),
+      ].join("\n"),
+    },
+  ],
+});
+
+export const buildExperimentReportPrompt = (input: {
+  idea: string;
+  variants: IdeaVariant[];
+  feedback: VariantFeedback[];
+}): LlmPrompt => ({
+  task: "experiment_report",
+  responseSchemaName: "ExperimentReport",
+  messages: [
+    { role: "system", content: jsonSystemPrompt },
+    {
+      role: "user",
+      content: [
+        "请根据知乎圈子实验反馈生成最终决策报告。",
+        "输出必须符合 ExperimentReport JSON：recommendedVariantId, recommendedTitle, conclusion, whyWinner, userConcerns, finalPositioning, pitchLine, mvpFeatures, nextActions。",
+        "结论要直接，不要只说分数；要把真实社区反馈转成产品方向、MVP 和路演表达。",
+        "whyWinner 只写能从 feedback 看出的原因；userConcerns 必须来自评论和当前判断。",
+        "nextActions 固定保持 3 条以内。",
+        "",
+        `idea: ${input.idea}`,
+        "",
+        "variants:",
+        JSON.stringify(input.variants, null, 2),
+        "",
+        "feedback:",
+        JSON.stringify(input.feedback, null, 2),
       ].join("\n"),
     },
   ],

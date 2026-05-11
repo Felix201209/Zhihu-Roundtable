@@ -4,6 +4,8 @@ import type {
   DebateTurn,
   Evidence,
   EvidencePool,
+  ExperimentReport,
+  IdeaVariant,
   ModelPolicy,
   ModelProviderName,
   ModelRole,
@@ -12,6 +14,7 @@ import type {
   PublishPackage,
   Topic,
   TopicScore,
+  VariantFeedback,
   ViewpointMap,
 } from "../core/types.js";
 import {
@@ -20,6 +23,8 @@ import {
   buildCommentAnalysisPrompt,
   buildConsensusPrompt,
   buildEvidencePoolPrompt,
+  buildExperimentReportPrompt,
+  buildIdeaVariantsPrompt,
   buildPublishDraftPrompt,
   buildQuestionRewritePrompt,
   buildTopicScoringPrompt,
@@ -31,6 +36,8 @@ import {
   parseCommentInsight,
   parseDebateTurn,
   parseEvidencePool,
+  parseExperimentReport,
+  parseIdeaVariants,
   parsePublishDraft,
   parsePublishPackage,
   parseQuestionRewrite,
@@ -95,6 +102,16 @@ export interface LlmProvider {
     turns: DebateTurn[];
     viewpointMap: ViewpointMap;
   }): Promise<LlmCallResult<PublishDraft>>;
+  generateIdeaVariants(input: {
+    idea: string;
+    similarEvidence?: Evidence[];
+    hotTopics?: Topic[];
+  }): Promise<LlmCallResult<IdeaVariant[]>>;
+  buildExperimentReport(input: {
+    idea: string;
+    variants: IdeaVariant[];
+    feedback: VariantFeedback[];
+  }): Promise<LlmCallResult<ExperimentReport>>;
   analyzeComments(input: {
     publishDraft: PublishDraft;
     comments: string[];
@@ -154,14 +171,19 @@ function parseJsonContent(content: string): unknown {
       return JSON.parse(fenced);
     }
 
+    const arrayFirst = trimmed.indexOf("[");
+    const arrayLast = trimmed.lastIndexOf("]");
     const first = trimmed.indexOf("{");
     const last = trimmed.lastIndexOf("}");
+
+    if (arrayFirst >= 0 && arrayLast > arrayFirst && (first < 0 || arrayFirst < first)) {
+      return JSON.parse(trimmed.slice(arrayFirst, arrayLast + 1));
+    }
+
     if (first >= 0 && last > first) {
       return JSON.parse(trimmed.slice(first, last + 1));
     }
 
-    const arrayFirst = trimmed.indexOf("[");
-    const arrayLast = trimmed.lastIndexOf("]");
     if (arrayFirst >= 0 && arrayLast > arrayFirst) {
       return JSON.parse(trimmed.slice(arrayFirst, arrayLast + 1));
     }
@@ -243,28 +265,28 @@ export class MockLlmProvider implements LlmProvider {
     const value = parseAgentBriefs([
       {
         speaker: "liu",
-        mission: "主持圆桌，拆分事实和价值判断，提醒引用证据，并在争论升温时降温。",
+        mission: "作为刘看山主持人，帮助创作者把热榜改造成可参与的圈子讨论，拆分事实、立场和追问，并在争论升温时降温。",
         tone: "清楚、友善、有一点可爱但不幼稚。",
         mustUseEvidenceIds: evidenceIds,
-        avoid: ["不要替用户下最终结论", "不要自动发布", "不要伪造证据"],
+        avoid: ["不要替用户下最终结论", "不要自动发布", "不要伪造证据", "不要把讨论做成摘要"],
       },
       {
         speaker: "expert",
-        mission: "代表知乎深度回答者，基于证据池提出结构化观点和限制条件。",
-        tone: "专业、克制、像高质量知乎回答。",
+        mission: "作为站内观点席，基于知乎站内和全网证据池提炼已有观点结构、可站队立场和限制条件，不模拟任何具体用户。",
+        tone: "专业、克制、像高质量知乎讨论整理。",
         mustUseEvidenceIds: evidenceIds,
-        avoid: ["不要空喊口号", "不要忽略反方证据", "不要营销腔"],
+        avoid: ["不要空喊口号", "不要忽略反方证据", "不要营销腔", "不要伪造大 V 或具体用户身份"],
       },
       {
         speaker: "opponent",
-        mission: "找逻辑漏洞、反例和证据不足，推动观点变得更严谨。",
+        mission: "作为反方校验席，找讨论帖可能被反驳、跑偏或证据不足的地方，帮创作者提前设计反方问题。",
         tone: "锋利但不攻击人。",
         mustUseEvidenceIds: evidenceIds,
         avoid: ["不要人身攻击", "不要情绪化扣帽子", "不要编造反例"],
       },
       {
         speaker: "public",
-        mission: "代表普通用户，提出真实关心的问题和使用者视角。",
+        mission: "作为普通用户席，判断普通读者是否看得懂、愿不愿意回复，并提出更具体的评论引导问题。",
         tone: "直接、具体、有人味。",
         mustUseEvidenceIds: [],
         avoid: ["不要装专家", "不要跑题", "不要把体验说成事实"],
@@ -285,17 +307,17 @@ export class MockLlmProvider implements LlmProvider {
     this.lastPrompt = buildAgentTurnPrompt(input);
     const evidenceIds = input.evidence.slice(0, input.speaker === "public" ? 1 : 2).map((item) => item.id);
     const persona: Record<AgentPersona, string> = {
-      liu: "先别急着站队，我把问题拆成事实、评价和规则三层。",
-      expert: "从证据看，真正要评价的是问题拆解、工具协作和结果校验。",
-      opponent: "这个观点还需要防止一个漏洞：流畅输出不等于独立能力。",
-      public: "普通用户最关心的是规则是否透明，以及自己怎样合理使用 AI。",
+      liu: "先别急着下结论，我会把这条热榜整理成一个能让大家参与站队的讨论。",
+      expert: "从站内内容看，这个话题至少能拆出支持、反方和经验补充三类评论入口。",
+      opponent: "这个讨论帖需要提前留出反方空间，否则容易变成单向输出或情绪站队。",
+      public: "普通用户最关心的是自己能不能看懂、有没有具体场景可以回应。",
     };
     const value = parseDebateTurn({
       id: `mock-turn-${input.priorTurns.length + 1}-${input.speaker}`,
       speaker: input.speaker,
       content: `${persona[input.speaker]}围绕「${input.rewrittenQuestion}」，我会引用现有证据，但保留还没解决的分歧。`,
       evidenceIds,
-      claim: input.brief?.mission ?? "把讨论拉回证据和真实场景。",
+      claim: input.brief?.mission ?? "把讨论设计拉回证据、参与感和下一步行动。",
       nextQuestion:
         input.speaker === "liu" || input.speaker === "public"
           ? "下一步最需要哪类证据来确认这个判断？"
@@ -313,12 +335,12 @@ export class MockLlmProvider implements LlmProvider {
   }): Promise<LlmCallResult<ViewpointMap>> {
     this.lastPrompt = buildConsensusPrompt(input);
     const value = parseViewpointMap({
-      support: ["AI 工具使用能力已经成为一部分工作能力，但需要看过程而不只看结果。"],
-      oppose: ["流畅输出可能掩盖基础薄弱，基础能力仍要单独验证。"],
-      neutral: ["评价标准不是简单降低或提高，而是在向过程证据迁移。"],
+      support: ["可以站队：AI 工具使用能力已经成为一部分工作能力，但需要看过程而不只看结果。"],
+      oppose: ["反方入口：流畅输出可能掩盖基础薄弱，基础能力仍要单独验证。"],
+      neutral: ["中间立场：评价标准不是简单降低或提高，而是在向过程证据迁移。"],
       facts: input.evidence.slice(0, 3).map((item) => `${item.id}: ${item.summary}`),
       disputes: ["工具使用能力是否应计入核心评价。", "是否要求新人披露 AI 使用过程。"],
-      followups: ["试用期任务如何保留过程证据？", "平台和圈子如何把评论中的新争议带回下一轮圆桌？"],
+      followups: ["试用期任务如何保留过程证据？", "如果你是创作者/管理者，会怎样设计一个不跑偏的讨论帖？"],
     });
 
     return { value, usage: usage(this.profile, "synthesis", "consensus") };
@@ -334,23 +356,27 @@ export class MockLlmProvider implements LlmProvider {
     this.lastPrompt = buildPublishDraftPrompt(input);
     const value = parsePublishPackage({
       draft: {
-        title: `关于「${input.topic.title}」的圆桌讨论：真正争议的是什么？`,
-        opening: `今天刘看山圆桌围绕「${input.topic.title}」进行了结构化讨论。我们先区分事实、观点和仍待验证的问题。`,
-        consensus: input.viewpointMap.facts.slice(0, 3),
+        title: `围绕「${input.topic.title}」开个讨论：你站哪一边？`,
+        opening: `最近这个热榜很适合发起一场圈子讨论。与其只看结论，不如请创作者、普通用户和有经验的人一起补充：这个问题在真实场景里到底怎么判断？`,
+        consensus: input.viewpointMap.support.slice(0, 2).concat(input.viewpointMap.neutral.slice(0, 1)),
         disputes: input.viewpointMap.disputes.slice(0, 3),
-        questions: input.viewpointMap.followups.slice(0, 3),
-        disclosure: "本文由 AI 圆桌辅助整理，发布前需要用户确认；系统不会伪造来源或自动发布。",
+        questions: [
+          input.rewrittenQuestion,
+          ...input.viewpointMap.followups,
+          "如果你有亲历经验，最想补充哪一个反例或判断标准？",
+        ].slice(0, 3),
+        disclosure: "本文由 AI 讨论组织台辅助策划，发布前需要用户确认；系统不会伪造来源、伪造真人观点或自动发布。",
       },
       titleOptions: [
-        `关于「${input.topic.title}」的圆桌讨论：真正争议的是什么？`,
+        `围绕「${input.topic.title}」开个讨论：你站哪一边？`,
         `${input.rewrittenQuestion}`,
-        `刘看山圆桌：${input.topic.title}`,
+        `刘看山帮忙组织一个热榜讨论：${input.topic.title}`,
       ],
       quality: {
         publishable: true,
         score: 88,
-        reasons: ["有事实层、价值层和规则层", "证据池覆盖支持与反对", "能引导评论区继续讨论"],
-        risks: ["证据仍是 demo 缓存，真实发布前需要核查来源"],
+        reasons: ["有开放问题、站队空间和真实经验入口", "证据池覆盖支持与反对", "能把评论回流成下一轮选题"],
+        risks: ["证据仍是 demo 缓存，真实发布前需要核查来源", "发布时要避免把 AI 整理写成唯一结论"],
       },
     });
 
@@ -389,10 +415,86 @@ export class MockLlmProvider implements LlmProvider {
       newDisputes: normalized
         .filter((comment) => /但是|不过|问题|质疑|为什么|是否/.test(comment))
         .slice(0, 3),
-      nextRoundSuggestions: ["优先回应评论区反复出现的质疑点。", "补充能直接验证争议问题的证据，再开启下一轮讨论。"],
+      nextRoundSuggestions: [
+        "把评论区反复出现的质疑改成下一轮圈子问题。",
+        "整理一篇回答/文章：列出支持方、反方和真实经验各自最强的证据。",
+      ],
     });
 
     return { value, usage: usage(this.profile, "feedback", "comment_analysis") };
+  }
+
+  async generateIdeaVariants(input: {
+    idea: string;
+    similarEvidence?: Evidence[];
+    hotTopics?: Topic[];
+  }): Promise<LlmCallResult<IdeaVariant[]>> {
+    this.lastPrompt = buildIdeaVariantsPrompt(input);
+    const baseIdea = input.idea.replace(/\s+/g, " ").trim();
+    const isSelectionIdea = /选题|创作|文章|内容/.test(baseIdea);
+    const variants = parseIdeaVariants([
+      {
+        id: "A",
+        title: isSelectionIdea ? "30 秒生成知乎选题" : "30 秒生成行动方案",
+        oneLiner: isSelectionIdea
+          ? "AI 根据热点和你的领域，快速生成可写的知乎选题。"
+          : "AI 把一个脑洞快速包装成可执行的最小方案。",
+        highlight: "启动成本低，用户能立刻得到一个结果。",
+        risk: "撞车风险高，容易像普通 AI 写作助手或灵感生成器。",
+      },
+      {
+        id: "B",
+        title: isSelectionIdea ? "选题防撞雷达" : "脑洞防撞雷达",
+        oneLiner: "发之前先查知乎站内和全网相似内容，再给出差异化改法。",
+        highlight: "实用性强，能解决创作者和参赛者怕重复、怕没新意的问题。",
+        risk: "新意中等，如果没有社区反馈，仍像一个查重工具。",
+      },
+      {
+        id: "C",
+        title: "想法试验场",
+        oneLiner: "把脑洞变成 3 个版本，发到圈子让真实用户投票和吐槽，再由 AI 给出最终方向。",
+        highlight: "知乎社区参与感强，能把真实反馈变成决策建议。",
+        risk: "需要足够评论样本，现场必须有演示数据兜底。",
+      },
+    ]);
+
+    return { value: variants, usage: usage(this.profile, "topic_scoring", "idea_variants") };
+  }
+
+  async buildExperimentReport(input: {
+    idea: string;
+    variants: IdeaVariant[];
+    feedback: VariantFeedback[];
+  }): Promise<LlmCallResult<ExperimentReport>> {
+    this.lastPrompt = buildExperimentReportPrompt(input);
+    const winner = [...input.feedback].sort((a, b) => {
+      const qualityScore = (quality: VariantFeedback["quality"]) => quality === "high" ? 3 : quality === "medium" ? 2 : 1;
+      return (b.likes + b.comments * 2 + qualityScore(b.quality) * 20) -
+        (a.likes + a.comments * 2 + qualityScore(a.quality) * 20);
+    })[0] ?? input.feedback[0];
+    const variant = input.variants.find((item) => item.id === winner?.variantId) ?? input.variants[2] ?? input.variants[0];
+    const value = parseExperimentReport({
+      recommendedVariantId: variant.id,
+      recommendedTitle: `${variant.id} ${variant.title}`,
+      conclusion: "用户更愿意参与“帮脑洞投票和吐槽”，而不是再用一个普通 AI 工具听 AI 自评。",
+      whyWinner: [
+        "有效反馈最多，评论更具体。",
+        "更像知乎社区产品，而不是单向生成工具。",
+        "和普通 AI 写作助手差异最大。",
+      ],
+      userConcerns: [
+        "用户怕项目或选题撞车。",
+        "用户希望看到真实反馈，而不是 AI 自评。",
+        "用户不想看太抽象的产品概念。",
+      ],
+      finalPositioning:
+        "「想法试验场」是一个给知乎创作者和 Hackathon 参赛者使用的脑洞众测工具：它把一个想法生成 3 个版本，发布到圈子收集真实反馈，再根据点赞、评论和吐槽判断哪个方向最值得做。",
+      pitchLine: "AI 不替用户判断什么是好想法，知乎真实用户来判断。",
+      mvpFeatures: ["输入脑洞", "生成 3 个版本", "发圈子测试", "回收点赞和评论", "生成最终建议"],
+      nextActions: ["继续优化这个方向", "生成路演稿", "再做一轮测试"],
+    });
+
+    return { value, usage: usage(this.profile, "feedback", "experiment_report") };
   }
 }
 
@@ -404,6 +506,7 @@ export type OpenAiCompatibleProviderOptions = {
   preferredRoles: LlmProviderRole[];
   maxRetries?: number;
   timeoutMs?: number;
+  fetchImpl?: typeof fetch;
 };
 
 export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
@@ -412,6 +515,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
   private readonly baseUrl: string;
   private readonly maxRetries: number;
   private readonly timeoutMs: number;
+  private readonly fetchImpl: typeof fetch;
 
   constructor(options: OpenAiCompatibleProviderOptions) {
     super();
@@ -424,6 +528,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     this.baseUrl = options.baseUrl ?? "https://api.openai.com/v1";
     this.maxRetries = options.maxRetries ?? 1;
     this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
   private async completeJson(prompt: LlmPrompt): Promise<{ json: unknown; latencyMs: number; attempts: number }> {
@@ -438,7 +543,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
-        const response = await fetch(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
+        const response = await this.fetchImpl(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
           signal: controller.signal,
           headers: {
@@ -532,7 +637,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildConsensusPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseViewpointMap(completed.json);
-    return { value, usage: { ...usage(this.profile, "synthesis", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "topic_scoring", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
   }
 
   override async buildPublishPackage(input: {
@@ -555,6 +660,28 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildCommentAnalysisPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseCommentInsight(completed.json);
+    return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+  }
+
+  override async generateIdeaVariants(input: {
+    idea: string;
+    similarEvidence?: Evidence[];
+    hotTopics?: Topic[];
+  }): Promise<LlmCallResult<IdeaVariant[]>> {
+    const prompt = buildIdeaVariantsPrompt(input);
+    const completed = await this.completeJson(prompt);
+    const value = parseIdeaVariants(completed.json);
+    return { value, usage: { ...usage(this.profile, "synthesis", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+  }
+
+  override async buildExperimentReport(input: {
+    idea: string;
+    variants: IdeaVariant[];
+    feedback: VariantFeedback[];
+  }): Promise<LlmCallResult<ExperimentReport>> {
+    const prompt = buildExperimentReportPrompt(input);
+    const completed = await this.completeJson(prompt);
+    const value = parseExperimentReport(completed.json);
     return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
   }
 }
@@ -679,6 +806,14 @@ export class RoutedLlmProvider implements LlmProvider {
   analyzeComments(input: { publishDraft: PublishDraft; comments: string[] }) {
     return this.call("feedback", (provider) => provider.analyzeComments(input));
   }
+
+  generateIdeaVariants(input: { idea: string; similarEvidence?: Evidence[]; hotTopics?: Topic[] }) {
+    return this.call("topic_scoring", (provider) => provider.generateIdeaVariants(input));
+  }
+
+  buildExperimentReport(input: { idea: string; variants: IdeaVariant[]; feedback: VariantFeedback[] }) {
+    return this.call("feedback", (provider) => provider.buildExperimentReport(input));
+  }
 }
 
 export function createModelPolicy(input: Partial<ModelPolicy> = {}): ModelPolicy {
@@ -726,11 +861,19 @@ export function createRoutedLlmProvider(policy: ModelPolicy = DEFAULT_MODEL_POLI
     baseUrl: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com/v1",
     preferredRoles: ["question", "synthesis", "publish"],
   });
+  const custom = new OpenAiCompatibleJsonProvider({
+    provider: "custom",
+    model: process.env.CUSTOM_LLM_MODEL ?? process.env.ZHIHU_DIRECT_AGENT_MODEL ?? "zhihu-direct-agent",
+    apiKey: process.env.CUSTOM_LLM_API_KEY ?? process.env.ZHIHU_DIRECT_AGENT_API_KEY ?? process.env.ZHIHU_ACCESS_TOKEN,
+    baseUrl: process.env.CUSTOM_LLM_BASE_URL ?? process.env.ZHIHU_DIRECT_AGENT_BASE_URL ?? "https://api.zhihu.com/v1",
+    preferredRoles: ["question", "synthesis", "publish", "feedback"],
+  });
 
   return new RoutedLlmProvider(resolvedPolicy, {
     mock: new MockLlmProvider(),
     kimi,
     "deepseek-v4-flash": deepseekFlash,
     "deepseek-v4-pro": deepseekPro,
+    custom,
   });
 }

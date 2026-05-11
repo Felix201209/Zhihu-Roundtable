@@ -25,11 +25,19 @@ export type Evidence = {
   qualityScore: number;
 };
 
+export type ClaimSource = {
+  id: string;
+  label: string;
+  type: "zhihu" | "global" | "ai_reasoning" | "comment" | "unverified";
+  confidence: "high" | "medium" | "low";
+};
+
 export type DebateTurn = {
   id: string;
   speaker: "liu" | "expert" | "opponent" | "public";
   content: string;
   evidenceIds: string[];
+  claimSources?: ClaimSource[];
   claim?: string;
   nextQuestion?: string;
 };
@@ -49,6 +57,7 @@ export type PublishDraft = {
   consensus: string[];
   disputes: string[];
   questions: string[];
+  claimSources?: ClaimSource[];
   disclosure: string;
 };
 
@@ -74,6 +83,85 @@ export type ModelRole =
   | "synthesis"
   | "publish"
   | "feedback";
+
+export type IdeaExperimentStage =
+  | "Draft"
+  | "Generated"
+  | "PublishConfirm"
+  | "Collecting"
+  | "ReportReady"
+  | "Iterate";
+
+export type IdeaVariantId = "A" | "B" | "C";
+
+export type IdeaVariant = {
+  id: IdeaVariantId;
+  title: string;
+  oneLiner: string;
+  highlight: string;
+  risk: string;
+};
+
+export type ExperimentOptionComment = {
+  variantId: IdeaVariantId;
+  title: string;
+  content: string;
+};
+
+export type ExperimentPostPreview = {
+  title: string;
+  body: string;
+  optionComments: ExperimentOptionComment[];
+  disclosure: string;
+};
+
+export type VariantFeedbackQuality = "low" | "medium" | "high";
+
+export type VariantFeedback = {
+  variantId: IdeaVariantId;
+  likes: number;
+  comments: number;
+  quality: VariantFeedbackQuality;
+  currentJudgment: string;
+  typicalComments: string[];
+};
+
+export type ExperimentPublishResult = {
+  id: string;
+  url: string;
+  mode: "mock" | "live";
+  createdAt: string;
+  optionCommentIds: string[];
+};
+
+export type ExperimentReport = {
+  recommendedVariantId: IdeaVariantId;
+  recommendedTitle: string;
+  conclusion: string;
+  whyWinner: string[];
+  userConcerns: string[];
+  finalPositioning: string;
+  pitchLine: string;
+  mvpFeatures: string[];
+  nextActions: string[];
+};
+
+export type IdeaExperiment = {
+  id: string;
+  idea: string;
+  stage: IdeaExperimentStage;
+  variants: IdeaVariant[];
+  selectedVariantIds: IdeaVariantId[];
+  postPreview?: ExperimentPostPreview;
+  publishResult?: ExperimentPublishResult;
+  feedback?: VariantFeedback[];
+  report?: ExperimentReport;
+  demoData?: boolean;
+  statusMessage: string;
+  technicalSnapshot?: RoundtableSnapshot;
+  modelUsages?: ModelUsage[];
+  nodeResults?: WorkflowNodeResult[];
+};
 
 export type ModelPolicy = {
   mode: "mock" | "auto" | "live";

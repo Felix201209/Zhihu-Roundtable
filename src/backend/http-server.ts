@@ -1,21 +1,30 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
+import { extname, resolve } from "node:path";
 import { URL } from "node:url";
 import { RoundtableWorkflowService } from "./workflow-service.js";
 import { encodeSseEvent } from "./sse.js";
 import { buildReadinessReport } from "./readiness.js";
 import { resolveModelPolicy } from "../providers/llm-provider.js";
-import type { ModelPolicy, ModelProviderName, ReactionType } from "../core/types.js";
+import type { IdeaExperiment, IdeaVariantId, ModelPolicy, ModelProviderName, ModelRole, ReactionType } from "../core/types.js";
 import type { RoundtableSnapshot } from "../core/types.js";
 
 export type BackendServerOptions = {
   port?: number;
   service?: RoundtableWorkflowService;
+  staticDir?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
 type ConfirmationAction = "publish" | "comment" | "reaction";
+
+type OAuthStateRecord = {
+  state: string;
+  redirectUri: string;
+  expiresAt: number;
+};
 
 type ConfirmationRecord = {
   action: ConfirmationAction;
@@ -77,6 +86,47 @@ class ConfirmationRegistry {
   }
 }
 
+class OAuthStateRegistry {
+  private readonly records = new Map<string, OAuthStateRecord>();
+
+  create(redirectUri: string, ttlMs = 10 * 60_000): OAuthStateRecord {
+    this.prune();
+    const state = randomUUID();
+    const record = {
+      state,
+      redirectUri,
+      expiresAt: Date.now() + ttlMs,
+    };
+    this.records.set(state, record);
+    return record;
+  }
+
+  consume(state: string | undefined): OAuthStateRecord {
+    this.prune();
+    if (!state) {
+      throw new HttpError(400, "oauth_missing_state", "OAuth 回调缺少 state。");
+    }
+
+    const record = this.records.get(state);
+    this.records.delete(state);
+
+    if (!record || record.expiresAt < Date.now()) {
+      throw new HttpError(400, "oauth_invalid_state", "OAuth state 无效或已过期。");
+    }
+
+    return record;
+  }
+
+  private prune(): void {
+    const nowMs = Date.now();
+    for (const [state, record] of this.records.entries()) {
+      if (record.expiresAt < nowMs) {
+        this.records.delete(state);
+      }
+    }
+  }
+}
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -126,6 +176,86 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload, null, 2));
 }
 
+function sendHtml(res: ServerResponse, status: number, html: string): void {
+  res.writeHead(status, {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "no-store",
+  });
+  res.end(html);
+}
+
+function redirect(res: ServerResponse, location: string, headers: Record<string, string> = {}): void {
+  res.writeHead(302, {
+    location,
+    "cache-control": "no-store",
+    ...headers,
+  });
+  res.end();
+}
+
+const staticMimeTypes: Record<string, string> = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".txt": "text/plain; charset=utf-8",
+  ".webp": "image/webp",
+};
+
+async function serveStatic(staticDir: string, pathname: string, res: ServerResponse): Promise<void> {
+  const root = resolve(staticDir);
+  const decoded = safeDecodePath(pathname);
+  const relativePath = decoded === "/" ? "/index.html" : decoded;
+  const requestedPath = resolve(root, `.${relativePath}`);
+
+  if (requestedPath !== root && !requestedPath.startsWith(`${root}/`)) {
+    sendJson(res, 403, { error: "static_forbidden", message: "静态资源路径非法。" });
+    return;
+  }
+
+  const fallbackPath = extname(requestedPath) ? undefined : resolve(root, "index.html");
+  const filePath = await existingFileOrSpaFallback(requestedPath, fallbackPath);
+  if (!filePath) {
+    sendJson(res, 404, { error: "not_found", message: `未找到页面 ${pathname}` });
+    return;
+  }
+
+  const body = await readFile(filePath);
+  res.writeHead(200, {
+    "content-type": staticMimeTypes[extname(filePath)] ?? "application/octet-stream",
+    "cache-control": filePath.endsWith("index.html") ? "no-cache" : "public, max-age=31536000, immutable",
+  });
+  res.end(body);
+}
+
+function safeDecodePath(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return "/";
+  }
+}
+
+async function existingFileOrSpaFallback(filePath: string, fallbackPath: string | undefined): Promise<string | undefined> {
+  if (await isFile(filePath)) {
+    return filePath;
+  }
+  if (fallbackPath && await isFile(fallbackPath)) {
+    return fallbackPath;
+  }
+  return undefined;
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -138,8 +268,65 @@ function allowedCorsOrigin(): string {
   return process.env.CORS_ALLOW_ORIGIN ?? `http://localhost:${process.env.VITE_DEV_PORT ?? "5173"}`;
 }
 
+function publicOrigin(req: IncomingMessage): string {
+  if (process.env.PUBLIC_APP_URL) {
+    return process.env.PUBLIC_APP_URL.replace(/\/$/, "");
+  }
+
+  const rawHost = headerValue(req.headers["x-forwarded-host"] ?? req.headers.host) ?? `localhost:${process.env.BACKEND_PORT ?? "8787"}`;
+  const rawProto = headerValue(req.headers["x-forwarded-proto"]) ?? (isLocalHost(rawHost) ? "http" : "https");
+  return `${rawProto.split(",")[0].trim()}://${rawHost.split(",")[0].trim()}`;
+}
+
+function oauthRedirectUri(req: IncomingMessage): string {
+  return process.env.ZHIHU_OAUTH_REDIRECT_URI ?? `${publicOrigin(req)}/api/oauth/callback`;
+}
+
+function oauthConfigured(): boolean {
+  return Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID && process.env.ZHIHU_OAUTH_CLIENT_SECRET);
+}
+
+function headerValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function isLocalHost(host: string): boolean {
+  const hostname = host.split(":")[0].replace(/^\[|\]$/g, "");
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function oauthCookie(state: string, maxAgeSeconds = 600): string {
+  return [
+    `zhihu_oauth_state=${encodeURIComponent(state)}`,
+    "Path=/api/oauth",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAgeSeconds}`,
+  ].join("; ");
+}
+
+function cookieValue(req: IncomingMessage, key: string): string | undefined {
+  const cookie = req.headers.cookie;
+  if (!cookie) return undefined;
+  for (const part of cookie.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName === key) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+  return undefined;
+}
+
+function jsonHash(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
 function snapshotHash(snapshot: RoundtableSnapshot): string {
-  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+  return jsonHash(snapshot);
+}
+
+function experimentHash(experiment: IdeaExperiment): string {
+  return jsonHash(experiment);
 }
 
 function requiresWriteConfirmation(service: RoundtableWorkflowService): boolean {
@@ -183,6 +370,23 @@ function providerValue(value: unknown): ModelProviderName | undefined {
     : undefined;
 }
 
+function modelRoleValue(value: string): ModelRole {
+  if (
+    value === "topic_scoring" ||
+    value === "question" ||
+    value === "evidence" ||
+    value === "briefing" ||
+    value === "debate" ||
+    value === "synthesis" ||
+    value === "publish" ||
+    value === "feedback"
+  ) {
+    return value;
+  }
+
+  throw new HttpError(400, "invalid_model_policy", `未知模型角色 ${value}。`);
+}
+
 function reactionValue(value: unknown): ReactionType {
   if (value === "support" || value === "oppose" || value === "inspired" || value === "neutral") {
     return value;
@@ -195,6 +399,37 @@ function objectValue(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : undefined;
+}
+
+function ideaExperimentValue(value: unknown): IdeaExperiment {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new HttpError(400, "missing_experiment", "请求体缺少 experiment object。");
+  }
+
+  const experiment = value as Partial<IdeaExperiment>;
+  if (!experiment.id || typeof experiment.id !== "string") {
+    throw new HttpError(400, "invalid_experiment", "experiment.id 必须是字符串。");
+  }
+  if (!experiment.idea || typeof experiment.idea !== "string") {
+    throw new HttpError(400, "invalid_experiment", "experiment.idea 必须是字符串。");
+  }
+  if (!Array.isArray(experiment.variants) || experiment.variants.length !== 3) {
+    throw new HttpError(400, "invalid_experiment", "experiment.variants 必须包含 3 个版本。");
+  }
+  if (!Array.isArray(experiment.selectedVariantIds)) {
+    throw new HttpError(400, "invalid_experiment", "experiment.selectedVariantIds 必须是数组。");
+  }
+
+  return experiment as IdeaExperiment;
+}
+
+function variantIdsValue(value: unknown): IdeaVariantId[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const ids = value.filter((item): item is IdeaVariantId => item === "A" || item === "B" || item === "C");
+  return ids.length ? [...new Set(ids)] : undefined;
 }
 
 function parseModelPolicy(source: URLSearchParams | JsonRecord): Partial<ModelPolicy> | undefined {
@@ -235,9 +470,13 @@ function parseModelPolicy(source: URLSearchParams | JsonRecord): Partial<ModelPo
   }
 
   if (roleMap) {
-    policy.roleMap = Object.fromEntries(
-      Object.entries(roleMap).filter(([, value]) => providerValue(value)),
-    ) as Partial<ModelPolicy["roleMap"]>;
+    const parsedRoleMap: Partial<ModelPolicy["roleMap"]> = {};
+    for (const [key, value] of Object.entries(roleMap)) {
+      const provider = providerValue(value);
+      if (!provider) continue;
+      parsedRoleMap[modelRoleValue(key)] = provider;
+    }
+    policy.roleMap = parsedRoleMap;
   }
 
   return Object.keys(policy).length > 0 ? policy : undefined;
@@ -246,6 +485,8 @@ function parseModelPolicy(source: URLSearchParams | JsonRecord): Partial<ModelPo
 async function handleRequest(
   service: RoundtableWorkflowService,
   confirmations: ConfirmationRegistry,
+  oauthStates: OAuthStateRegistry,
+  staticDir: string | undefined,
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<void> {
@@ -263,11 +504,19 @@ async function handleRequest(
       port: req.socket.localPort,
       endpoints: [
         "/api/topics",
+        "/api/oauth/start",
+        "/api/oauth/callback",
+        "/api/oauth/status",
         "/api/models",
         "/api/zhihu/status",
         "/api/readiness",
         "/api/quota",
         "/api/ring/default",
+        "/api/experiment/generate",
+        "/api/experiment/publish-preview",
+        "/api/experiment/confirm-publish",
+        "/api/experiment/collect",
+        "/api/experiment/report",
         "/api/workflow/start",
         "/api/workflow/prepare",
         "/api/workflow/debate",
@@ -284,6 +533,101 @@ async function handleRequest(
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/oauth/status") {
+    sendJson(res, 200, {
+      configured: oauthConfigured(),
+      clientIdConfigured: Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID),
+      clientSecretConfigured: Boolean(process.env.ZHIHU_OAUTH_CLIENT_SECRET),
+      openApiAppKeyConfigured: Boolean(process.env.ZHIHU_APP_KEY),
+      openApiAppSecretConfigured: Boolean(process.env.ZHIHU_APP_SECRET),
+      authorizeUrlConfigured: Boolean(process.env.ZHIHU_OAUTH_AUTHORIZE_URL),
+      tokenUrlConfigured: Boolean(process.env.ZHIHU_OAUTH_TOKEN_URL),
+      callbackUrl: oauthRedirectUri(req),
+      mode: oauthConfigured() ? "live-ready" : "mock-safe",
+    });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/oauth/start") {
+    const redirectUri = oauthRedirectUri(req);
+    const stateRecord = oauthStates.create(redirectUri);
+    const authorizeUrl = process.env.ZHIHU_OAUTH_AUTHORIZE_URL;
+
+    if (!oauthConfigured() || !authorizeUrl) {
+      sendHtml(res, 200, [
+        "<!doctype html><meta charset=\"utf-8\">",
+        "<title>知乎登录待配置</title>",
+        "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:720px;margin:48px auto;padding:0 24px;line-height:1.7;color:#1f2329}code{background:#f6f6f6;padding:2px 6px;border-radius:6px}</style>",
+        "<h1>知乎 OAuth 回调已就绪</h1>",
+        "<p>当前环境尚未配置官方授权地址或 App 密钥，所以保持 mock-safe 体验。</p>",
+        `<p>提交广场时可填写回调地址：<code>${redirectUri}</code></p>`,
+        "<p>配置 <code>ZHIHU_OAUTH_CLIENT_ID</code>、<code>ZHIHU_OAUTH_CLIENT_SECRET</code>、<code>ZHIHU_OAUTH_AUTHORIZE_URL</code> 后，此入口会跳转到知乎授权页。</p>",
+      ].join(""));
+      return;
+    }
+
+    const auth = new URL(authorizeUrl);
+    auth.searchParams.set("client_id", process.env.ZHIHU_OAUTH_CLIENT_ID ?? "");
+    auth.searchParams.set("redirect_uri", redirectUri);
+    auth.searchParams.set("response_type", "code");
+    auth.searchParams.set("state", stateRecord.state);
+    auth.searchParams.set("scope", process.env.ZHIHU_OAUTH_SCOPE ?? "read");
+    redirect(res, auth.toString(), {
+      "set-cookie": oauthCookie(stateRecord.state),
+    });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/oauth/callback") {
+    const state = url.searchParams.get("state") ?? undefined;
+    const code = url.searchParams.get("code") ?? undefined;
+    const cookieState = cookieValue(req, "zhihu_oauth_state");
+
+    if (cookieState && state && cookieState !== state) {
+      throw new HttpError(400, "oauth_state_mismatch", "OAuth state 与本地 cookie 不匹配。");
+    }
+
+    const record = oauthStates.consume(state);
+    if (!code) {
+      throw new HttpError(400, "oauth_missing_code", "OAuth 回调缺少 code。");
+    }
+
+    const tokenUrl = process.env.ZHIHU_OAUTH_TOKEN_URL;
+    const clientSecret = process.env.ZHIHU_OAUTH_CLIENT_SECRET;
+    const tokenPayload = {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: record.redirectUri,
+      client_id: process.env.ZHIHU_OAUTH_CLIENT_ID,
+      client_secret: clientSecret,
+    };
+    let tokenExchange: { ok: boolean; status?: number; configured: boolean } = { ok: false, configured: false };
+
+    if (tokenUrl && process.env.ZHIHU_OAUTH_CLIENT_ID && clientSecret) {
+      const response = await fetch(tokenUrl, {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(tokenPayload),
+      });
+      tokenExchange = { ok: response.ok, status: response.status, configured: true };
+    }
+
+    sendHtml(res, tokenExchange.ok ? 200 : 202, [
+      "<!doctype html><meta charset=\"utf-8\">",
+      "<title>知乎登录回调</title>",
+      "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:720px;margin:48px auto;padding:0 24px;line-height:1.7;color:#1f2329}.ok{color:#0f7b33}.warn{color:#8a5a00}</style>",
+      `<h1 class="${tokenExchange.ok ? "ok" : "warn"}">${tokenExchange.ok ? "知乎登录已完成" : "知乎登录回调已接收"}</h1>`,
+      tokenExchange.configured
+        ? `<p>授权码已提交到官方 token endpoint，返回状态：${tokenExchange.status}。</p>`
+        : "<p>当前未配置 token endpoint；系统已验证 state/code，等待填入官方 OAuth token URL 后即可完成换 token。</p>",
+      "<p>你可以关闭此页，回到知辩圆桌继续体验。</p>",
+    ].join(""));
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/topics") {
     const scoped = service.withModelPolicy(parseModelPolicy(url.searchParams));
     sendJson(res, 200, { topics: await scoped.getRadar() });
@@ -291,26 +635,36 @@ async function handleRequest(
   }
 
   if (req.method === "GET" && url.pathname === "/api/models") {
+    const liveEffective = zhihuStatusMode() === "live";
     sendJson(res, 200, {
       defaultPolicy: resolveModelPolicy(),
       env: {
         kimiConfigured: Boolean(process.env.KIMI_API_KEY ?? process.env.MOONSHOT_API_KEY),
         deepseekConfigured: Boolean(process.env.DEEPSEEK_API_KEY),
+        zhihuDirectAgentConfigured: Boolean(
+          process.env.CUSTOM_LLM_API_KEY ?? process.env.ZHIHU_DIRECT_AGENT_API_KEY ?? (liveEffective ? process.env.ZHIHU_ACCESS_TOKEN : undefined),
+        ),
         kimiModelOverride: Boolean(process.env.KIMI_MODEL ?? process.env.MOONSHOT_MODEL),
         deepseekModelOverride: Boolean(
           process.env.DEEPSEEK_FLASH_MODEL ?? process.env.DEEPSEEK_PRO_MODEL ?? process.env.DEEPSEEK_MODEL,
         ),
-        zhihuConfigured: Boolean(process.env.ZHIHU_ACCESS_TOKEN),
+        zhihuConfigured: liveEffective && Boolean((process.env.ZHIHU_APP_KEY ?? process.env.ZHIHU_ACCESS_TOKEN) && process.env.ZHIHU_APP_SECRET),
       },
     });
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/zhihu/status") {
+    const mode = zhihuStatusMode();
+    const liveEffective = mode === "live";
     sendJson(res, 200, {
-      mode: process.env.ZHIHU_PROVIDER === "live" || Boolean(process.env.ZHIHU_API_BASE_URL) ? "live" : "mock",
-      accessTokenConfigured: Boolean(process.env.ZHIHU_ACCESS_TOKEN),
-      baseUrlConfigured: Boolean(process.env.ZHIHU_API_BASE_URL),
+      mode,
+      accessTokenConfigured: liveEffective && Boolean(process.env.ZHIHU_ACCESS_TOKEN),
+      appCredentialsConfigured: liveEffective && Boolean((process.env.ZHIHU_APP_KEY ?? process.env.ZHIHU_ACCESS_TOKEN) && process.env.ZHIHU_APP_SECRET),
+      appSecretConfigured: liveEffective && Boolean(process.env.ZHIHU_APP_SECRET),
+      baseUrlConfigured: liveEffective && Boolean(process.env.ZHIHU_API_BASE_URL),
+      ringIdConfigured: Boolean(process.env.ZHIHU_RING_ID),
+      hotListHours: process.env.ZHIHU_HOT_LIST_HOURS,
       failures: service.getProviderFailures(),
       quotas: service.getQuotaStatus(),
     });
@@ -324,6 +678,95 @@ async function handleRequest(
 
   if (req.method === "GET" && url.pathname === "/api/ring/default") {
     sendJson(res, 200, { ring: await service.getDefaultRing() });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/experiment/generate") {
+    const body = await readJson(req);
+    const idea = stringValue(body.idea);
+    if (!idea) {
+      throw new HttpError(400, "missing_idea", "请输入一个脑洞，才能开始试验。");
+    }
+    const scoped = service.withModelPolicy(parseModelPolicy(body));
+    const experiment = await scoped.generateIdeaExperiment({
+      idea,
+      selectedVariantIds: variantIdsValue(body.selectedVariantIds),
+      modelPolicy: parseModelPolicy(body),
+    });
+    sendJson(res, 200, {
+      experiment,
+      modelUsages: experiment.modelUsages ?? [],
+      nodeResults: experiment.nodeResults ?? [],
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/experiment/publish-preview") {
+    const body = await readJson(req);
+    const experiment = service.createExperimentPublishPreview({
+      experiment: ideaExperimentValue(body.experiment),
+      selectedVariantIds: variantIdsValue(body.selectedVariantIds),
+    });
+    sendJson(res, 200, {
+      experiment,
+      publishConfirmation: requiresWriteConfirmation(service)
+        ? confirmations.create({ action: "publish", snapshotHash: experimentHash(experiment) })
+        : undefined,
+      modelUsages: experiment.modelUsages ?? [],
+      nodeResults: experiment.nodeResults ?? [],
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/experiment/confirm-publish") {
+    const body = await readJson(req);
+    const experiment = ideaExperimentValue(body.experiment);
+    if (requiresWriteConfirmation(service)) {
+      confirmations.consume(stringValue(body.confirmationToken), {
+        action: "publish",
+        snapshotHash: experimentHash(experiment),
+      });
+    }
+    const result = await service.confirmExperimentPublish({
+      experiment,
+      ringId: stringValue(body.ringId),
+      allowLiveWrite: true,
+    });
+    sendJson(res, 200, {
+      experiment: result,
+      modelUsages: result.modelUsages ?? [],
+      nodeResults: result.nodeResults ?? [],
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/experiment/collect") {
+    const body = await readJson(req);
+    const result = await service.collectExperimentFeedback({
+      experiment: ideaExperimentValue(body.experiment),
+    });
+    sendJson(res, 200, {
+      experiment: result,
+      demoData: result.demoData === true,
+      modelUsages: result.modelUsages ?? [],
+      nodeResults: result.nodeResults ?? [],
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/experiment/report") {
+    const body = await readJson(req);
+    const scoped = service.withModelPolicy(parseModelPolicy(body));
+    const result = await scoped.buildExperimentReport({
+      experiment: ideaExperimentValue(body.experiment),
+      modelPolicy: parseModelPolicy(body),
+    });
+    sendJson(res, 200, {
+      experiment: result,
+      report: result.report,
+      modelUsages: result.modelUsages ?? [],
+      nodeResults: result.nodeResults ?? [],
+    });
     return;
   }
 
@@ -422,7 +865,7 @@ async function handleRequest(
         snapshotHash: snapshotHash(snapshot),
       });
     }
-    const result = await scoped.confirmPublishWithSnapshot(snapshot, stringValue(body.ringId));
+    const result = await scoped.confirmPublishWithSnapshot(snapshot, stringValue(body.ringId), { allowLiveWrite: true });
     sendJson(res, 200, {
       ...result,
       modelUsages: result.snapshot.modelUsages ?? [],
@@ -441,7 +884,7 @@ async function handleRequest(
     if (requiresWriteConfirmation(service)) {
       confirmations.consume(stringValue(body.confirmationToken), { action: "comment", subject: publishId });
     }
-    const comment = await service.createHostComment({ publishId, content });
+    const comment = await service.createHostComment({ publishId, content }, { allowLiveWrite: true });
     sendJson(res, 200, { comment });
     return;
   }
@@ -455,7 +898,7 @@ async function handleRequest(
     if (requiresWriteConfirmation(service)) {
       confirmations.consume(stringValue(body.confirmationToken), { action: "reaction", subject: targetId });
     }
-    const reaction = await service.react({ targetId, type: reactionValue(body.type) });
+    const reaction = await service.react({ targetId, type: reactionValue(body.type) }, { allowLiveWrite: true });
     sendJson(res, 200, { reaction });
     return;
   }
@@ -465,9 +908,12 @@ async function handleRequest(
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const publishResult = objectValue(body.publishResult);
     const publishId = stringValue(body.publishId) ?? stringValue(publishResult?.id);
+    const publishMode = publishResult?.mode === "mock" || publishResult?.mode === "live"
+      ? publishResult.mode
+      : publishId?.startsWith("mock-") ? "mock" : undefined;
     const snapshot = await scoped.analyzeFeedback(
       snapshotValue(body.snapshot),
-      publishId ? { id: publishId } : undefined,
+      publishId ? { id: publishId, mode: publishMode } : undefined,
     );
     sendJson(res, 200, { snapshot, modelUsages: snapshot.modelUsages ?? [], nodeResults: snapshot.nodeResults ?? [] });
     return;
@@ -503,15 +949,29 @@ async function handleRequest(
     return;
   }
 
+  if (staticDir && req.method === "GET" && !url.pathname.startsWith("/api/")) {
+    await serveStatic(staticDir, url.pathname, res);
+    return;
+  }
+
   sendJson(res, 404, { error: "not_found", message: `未找到接口 ${req.method} ${url.pathname}` });
+}
+
+function zhihuStatusMode(): "mock" | "live" {
+  if (process.env.ZHIHU_PROVIDER === "mock") {
+    return "mock";
+  }
+  return process.env.ZHIHU_PROVIDER === "live" || Boolean(process.env.ZHIHU_API_BASE_URL) ? "live" : "mock";
 }
 
 export function createBackendServer(options: BackendServerOptions = {}) {
   const service = options.service ?? new RoundtableWorkflowService();
   const confirmations = new ConfirmationRegistry();
+  const oauthStates = new OAuthStateRegistry();
+  const staticDir = options.staticDir;
 
   return createServer((req, res) => {
-    handleRequest(service, confirmations, req, res).catch((error) => {
+    handleRequest(service, confirmations, oauthStates, staticDir, req, res).catch((error) => {
       const status = error instanceof HttpError ? error.status : 500;
       sendJson(res, status, {
         error: error instanceof HttpError ? error.code : "backend_error",
