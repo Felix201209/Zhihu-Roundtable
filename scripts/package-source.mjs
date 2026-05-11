@@ -91,6 +91,7 @@ const manifest = {
 };
 
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+assertManifestMatchesPackage(manifestPath, manifest);
 
 console.log(`source package ready: ${outputPath}`);
 console.log(`manifest: ${manifestPath}`);
@@ -104,6 +105,20 @@ function assertCleanWorktree() {
   if (status) {
     console.error("source package requires a clean git worktree because it archives HEAD.");
     console.error("Commit or stash local changes first, or pass --allow-dirty for local debugging only.");
+    process.exit(1);
+  }
+}
+
+function assertManifestMatchesPackage(manifestPath, expected) {
+  const actual = JSON.parse(readFileSync(manifestPath, "utf8"));
+  for (const key of ["package", "manifest", "commit", "fileCount", "sizeBytes", "sha256", "allowDirty"]) {
+    if (actual[key] !== expected[key]) {
+      console.error(`source package manifest mismatch for ${key}: expected ${expected[key]}, got ${actual[key]}`);
+      process.exit(1);
+    }
+  }
+  if (!Array.isArray(actual.requiredSourceFiles) || actual.requiredSourceFiles.length !== expected.requiredSourceFiles.length) {
+    console.error("source package manifest missing requiredSourceFiles");
     process.exit(1);
   }
 }
