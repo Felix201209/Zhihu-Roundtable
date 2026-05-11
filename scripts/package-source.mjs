@@ -117,7 +117,24 @@ function assertManifestMatchesPackage(manifestPath, expected) {
       process.exit(1);
     }
   }
-  if (!Array.isArray(actual.requiredSourceFiles) || actual.requiredSourceFiles.length !== expected.requiredSourceFiles.length) {
+
+  const packageStats = existsSync(actual.package) ? statSync(actual.package) : null;
+  if (!packageStats || packageStats.size !== actual.sizeBytes) {
+    console.error(`source package manifest size mismatch for ${actual.package}`);
+    process.exit(1);
+  }
+
+  const packageSha256 = createHash("sha256").update(readFileSync(actual.package)).digest("hex");
+  if (packageSha256 !== actual.sha256) {
+    console.error(`source package manifest sha256 mismatch for ${actual.package}`);
+    process.exit(1);
+  }
+
+  if (
+    !Array.isArray(actual.requiredSourceFiles) ||
+    actual.requiredSourceFiles.length !== expected.requiredSourceFiles.length ||
+    actual.requiredSourceFiles.some((file, index) => file !== expected.requiredSourceFiles[index])
+  ) {
     console.error("source package manifest missing requiredSourceFiles");
     process.exit(1);
   }
