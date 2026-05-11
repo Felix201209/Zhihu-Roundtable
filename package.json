@@ -26,8 +26,9 @@
     "verify:production": "npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
     "verify:public": "node scripts/verify-public-demo.mjs",
     "verify:remote-ci": "node scripts/verify-remote-ci.mjs",
+    "completion:audit": "node scripts/completion-audit.mjs",
     "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs && node --check scripts/package-source.mjs && node --check scripts/verify-public-demo.mjs && node --check scripts/verify-remote-ci.mjs && node --check scripts/verify-production-server.mjs && node --check scripts/verify-production-flow.mjs && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
-    "verify:submission": "npm run verify:judge && npm run package:source",
+    "verify:submission": "npm run verify:judge && npm run completion:audit && npm run package:source",
     "package:source": "node scripts/package-source.mjs",
     "audit:high": "npm audit --audit-level=high"
   },

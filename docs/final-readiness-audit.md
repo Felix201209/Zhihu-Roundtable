@@ -22,6 +22,7 @@
 | UI 可路演 | 浏览器主流程已跑通，截图存在桌面和移动视口 | 已完成 |
 | 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/hackathon-demo-plan.md` | 已完成 |
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 已准备给 push 后验收 | 已完成 |
+| 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md` | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
@@ -39,6 +40,7 @@
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
 | “mock-safe 与 live 边界可靠” | `src/providers/zhihu-provider.ts`、`src/backend/http-server.ts`、测试 | mock 强制覆盖 live env，live 写操作要确认 token |
 | “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`docs/deployment.md` | 生产式本地服务与 Render Blueprint 已准备 |
+| “不要用代理信号当完成” | `scripts/completion-audit.mjs` | 把目标拆成可检查项，并把远端同步、远端 CI、公网 Demo、评委仓库访问列为外部 blocker |
 | “不要泄露 key” | `.gitignore`、`git ls-files`、secret scan | `.env.local`、`.cache`、`dist`、`node_modules` 未被跟踪 |
 
 ## 3. 最新实证
@@ -54,6 +56,7 @@ commit: Prepare Zhihu roundtable submission
 
 ```bash
 npm run verify:submission
+npm run completion:audit
 npm run verify:judge
 npm run audit:high
 git push --dry-run origin main

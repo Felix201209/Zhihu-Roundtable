@@ -21,6 +21,7 @@ const requiredFiles = [
   "docs/final-readiness-audit.md",
   "render.yaml",
   "scripts/package-source.mjs",
+  "scripts/completion-audit.mjs",
   "scripts/verify-remote-ci.mjs",
   "scripts/verify-public-demo.mjs",
   "scripts/verify-production-flow.mjs",
@@ -99,10 +100,11 @@ assertFileIncludes("package.json", [
   "\"verify:production\": \"npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs\"",
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
+  "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   "\"verify:judge\":",
   "node --check scripts/verify-public-demo.mjs",
   "node --check scripts/verify-remote-ci.mjs",
-  "\"verify:submission\": \"npm run verify:judge && npm run package:source\"",
+  "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source\"",
   "\"package:source\": \"node scripts/package-source.mjs\"",
 ]);
 assertPackageJson();
@@ -140,6 +142,7 @@ assertFileIncludes("scripts/verify-public-demo.mjs", [
 assertFileIncludes("scripts/package-source.mjs", [
   ".github/workflows/verify.yml",
   "scripts/verify-submission.mjs",
+  "scripts/completion-audit.mjs",
   "scripts/verify-production-server.mjs",
   "tests/http-server.test.ts",
 ]);
@@ -163,6 +166,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "npm run verify:submission",
   "git push --dry-run origin main",
   "node scripts/verify-remote-ci.mjs --allow-not-pushed",
+  "npm run completion:audit",
   "60 个测试通过",
   "生产式浏览器路径确认",
   "前端 bundle 中的产品关键文案",

@@ -19,6 +19,7 @@ const requiredSourceFiles = [
   "docs/submission-form-checklist.md",
   "docs/final-readiness-audit.md",
   "scripts/verify-submission.mjs",
+  "scripts/completion-audit.mjs",
   "scripts/verify-remote-ci.mjs",
   "scripts/verify-public-demo.mjs",
   "scripts/verify-production-server.mjs",
