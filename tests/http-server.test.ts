@@ -99,6 +99,20 @@ describe("backend HTTP server", () => {
     expect(readiness.report.awardTargets).toContain("综合大奖");
   });
 
+  it("uses forwarded public origin for OAuth callback URLs", async () => {
+    started = await startBackendServer({ port: 0 });
+    const baseUrl = `http://127.0.0.1:${started.port}`;
+
+    const oauthStatus = await fetch(`${baseUrl}/api/oauth/status`, {
+      headers: {
+        "x-forwarded-host": "zhihu-roundtable.onrender.com",
+        "x-forwarded-proto": "https",
+      },
+    }).then((res) => res.json());
+
+    expect(oauthStatus.callbackUrl).toBe("https://zhihu-roundtable.onrender.com/api/oauth/callback");
+  });
+
   it("reports mock-safe Zhihu status when ZHIHU_PROVIDER=mock overrides live-looking env", async () => {
     const previousEnv = {
       ZHIHU_PROVIDER: process.env.ZHIHU_PROVIDER,
