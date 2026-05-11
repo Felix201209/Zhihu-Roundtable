@@ -20,7 +20,7 @@
 | mock-safe 可靠 | `demo:serve:mock`、`capture:demo:auto:mock`、`ZHIHU_PROVIDER=mock` hard override、本地验证输出 `provider: mock` | 已完成 |
 | live 边界可靠 | live 写操作需要后端 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才放行；真实写失败不会伪装 mock 成功；`.env.local` 被忽略 | 已完成 |
 | UI 可路演 | 浏览器主流程已跑通，截图存在桌面和移动视口 | 已完成 |
-| 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/hackathon-demo-plan.md` | 已完成 |
+| 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
@@ -35,7 +35,7 @@
 | --- | --- | --- |
 | “可提交” | `docs/submission-package.md`、`docs/submission-form-checklist.md`、`README.md`、`JUDGE_GUIDE.md` | 提交包有项目介绍、赛道、运行命令、仓库链接、部署占位和源码 ZIP 兜底 |
 | “可路演” | `docs/hackathon-demo-plan.md`、截图 artifacts | 6 分钟脚本、3 分钟压缩版、Q&A、桌面/移动截图 |
-| “可防追问” | `docs/championship-redteam.md`、`docs/final-readiness-audit.md` | 风险、边界、live/mock、安全发布、部署缺口已列明 |
+| “可防追问” | `docs/championship-redteam.md`、`docs/final-readiness-audit.md`、`docs/external-closure-runbook.md` | 风险、边界、live/mock、安全发布、部署缺口和外部闭环步骤已列明 |
 | “产品定位清晰” | README/JUDGE/前端文案 | 旧的偏聊天表演口径已清理 |
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
 | “mock-safe 与 live 边界可靠” | `src/providers/zhihu-provider.ts`、`src/backend/http-server.ts`、测试 | mock 强制覆盖 live env，live 写操作要确认 token |

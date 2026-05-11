@@ -65,7 +65,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 其他链接：
 
 ```text
-README / JUDGE_GUIDE / docs/submission-form-checklist.md / docs/final-readiness-audit.md / 产品说明文档链接均可填写
+README / JUDGE_GUIDE / docs/submission-form-checklist.md / docs/final-readiness-audit.md / docs/external-closure-runbook.md / 产品说明文档链接均可填写
 如平台需要源码压缩包，使用 npm run package:source 生成 .cache/submission/zhihu-roundtable-source.zip 和 .cache/submission/manifest.json；manifest 会记录 HEAD commit、文件数、ZIP 大小和 sha256。
 ```
 

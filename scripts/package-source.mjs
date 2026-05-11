@@ -16,6 +16,7 @@ const requiredSourceFiles = [
   "render.yaml",
   "docs/backend-contract.md",
   "docs/deployment.md",
+  "docs/external-closure-runbook.md",
   "docs/submission-form-checklist.md",
   "docs/final-readiness-audit.md",
   "scripts/verify-submission.mjs",

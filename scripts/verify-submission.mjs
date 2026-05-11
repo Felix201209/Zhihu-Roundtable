@@ -171,6 +171,7 @@ assertFileIncludes("scripts/package-source.mjs", [
   "scripts/completion-audit.mjs",
   "manifest.json",
   "generatedAt",
+  "docs/external-closure-runbook.md",
   "scripts/verify-production-server.mjs",
   "tests/http-server.test.ts",
 ]);
@@ -245,6 +246,7 @@ assertFileIncludes("docs/submission-package.md", [
   ".cache/submission/manifest.json",
   "HEAD commit",
   "sha256",
+  "docs/external-closure-runbook.md",
 ]);
 
 for (const file of publicNarrativeFiles) {
