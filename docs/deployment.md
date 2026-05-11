@@ -71,10 +71,10 @@ npm run verify:remote-ci
 如果仓库保持 private，给评委/主办方授权后再跑最终严格审计：
 
 ```bash
-PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict
+PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final
 ```
 
-这条命令会把公网 Demo、远端同步、远端 CI 和仓库访问都纳入最终 completion audit；其中公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流。
+这条命令会把远端 CI、公网 Demo、远端同步和仓库访问都纳入最终验收；其中公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流。
 
 ## 切 live 前检查
 
