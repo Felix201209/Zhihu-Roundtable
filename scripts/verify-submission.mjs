@@ -138,6 +138,10 @@ assertFileIncludes("render.yaml", [
   "healthCheckPath: /api/health",
   "ZHIHU_PROVIDER",
   "value: mock",
+  "VITE_DEMO_MODEL_MODE",
+  "VITE_DEMO_DEFAULT_PROVIDER",
+  "VITE_DEMO_FALLBACK_TO_MOCK",
+  "value: \"true\"",
 ]);
 
 assertFileIncludes("scripts/verify-public-demo.mjs", [
@@ -208,6 +212,7 @@ assertFileIncludes("docs/deployment.md", [
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
   "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
   "npm run verify:remote-ci -- --wait",
+  "VITE_DEMO_FALLBACK_TO_MOCK=true",
 ]);
 
 assertFileIncludes("docs/submission-form-checklist.md", [

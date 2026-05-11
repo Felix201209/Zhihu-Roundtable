@@ -41,7 +41,14 @@ check("mock-safe 边界", "路演脚本和 Render 默认强制 mock，不依赖�
     "ZHIHU_PROVIDER=mock",
     "\"capture:demo:auto:mock\"",
   ]);
-  assertIncludes("render.yaml", ["ZHIHU_PROVIDER", "value: mock"]);
+  assertIncludes("render.yaml", [
+    "ZHIHU_PROVIDER",
+    "value: mock",
+    "VITE_DEMO_MODEL_MODE",
+    "VITE_DEMO_DEFAULT_PROVIDER",
+    "VITE_DEMO_FALLBACK_TO_MOCK",
+    "value: \"true\"",
+  ]);
   assertIncludes("src/providers/zhihu-provider.ts", [
     "if (process.env.ZHIHU_PROVIDER === \"mock\")",
     "MockZhihuProvider",
