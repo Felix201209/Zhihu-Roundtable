@@ -158,6 +158,7 @@ live 写操作不会绕过用户确认：发布、主持评论、reaction 都需
 
 - 评审快速指南：[JUDGE_GUIDE.md](JUDGE_GUIDE.md)
 - 部署指南：[docs/deployment.md](docs/deployment.md)
+- 外部交付闭环 Runbook：[docs/external-closure-runbook.md](docs/external-closure-runbook.md)
 - 提交表单清单：[docs/submission-form-checklist.md](docs/submission-form-checklist.md)
 - 后端契约：[docs/backend-contract.md](docs/backend-contract.md)
 - 路演计划：[docs/hackathon-demo-plan.md](docs/hackathon-demo-plan.md)

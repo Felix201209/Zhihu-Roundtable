@@ -18,6 +18,7 @@ const requiredFiles = [
   "docs/submission-package.md",
   "docs/submission-form-checklist.md",
   "docs/deployment.md",
+  "docs/external-closure-runbook.md",
   "docs/final-readiness-audit.md",
   "render.yaml",
   "scripts/package-source.mjs",
@@ -121,6 +122,7 @@ assertFileIncludes("README.md", [
   "live 只读接口失败",
   "真实写操作失败不会伪装成功",
   "docs/submission-form-checklist.md",
+  "docs/external-closure-runbook.md",
   "docs/final-readiness-audit.md",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
 ]);
@@ -213,6 +215,16 @@ assertFileIncludes("docs/deployment.md", [
   "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
   "npm run verify:remote-ci -- --wait",
   "VITE_DEMO_FALLBACK_TO_MOCK=true",
+]);
+
+assertFileIncludes("docs/external-closure-runbook.md", [
+  "git push origin main",
+  "npm run verify:remote-ci -- --wait",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
+  "ZHIHU_PROVIDER=mock",
+  "VITE_DEMO_FALLBACK_TO_MOCK=true",
+  "update_goal",
 ]);
 
 assertFileIncludes("docs/submission-form-checklist.md", [
