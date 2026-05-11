@@ -120,6 +120,7 @@ assertFileIncludes("README.md", [
   "真实写操作失败不会伪装成功",
   "docs/submission-form-checklist.md",
   "docs/final-readiness-audit.md",
+  "REVIEWER_REPO_ACCESS_CONFIRMED=1",
 ]);
 
 assertFileIncludes("render.yaml", [
@@ -167,6 +168,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "git push --dry-run origin main",
   "node scripts/verify-remote-ci.mjs --allow-not-pushed",
   "npm run completion:audit",
+  "REVIEWER_REPO_ACCESS_CONFIRMED=1",
   "60 个测试通过",
   "生产式浏览器路径确认",
   "前端 bundle 中的产品关键文案",
@@ -187,6 +189,7 @@ assertFileIncludes("docs/submission-form-checklist.md", [
   "npm run verify:submission",
   "npm run verify:judge",
   "npm run package:source",
+  "REVIEWER_REPO_ACCESS_CONFIRMED=1",
   "不要提交 `.env.local`",
 ]);
 

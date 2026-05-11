@@ -64,7 +64,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 仓库访问状态：
 
 ```text
-当前仓库为 private。提交前必须给评委/主办方授权，或经确认后切为 public。
+当前仓库为 private。提交前必须给评委/主办方授权，或经确认后切为 public。若保持 private，授权完成后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 留下最终审计证据。
 ```
 
 ## 3. 提交前必须通过

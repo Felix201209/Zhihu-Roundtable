@@ -146,7 +146,11 @@ blocker("公网 Demo", "需要 PUBLIC_DEMO_URL 并通过 npm run verify:public",
   return result.status === 0;
 });
 
-blocker("评委仓库访问", "GitHub 仓库需要 public，或在提交表里提供 private repo 授权说明", () => {
+blocker("评委仓库访问", "GitHub 仓库需要 public，或设置 REVIEWER_REPO_ACCESS_CONFIRMED=1 表示 private repo 已授权评委/主办方", () => {
+  if (process.env.REVIEWER_REPO_ACCESS_CONFIRMED === "1") {
+    return true;
+  }
+
   const view = spawnSync("gh", ["repo", "view", "--json", "visibility"], { encoding: "utf8" });
   if (view.status === 0) {
     try {

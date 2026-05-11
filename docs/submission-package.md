@@ -59,7 +59,7 @@ https://你的线上-demo域名/api/oauth/callback
 ```text
 https://github.com/Felix201209/Zhihu-Roundtable
 
-当前仓库是 private；提交前需要给评委/主办方授予访问权限，或经确认后切为 public。
+当前仓库是 private；提交前需要给评委/主办方授予访问权限，或经确认后切为 public。若保持 private，授权完成后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 留下最终审计证据。
 ```
 
 其他链接：

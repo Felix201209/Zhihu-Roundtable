@@ -27,7 +27,7 @@
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
 | 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
-| 评委仓库访问 | GitHub 仓库当前为 private | 未完成 |
+| 评委仓库访问 | GitHub 仓库当前为 private；可切 public，或给评委/主办方授权后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 验收 | 未完成 |
 
 ## 2. Prompt-to-Artifact Checklist
 
@@ -40,7 +40,7 @@
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
 | “mock-safe 与 live 边界可靠” | `src/providers/zhihu-provider.ts`、`src/backend/http-server.ts`、测试 | mock 强制覆盖 live env，live 写操作要确认 token |
 | “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`docs/deployment.md` | 生产式本地服务与 Render Blueprint 已准备 |
-| “不要用代理信号当完成” | `scripts/completion-audit.mjs` | 把目标拆成可检查项，并把远端同步、远端 CI、公网 Demo、评委仓库访问列为外部 blocker |
+| “不要用代理信号当完成” | `scripts/completion-audit.mjs` | 把目标拆成可检查项，并把远端同步、远端 CI、公网 Demo、评委仓库访问列为外部 blocker；private repo 可用 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 表示已授权 |
 | “不要泄露 key” | `.gitignore`、`git ls-files`、secret scan | `.env.local`、`.cache`、`dist`、`node_modules` 未被跟踪 |
 
 ## 3. 最新实证
@@ -76,7 +76,7 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 - `scripts/verify-remote-ci.mjs`
 - `scripts/package-source.mjs` 语法检查
 
-`completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。
+`completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。若仓库保持 private，但已经给评委/主办方授权，可用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 作为最终审计证据。
 
 源码 ZIP 输出会随最终提交 hash 改变，提交时以 `npm run package:source` 的终端输出为准。该脚本会输出：
 
@@ -178,7 +178,7 @@ PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public
 
 1. 没有公网可访问 Demo URL。
 2. 本地提交还没有 push 到远端；`git push --dry-run origin main` 已确认推送计划可行。
-3. GitHub 仓库仍是 private，评委无法直接访问，除非后续授权或切 public。
+3. GitHub 仓库仍是 private，评委无法直接访问，除非后续授权并设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据，或切 public。
 
 ## 5. 下一步动作
 
