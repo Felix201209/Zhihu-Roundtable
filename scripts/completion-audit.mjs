@@ -124,9 +124,10 @@ check("截图 artifacts", "桌面和移动截图存在且不是空文件", () =>
   }
 });
 
-blocker("远端同步", "当前 HEAD 还没有确认 push 到 origin/main", () => {
-  const status = git(["status", "-sb"]);
-  return !status.includes("[ahead");
+blocker("远端同步", "当前 HEAD 必须和 upstream HEAD 完全一致，避免 ahead/behind/diverged 被误判", () => {
+  const localHead = git(["rev-parse", "HEAD"]);
+  const upstreamHead = git(["rev-parse", "@{u}"]);
+  return localHead === upstreamHead;
 });
 
 blocker("远端 CI", "GitHub Actions Verify 需要对当前 HEAD 成功", () => {
