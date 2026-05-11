@@ -151,6 +151,12 @@ assertFileIncludes("scripts/verify-production-flow.mjs", [
   "normalizeOrigin",
 ]);
 
+assertFileIncludes("scripts/completion-audit.mjs", [
+  "scripts/verify-public-demo.mjs",
+  "scripts/verify-production-flow.mjs",
+  "PRODUCTION_FLOW_REQUIRE_BROWSER",
+]);
+
 assertFileIncludes("scripts/package-source.mjs", [
   ".github/workflows/verify.yml",
   "scripts/verify-submission.mjs",
@@ -198,6 +204,7 @@ assertFileIncludes("docs/deployment.md", [
   "npm run verify:remote-ci",
   "PRODUCTION_FLOW_URL=https://你的线上-demo域名 PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict",
+  "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
 ]);
 
 assertFileIncludes("docs/submission-form-checklist.md", [

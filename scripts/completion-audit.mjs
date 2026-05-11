@@ -135,16 +135,28 @@ blocker("远端 CI", "GitHub Actions Verify 需要对当前 HEAD 成功", () => 
   return result.status === 0;
 });
 
-blocker("公网 Demo", "需要 PUBLIC_DEMO_URL 并通过 npm run verify:public", () => {
+blocker("公网 Demo", "需要 PUBLIC_DEMO_URL，并同时通过公网 API smoke 与公网浏览器点击流", () => {
   const url = process.env.PUBLIC_DEMO_URL;
   if (!url) {
     return false;
   }
-  const result = spawnSync("node", ["scripts/verify-public-demo.mjs", url], {
+  const publicSmoke = spawnSync("node", ["scripts/verify-public-demo.mjs", url], {
     encoding: "utf8",
     env: process.env,
   });
-  return result.status === 0;
+  if (publicSmoke.status !== 0) {
+    return false;
+  }
+
+  const browserFlow = spawnSync("node", ["scripts/verify-production-flow.mjs"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      PRODUCTION_FLOW_URL: url,
+      PRODUCTION_FLOW_REQUIRE_BROWSER: "true",
+    },
+  });
+  return browserFlow.status === 0;
 });
 
 blocker("评委仓库访问", "GitHub 仓库需要 public，或设置 REVIEWER_REPO_ACCESS_CONFIRMED=1 表示 private repo 已授权评委/主办方", () => {
