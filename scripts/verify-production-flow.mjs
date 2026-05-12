@@ -61,7 +61,7 @@ chrome.stderr.on("data", (chunk) => {
 
 try {
   await waitForApp();
-  const result = await withTimeout(runBrowserFlow(), 180_000, "production browser flow timed out");
+  const result = await withTimeout(runBrowserFlow(), 420_000, "production browser flow timed out");
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
@@ -136,7 +136,7 @@ async function runBrowserFlow() {
   async function waitForText(text) {
     const escaped = JSON.stringify(text);
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 120_000) {
+    while (Date.now() - startedAt < 300_000) {
       const found = await evaluate(`document.body && document.body.innerText.includes(${escaped})`);
       if (found) return;
       await delay(150);
@@ -149,6 +149,21 @@ async function runBrowserFlow() {
     await waitForText(expectedText);
     const body = await evaluate("document.body.innerText");
     observations.push({ label, expectedText, found: body.includes(expectedText) });
+  }
+
+  async function observeAny(label, expectedTexts) {
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 120_000) {
+      const body = await evaluate("document.body ? document.body.innerText : ''");
+      const expectedText = expectedTexts.find((text) => body.includes(text));
+      if (expectedText) {
+        observations.push({ label, expectedText, found: true });
+        return;
+      }
+      await delay(150);
+    }
+    const body = await evaluate("document.body ? document.body.innerText.slice(0, 1200) : ''");
+    throw new Error(`missing any text after wait: ${expectedTexts.join(" / ")}; body: ${JSON.stringify(body)}`);
   }
 
   async function clickButton(pattern) {
@@ -199,7 +214,7 @@ async function runBrowserFlow() {
     await observe("debate", "刘看山主持校验");
     await clickButton(/生成发布策划/);
     await observe("publish", "发布策划与圈子帖预览");
-    await observe("publish-safety", "Mock-safe 演示模式");
+    await observeAny("publish-safety", ["Mock-safe 演示模式", "Live 写入保护已开启"]);
     await clickButton(/确认发布到圈子/);
     await observe("feedback", "评论复盘与下一轮创作");
     await observe("next-content", "下一篇内容方向");

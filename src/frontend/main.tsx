@@ -1296,9 +1296,9 @@ function ReportBlock({ title, items }: { title: string; items: string[] }) {
 
 function buildStandOptions(snapshot: RoundtableSnapshot): string[] {
   const draft = snapshot.publishDraft;
-  const support = snapshot.viewpointMap?.support ?? [];
-  const disputes = snapshot.viewpointMap?.disputes ?? [];
-  const questions = draft?.questions ?? snapshot.viewpointMap?.followups ?? [];
+  const support = (snapshot.viewpointMap?.support ?? []).map(cleanDisplayText);
+  const disputes = (snapshot.viewpointMap?.disputes ?? []).map(cleanDisplayText);
+  const questions = (draft?.questions ?? snapshot.viewpointMap?.followups ?? []).map(cleanDisplayText);
 
   return [
     `A. ${support[0] ?? draft?.consensus[0] ?? "这个话题值得发起讨论，重点应看真实经验和过程证据。"}`,
@@ -1306,6 +1306,26 @@ function buildStandOptions(snapshot: RoundtableSnapshot): string[] {
     `C. ${questions[0] ?? "普通用户更关心这个问题和自己有什么关系。"}`,
     "D. 关键不在站队，而在具体场景、证据和参与者经验。",
   ];
+}
+
+function cleanDisplayText(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return trimmed;
+  }
+
+  try {
+    const record = JSON.parse(trimmed) as Record<string, unknown>;
+    for (const key of ["dispute", "text", "content", "claim", "point", "summary", "question", "reason"]) {
+      if (typeof record[key] === "string" && record[key].trim()) {
+        return record[key].trim();
+      }
+    }
+  } catch {
+    return trimmed;
+  }
+
+  return trimmed;
 }
 
 function buildRiskReminders(snapshot: RoundtableSnapshot): string[] {

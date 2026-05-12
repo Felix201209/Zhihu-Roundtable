@@ -32,7 +32,7 @@ function stringFromItem(value: unknown): string {
   }
 
   const record = asRecord(value);
-  for (const key of ["text", "content", "claim", "point", "summary", "title", "reason", "comment", "question", "label"]) {
+  for (const key of ["text", "content", "claim", "point", "summary", "title", "reason", "comment", "question", "label", "dispute"]) {
     if (typeof record[key] === "string" && record[key].trim()) {
       return record[key].trim();
     }

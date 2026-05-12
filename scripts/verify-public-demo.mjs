@@ -37,12 +37,20 @@ if (expectedProvider !== "any") {
 if (expectedProvider === "mock") {
   assert(zhihuStatus.accessTokenConfigured === false, "mock-safe public demo should not expose a configured access token");
   assert(zhihuStatus.baseUrlConfigured === false, "mock-safe public demo should not use a live Zhihu base URL");
+} else if (expectedProvider === "live") {
+  assert(zhihuStatus.appCredentialsConfigured === true, "live public demo should report Zhihu app credentials configured");
+  assert(zhihuStatus.baseUrlConfigured === true, "live public demo should report a Zhihu API base URL");
+  assert(zhihuStatus.cache?.zhihuReadsEnabled !== false, "live public demo should keep Zhihu read cache enabled");
+  assert(zhihuStatus.cache?.llmJsonEnabled !== false, "live public demo should keep DeepSeek JSON cache enabled");
 }
 
 const models = await fetchJson(`${origin}/api/models`);
 assert(models.defaultPolicy?.roleMap?.publish, "public demo models endpoint should expose the default publish role");
 if (expectedProvider === "mock") {
   assert(models.env?.zhihuConfigured === false, "mock-safe public demo should not report Zhihu live credentials configured");
+} else if (expectedProvider === "live") {
+  assert(models.env?.deepseekConfigured === true, "live public demo should report DeepSeek configured");
+  assert(models.env?.zhihuConfigured === true, "live public demo should report Zhihu configured");
 }
 
 const oauthStatus = await fetchJson(`${origin}/api/oauth/status`);
