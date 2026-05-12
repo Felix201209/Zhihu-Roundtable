@@ -583,9 +583,9 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     let lastError: unknown;
 
     for (let attempt = 1; attempt <= this.maxRetries + 1; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
         const response = await this.fetchImpl(`${this.baseUrl.replace(/\/$/, "")}/chat/completions`, {
           method: "POST",
           signal: controller.signal,
@@ -599,7 +599,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
             response_format: { type: "json_object" },
             temperature: 0.4,
           }),
-        }).finally(() => clearTimeout(timeout));
+        });
 
         if (!response.ok) {
           throw new Error(`${this.profile.provider} API ${response.status}: ${await response.text()}`);
@@ -626,6 +626,8 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
         };
       } catch (error) {
         lastError = error;
+      } finally {
+        clearTimeout(timeout);
       }
     }
 

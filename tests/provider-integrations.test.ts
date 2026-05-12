@@ -117,6 +117,37 @@ describe("provider integrations", () => {
     expect(variants.value[2]).toMatchObject({ id: "C", title: "众测版" });
   });
 
+  it("aborts slow live model response bodies before falling back", async () => {
+    const provider = new OpenAiCompatibleJsonProvider({
+      provider: "deepseek-v4-pro",
+      model: "deepseek-v4-pro",
+      apiKey: "test-key",
+      baseUrl: "https://deepseek.example.test/v1",
+      preferredRoles: ["question"],
+      timeoutMs: 5,
+      maxRetries: 0,
+      cache: false,
+      fetchImpl: async (_input, init) => ({
+        ok: true,
+        json: () => new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("body aborted")), { once: true });
+        }),
+      }) as Response,
+    });
+
+    await expect(provider.rewriteQuestion({
+      topic: {
+        id: "topic-1",
+        title: "AI 工具是否改变新人评价？",
+        hotScore: 90,
+        debateScore: 88,
+        evidenceScore: 82,
+        reason: "demo",
+      },
+      evidence: [],
+    })).rejects.toThrow("body aborted");
+  });
+
   it("caches successful DeepSeek-compatible JSON calls before hitting the model again", async () => {
     const dir = mkdtempSync(join(tmpdir(), "llm-cache-"));
     try {
