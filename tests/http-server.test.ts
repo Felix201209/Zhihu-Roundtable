@@ -30,6 +30,12 @@ class LiveLikeProvider implements ZhihuProvider {
   getCachedCommentInsight = this.mock.getCachedCommentInsight.bind(this.mock);
 }
 
+class FailingLivePublishProvider extends LiveLikeProvider {
+  publishDraft: ZhihuProvider["publishDraft"] = async () => {
+    throw new Error("知乎 API 业务错误: rate limit exceeded");
+  };
+}
+
 type StartedServer = Awaited<ReturnType<typeof startBackendServer>>;
 
 let started: StartedServer | undefined;
@@ -456,6 +462,37 @@ describe("backend HTTP server", () => {
     const experimentPublished = await confirmedExperimentPublish.json();
     expect(experimentPublished.experiment.publishResult.mode).toBe("live");
     expect(experimentPublished.experiment.publishResult.optionCommentIds).toHaveLength(3);
+  });
+
+  it("keeps the demo flow moving with an explicit mock publish when live publish is rate limited", async () => {
+    started = await startBackendServer({
+      port: 0,
+      service: new RoundtableWorkflowService({ zhihuProvider: new FailingLivePublishProvider() }),
+    });
+    const baseUrl = `http://127.0.0.1:${started.port}`;
+    const post = (path: string, body: unknown) =>
+      fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    const preview = await post("/api/workflow/run", {}).then((response) => response.json());
+    const confirmed = await post("/api/workflow/confirm-publish", {
+      snapshot: preview.snapshot,
+      confirmationToken: preview.publishConfirmation.token,
+    });
+    expect(confirmed.status).toBe(200);
+    const body = await confirmed.json();
+    expect(body.publishResult.mode).toBe("mock");
+    expect(body.snapshot.nodeResults.at(-1).summary).toContain("真实发布失败，已转为模拟发布");
+
+    const feedback = await post("/api/workflow/feedback", {
+      snapshot: body.snapshot,
+      publishResult: body.publishResult,
+    });
+    expect(feedback.status).toBe(200);
+    await expect(feedback.json()).resolves.toMatchObject({ snapshot: { stage: "feedback" } });
   });
 
   it("falls back safely when domestic live model keys are missing", async () => {

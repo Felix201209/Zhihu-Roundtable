@@ -67,7 +67,7 @@ PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER
 `verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP，并自动运行 `evidence:submission` 打印提交证据；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
 
 - `npm run typecheck`
-- `npm test`，9 个测试文件，65 个测试通过
+- `npm test`，9 个测试文件，66 个测试通过
 - `npm run build`
 - `npm run backend:demo`
 - 脚本语法检查

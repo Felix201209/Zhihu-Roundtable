@@ -852,7 +852,7 @@ function RoundtablePublishView({
           <strong>{liveMode ? "Live 写入保护已开启" : "Mock-safe 演示模式"}</strong>
           <span>
             {liveMode
-              ? "点击确认会带一次性 confirmation token 调用后端；无 token、权限失败或真实写入失败都不会被伪装成 mock 成功。"
+              ? "点击确认会带一次性 confirmation token 调用后端；无 token 会被拒绝，真实写入被限流时会明确标注并转入 mock-safe 复盘。"
               : "点击确认只会生成模拟发布结果和评论复盘，不会写入真实知乎，也不会消耗真实接口额度。"}
           </span>
         </div>

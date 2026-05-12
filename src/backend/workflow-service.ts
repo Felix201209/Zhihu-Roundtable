@@ -778,8 +778,23 @@ export class RoundtableWorkflowService {
     }
 
     const publishSnapshot: RoundtableSnapshot = cloneSnapshot(snapshot);
-    const publishResult = await this.confirmPublish(publishSnapshot, ringId, options);
-    const node = finishNode(startNode("publish", "发布节点"), "用户确认后已发布/模拟发布");
+    const publishDraft = publishSnapshot.publishDraft;
+    if (!publishDraft) {
+      throw new Error("confirmPublishWithSnapshot 缺少发布稿。");
+    }
+    let publishResult: PublishResult;
+    let nodeSummary = "用户确认后已发布/模拟发布";
+    try {
+      publishResult = await this.confirmPublish(publishSnapshot, ringId, options);
+    } catch (error) {
+      if (this.zhihuProvider.mode !== "live" || process.env.ZHIHU_PUBLISH_FALLBACK_TO_MOCK === "false") {
+        throw error;
+      }
+      publishResult = await new MockZhihuProvider().publishDraft({ draft: publishDraft, ringId });
+      const message = error instanceof Error ? error.message : "真实发布失败";
+      nodeSummary = `真实发布失败，已转为模拟发布：${message}`;
+    }
+    const node = finishNode(startNode("publish", "发布节点"), nodeSummary);
 
     return {
       snapshot: appendNode(publishSnapshot, node),
