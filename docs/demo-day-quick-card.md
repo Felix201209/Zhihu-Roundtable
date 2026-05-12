@@ -21,7 +21,7 @@ npm run demo:serve:mock
 
 - 工作区 clean。
 - `verify:submission` 本地门禁通过，外部项只在未 push/未部署时保持 blocked。
-- `verify:external-preflight` 只做 dry-run push 和只读 GitHub 检查，不会真实 push；GitHub API 抖动只显示 warning。
+- `verify:external-preflight` 只做 dry-run push 和只读 GitHub 检查，不会真实 push；GitHub API 抖动会先重试，仍失败才显示 warning。
 - 本地 demo 地址打开后，首页主按钮是 `从热榜生成讨论方案`。
 
 ## 2. 现场点击顺序

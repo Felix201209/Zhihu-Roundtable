@@ -200,6 +200,7 @@ assertFileIncludes("scripts/verify-external-preflight.mjs", [
   "--dry-run",
   "scripts/verify-remote-ci.mjs",
   "--allow-not-pushed",
+  "GITHUB_PREFLIGHT_RETRIES",
   "verify:final",
 ]);
 

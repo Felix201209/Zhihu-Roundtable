@@ -5,6 +5,7 @@ const allowDirty = args.has("--allow-dirty");
 const json = args.has("--json");
 const strictGh = args.has("--strict-gh");
 const strictRemoteCi = args.has("--strict-remote-ci");
+const ghRetries = positiveInt(process.env.GITHUB_PREFLIGHT_RETRIES, 3);
 
 const branch = runRequired("git", ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim();
 const head = runRequired("git", ["rev-parse", "HEAD"]).stdout.trim();
@@ -98,10 +99,16 @@ function printText(result) {
 }
 
 function runGhJson(args) {
-  const result = spawnSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  let result;
+  for (let attempt = 1; attempt <= ghRetries; attempt += 1) {
+    result = spawnSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    if (result.status === 0) break;
+    if (attempt < ghRetries) sleepSync(Math.min(250 * attempt, 1_000));
+  }
+
   if (result.status !== 0) {
     const output = compactOutput(result);
-    return { warning: `gh ${args.join(" ")} failed: ${output || `exit ${result.status}`}` };
+    return { warning: `gh ${args.join(" ")} failed after ${ghRetries} attempt(s): ${output || `exit ${result.status}`}` };
   }
 
   try {
@@ -109,6 +116,15 @@ function runGhJson(args) {
   } catch {
     return { warning: `gh ${args.join(" ")} did not return JSON: ${result.stdout.trim()}` };
   }
+}
+
+function positiveInt(value, fallback) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 function runOptional(command, args) {
