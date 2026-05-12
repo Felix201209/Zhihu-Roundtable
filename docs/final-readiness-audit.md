@@ -81,6 +81,8 @@ PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER
 
 `completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。若仓库保持 private，但已经给评委/主办方授权，可用 `PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final` 作为最终审计证据；其中公网 Demo 会同时跑 API smoke 和公网浏览器点击流。
 
+`verify:goal-readiness` 是 `/goal` 最终完成前的总闸门：它会先打印目标到证据的 checklist，并在 `2026-05-13 07:30:00 +08:00` 前直接失败；时间到后需要带 `PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live` 运行，串起本地 verify、公网 final、源码包和证据输出。
+
 源码 ZIP 输出会随最终提交 hash 改变，提交时以 `npm run package:source` 的终端输出和 `.cache/submission/manifest.json` 为准。该脚本会输出：
 
 ```text
