@@ -428,6 +428,8 @@ describe("frontend smoke", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /生成发布策划/ }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "发布策划与圈子帖预览" })).toBeInTheDocument());
+    expect(screen.getByText("Mock-safe 演示模式")).toBeInTheDocument();
+    expect(screen.getByText(/不会写入真实知乎/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /确认发布到圈子/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /确认发布到圈子/ }));

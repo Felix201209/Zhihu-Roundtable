@@ -791,6 +791,38 @@ button {
   color: var(--muted);
 }
 
+.publish-safety-strip {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #d9e7ff;
+  border-radius: 10px;
+  background: #f7fbff;
+  color: var(--zhihu-blue-deep);
+}
+
+.publish-safety-strip.live {
+  border-color: rgba(245, 158, 11, 0.36);
+  background: #fff7ed;
+  color: #8a4a05;
+}
+
+.publish-safety-strip svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.publish-safety-strip div {
+  display: grid;
+  gap: 3px;
+}
+
+.publish-safety-strip span {
+  line-height: 1.5;
+}
+
 .comment-preview-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

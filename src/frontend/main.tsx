@@ -450,7 +450,12 @@ export function App() {
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "publish" && snapshot ? (
-        <RoundtablePublishView snapshot={snapshot} onBack={() => setRoundtableStage("debate")} onConfirm={() => void confirmRoundtablePublish()} />
+        <RoundtablePublishView
+          snapshot={snapshot}
+          zhihuStatus={zhihuStatus}
+          onBack={() => setRoundtableStage("debate")}
+          onConfirm={() => void confirmRoundtablePublish()}
+        />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "feedback" && snapshot ? (
@@ -728,8 +733,19 @@ function seatInitial(speaker: DebateTurn["speaker"]) {
   return "问";
 }
 
-function RoundtablePublishView({ snapshot, onBack, onConfirm }: { snapshot: RoundtableSnapshot; onBack: () => void; onConfirm: () => void }) {
+function RoundtablePublishView({
+  snapshot,
+  zhihuStatus,
+  onBack,
+  onConfirm,
+}: {
+  snapshot: RoundtableSnapshot;
+  zhihuStatus: ZhihuStatusResponse | null;
+  onBack: () => void;
+  onConfirm: () => void;
+}) {
   const draft = snapshot.publishDraft;
+  const liveMode = zhihuStatus?.mode === "live";
 
   return (
     <section className="flow-card publish-confirm">
@@ -748,6 +764,17 @@ function RoundtablePublishView({ snapshot, onBack, onConfirm }: { snapshot: Roun
         <span>圈子帖草稿</span>
         <h2>{draft?.title}</h2>
         <pre>{formatPublishDraft(draft)}</pre>
+      </div>
+      <div className={`publish-safety-strip ${liveMode ? "live" : "mock"}`}>
+        <ShieldCheck size={17} />
+        <div>
+          <strong>{liveMode ? "Live 写入保护已开启" : "Mock-safe 演示模式"}</strong>
+          <span>
+            {liveMode
+              ? "点击确认会带一次性 confirmation token 调用后端；无 token、权限失败或真实写入失败都不会被伪装成 mock 成功。"
+              : "点击确认只会生成模拟发布结果和评论复盘，不会写入真实知乎，也不会消耗真实接口额度。"}
+          </span>
+        </div>
       </div>
       <div className="flow-actions">
         <button className="ghost-button" onClick={onBack}>
