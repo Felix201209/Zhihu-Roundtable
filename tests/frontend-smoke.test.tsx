@@ -191,6 +191,50 @@ describe("frontend smoke", () => {
     vi.restoreAllMocks();
   });
 
+  it("shows live API, cache status, and a durable loading monitor", async () => {
+    let resolveTopics: ((value: Response) => void) | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/zhihu/status")) {
+        return Response.json({
+          mode: "live",
+          accessTokenConfigured: false,
+          appCredentialsConfigured: true,
+          baseUrlConfigured: true,
+          cache: {
+            zhihuReadsEnabled: true,
+            llmJsonEnabled: true,
+            hotTtlMs: "1800000",
+            searchTtlMs: "43200000",
+          },
+          failures: [],
+          quotas: [],
+        });
+      }
+      if (url.includes("/api/topics")) {
+        return new Promise<Response>((resolve) => {
+          resolveTopics = resolve;
+        });
+      }
+      return Response.json({});
+    });
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText("Live API")).toBeInTheDocument());
+    expect(screen.getByText("缓存开启")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
+    await waitFor(() => expect(screen.getByText("正在拉取知乎热榜...")).toBeInTheDocument());
+    expect(screen.getByText("真实知乎/DeepSeek 链路")).toBeInTheDocument();
+    expect(screen.getByText("读接口与模型结果会缓存")).toBeInTheDocument();
+    expect(screen.getByText(/\d+s/)).toBeInTheDocument();
+
+    resolveTopics?.(Response.json({ topics: workflow.topics }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("正在拉取知乎热榜...")).not.toBeInTheDocument());
+  });
+
   it("runs the simplified idea experiment from input to report", async () => {
     const requests: Array<{ url: string; body?: Record<string, unknown> }> = [];
     const baseExperiment = {

@@ -282,7 +282,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "deploy/raspberry-pi/",
   "npm run verify:raspberry-pi",
   "docs/raspberry-pi-ops-checklist.md",
-  "64 个测试通过",
+  "65 个测试通过",
   "生产式浏览器路径确认",
   "前端 bundle 中的产品关键文案",
   "当前公网 demo 运行在 `live` 读链路",
