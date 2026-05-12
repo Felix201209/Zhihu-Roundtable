@@ -1,8 +1,9 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 
 const appPort = process.env.PRODUCTION_FLOW_PORT ?? "8900";
-const chromePort = process.env.PRODUCTION_FLOW_CHROME_PORT ?? "9230";
+const chromePort = process.env.PRODUCTION_FLOW_CHROME_PORT ?? String(await findFreePort());
 const externalOrigin = process.env.PRODUCTION_FLOW_URL ?? process.env.PUBLIC_DEMO_URL;
 const origin = externalOrigin ? normalizeOrigin(externalOrigin) : `http://127.0.0.1:${appPort}`;
 const chromePath = findChrome();
@@ -39,7 +40,7 @@ app?.stderr.on("data", (chunk) => {
   appOutput += String(chunk);
 });
 
-const userDataDir = ".cache/chrome-production-flow";
+const userDataDir = `.cache/chrome-production-flow-${chromePort}`;
 rmSync(userDataDir, { recursive: true, force: true });
 const chrome = spawn(chromePath, [
   "--headless=new",
@@ -306,6 +307,24 @@ function normalizeOrigin(value) {
   parsed.search = "";
   parsed.hash = "";
   return parsed.toString().replace(/\/$/, "");
+}
+
+function findFreePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.on("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => {
+        if (typeof address === "object" && address?.port) {
+          resolve(address.port);
+          return;
+        }
+        reject(new Error("could not allocate a free Chrome debugging port"));
+      });
+    });
+  });
 }
 
 function delay(ms) {
