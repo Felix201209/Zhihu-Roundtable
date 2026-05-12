@@ -181,6 +181,7 @@ async function runBrowserFlow() {
     await observe("debate", "刘看山主持校验");
     await clickButton(/生成发布策划/);
     await observe("publish", "发布策划与圈子帖预览");
+    await observe("publish-safety", "Mock-safe 演示模式");
     await clickButton(/确认发布到圈子/);
     await observe("feedback", "评论复盘与下一轮创作");
     await observe("next-content", "下一篇内容方向");

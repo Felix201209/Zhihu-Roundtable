@@ -208,6 +208,7 @@ assertFileIncludes("scripts/verify-production-flow.mjs", [
   "PRODUCTION_FLOW_URL",
   "PUBLIC_DEMO_URL",
   "normalizeOrigin",
+  "Mock-safe 演示模式",
 ]);
 
 assertFileIncludes("scripts/completion-audit.mjs", [
