@@ -174,7 +174,8 @@ PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER
 PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
 ```
 
-- 公网验收会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
+- 公网验收会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/topics`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
+- `/api/topics` 会被抽样检查标题、原因是否为纯文本，避免知乎 live 富文本里的 HTML tag 或 entity 漏到 UI。
 - 当前公网 demo 运行在 `live` 读链路，`/api/zhihu/status` 报告知乎 app credentials、base URL、读接口缓存和 LLM JSON 缓存均开启。
 - 真实写操作仍需要 confirmation token；公网浏览器流验证了首页到评论复盘的完整路径。
 - OAuth callback 匹配公网域名下的 `/api/oauth/callback`。
