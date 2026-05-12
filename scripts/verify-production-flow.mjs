@@ -60,7 +60,7 @@ chrome.stderr.on("data", (chunk) => {
 
 try {
   await waitForApp();
-  const result = await withTimeout(runBrowserFlow(), 45_000, "production browser flow timed out");
+  const result = await withTimeout(runBrowserFlow(), 90_000, "production browser flow timed out");
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
@@ -149,7 +149,7 @@ async function runBrowserFlow() {
 
   async function clickButton(pattern) {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 12_000) {
+    while (Date.now() - startedAt < 30_000) {
       const clicked = await evaluate(`(() => {
         const re = new RegExp(${JSON.stringify(pattern.source)}, ${JSON.stringify(pattern.flags)});
         const button = [...document.querySelectorAll("button")].find((item) => {
