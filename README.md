@@ -102,6 +102,8 @@ DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
 DEEPSEEK_PRO_MODEL=deepseek-v4-pro
+LLM_TIMEOUT_MS=30000
+LLM_MAX_RETRIES=1
 ```
 
 真实模型：
@@ -112,6 +114,7 @@ DEEPSEEK_PRO_MODEL=deepseek-v4-pro
 - `DEEPSEEK_API_KEY`
 - `DEEPSEEK_BASE_URL`
 - `DEEPSEEK_FLASH_MODEL` / `DEEPSEEK_PRO_MODEL` / `DEEPSEEK_MODEL`（可选，用于覆盖默认 DeepSeek V4 模型名）
+- `LLM_TIMEOUT_MS` / `LLM_MAX_RETRIES`（可选，公网路演可调低超时并保留 fallback，避免真实模型慢请求把用户卡在等待态）
 - `LLM_CACHE_FILE=.cache/llm-json-cache.json`
 - `LLM_CACHE_TTL_MS=86400000`，DeepSeek JSON 结果默认缓存 24 小时
 - `LLM_CACHE_ERROR_TTL_MS=300000`，模型失败默认负缓存 5 分钟，避免错误配置反复烧额度

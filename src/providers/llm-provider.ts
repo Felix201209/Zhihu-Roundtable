@@ -151,6 +151,15 @@ function envMs(key: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
+function envInt(key: string, fallback: number): number {
+  const parsed = Number(process.env[key]);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function envPrefix(provider: string): string {
+  return provider.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+}
+
 function usage(profile: LlmProviderProfile, role: ModelRole, task: string, fallbackUsed = false): ModelUsage {
   return {
     provider: profile.provider,
@@ -542,8 +551,9 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     };
     this.apiKey = options.apiKey;
     this.baseUrl = options.baseUrl ?? "https://api.openai.com/v1";
-    this.maxRetries = options.maxRetries ?? 1;
-    this.timeoutMs = options.timeoutMs ?? 30_000;
+    const prefix = envPrefix(options.provider);
+    this.maxRetries = options.maxRetries ?? envInt(`${prefix}_MAX_RETRIES`, envInt("LLM_MAX_RETRIES", 1));
+    this.timeoutMs = options.timeoutMs ?? envMs(`${prefix}_TIMEOUT_MS`, envMs("LLM_TIMEOUT_MS", 30_000));
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.cache = options.cache === false
       ? undefined
