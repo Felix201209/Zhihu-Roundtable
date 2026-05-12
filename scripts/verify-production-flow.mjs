@@ -8,6 +8,7 @@ const externalOrigin = process.env.PRODUCTION_FLOW_URL ?? process.env.PUBLIC_DEM
 const origin = externalOrigin ? normalizeOrigin(externalOrigin) : `http://127.0.0.1:${appPort}`;
 const chromePath = findChrome();
 const requireBrowser = process.env.PRODUCTION_FLOW_REQUIRE_BROWSER === "true";
+const devtoolsCommandTimeoutMs = Number(process.env.PRODUCTION_FLOW_DEVTOOLS_TIMEOUT_MS ?? "30000");
 
 if (!chromePath) {
   if (requireBrowser) {
@@ -115,13 +116,14 @@ async function runBrowserFlow() {
     socket.addEventListener("open", resolve, { once: true });
     socket.addEventListener("error", reject, { once: true });
   }), 10_000, "Chrome DevTools WebSocket did not open");
+  await delay(250);
 
   function send(method, params = {}) {
     const requestId = ++id;
     socket.send(JSON.stringify({ id: requestId, method, params }));
     return withTimeout(
       new Promise((resolve, reject) => pending.set(requestId, { resolve, reject })),
-      10_000,
+      devtoolsCommandTimeoutMs,
       `Chrome DevTools command timed out: ${method}`,
     );
   }
