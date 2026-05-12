@@ -146,7 +146,7 @@ check("部署准备", "同一 Node 服务托管 dist 与 /api，Render/树莓派
   ]);
 });
 
-check("提交包安全", "git 跟踪文件和源码包不包含真实 env、cache、dist 或 node_modules", () => {
+check("提交包安全", "git 跟踪文件和源码包 ZIP 实际内容不包含真实 env、cache、dist 或 node_modules", () => {
   const tracked = git(["ls-files"]).split("\n").filter(Boolean);
   const forbidden = tracked.filter((file) => {
     if (file === ".env.example") {
@@ -162,6 +162,11 @@ check("提交包安全", "git 跟踪文件和源码包不包含真实 env、cach
   });
   assert(forbidden.length === 0, `forbidden tracked files:\n${forbidden.join("\n")}`);
   assertIncludes(".gitignore", [".env.*", "!.env.example", ".cache/", "dist/", "node_modules/"]);
+  assertIncludes("scripts/package-source.mjs", [
+    "assertArchiveEntriesSafe",
+    "archiveFileCount",
+    "source package contains forbidden archive entries",
+  ]);
 });
 
 check("截图 artifacts", "桌面和移动截图存在且不是空文件", () => {
