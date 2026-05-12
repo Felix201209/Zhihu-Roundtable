@@ -6,6 +6,7 @@ const origin = `http://127.0.0.1:${port}`;
 const child = spawn("npm", ["run", "start"], {
   stdio: "pipe",
   shell: process.platform === "win32",
+  detached: process.platform !== "win32",
   env: {
     ...process.env,
     PORT: port,
@@ -42,8 +43,10 @@ try {
 
   console.log(`production server smoke passed at ${origin}`);
 } finally {
-  child.kill("SIGTERM");
+  terminateProcess(child);
 }
+
+process.exit(0);
 
 async function waitFor(url) {
   const startedAt = Date.now();
@@ -65,4 +68,21 @@ async function waitFor(url) {
   }
 
   throw new Error(`production server did not become ready at ${url}\n${output}`);
+}
+
+function terminateProcess(childProcess) {
+  if (!childProcess || childProcess.killed) return;
+  try {
+    if (process.platform !== "win32" && childProcess.pid) {
+      process.kill(-childProcess.pid, "SIGTERM");
+      return;
+    }
+    childProcess.kill("SIGTERM");
+  } catch {
+    try {
+      childProcess.kill("SIGTERM");
+    } catch {
+      // Process already exited.
+    }
+  }
 }
