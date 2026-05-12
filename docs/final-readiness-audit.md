@@ -24,7 +24,7 @@
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run verify:external-preflight`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`deploy/raspberry-pi/` 模板、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
-| 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
+| 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、跟踪文件数、ZIP 实际文件数、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
 | 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
 | 评委仓库访问 | GitHub 仓库当前为 private；可切 public，或给评委/主办方授权后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 验收 | 未完成 |
@@ -93,7 +93,7 @@ size: <zip size>
 sha256: <zip sha256>
 ```
 
-`evidence:submission` 还会输出可提交证据块，包含当前 commit、源码包 sha256、截图尺寸、支撑材料、可复跑本地门禁和外部闭环命令。Markdown 版可用：
+`evidence:submission` 还会输出可提交证据块，包含当前 commit、源码包文件数/ZIP 实际文件数、sha256、截图尺寸、支撑材料、可复跑本地门禁和外部闭环命令。Markdown 版可用：
 
 ```bash
 node scripts/print-submission-evidence.mjs --markdown
@@ -152,7 +152,7 @@ node_modules ignored by .gitignore
 git ls-files shows none of those paths tracked
 git archive HEAD contains no real .env/.cache/dist/node_modules entries; only .env.example is included
 git grep secret scan only finds .env.example placeholders and tests/local-env fake key
-npm run package:source outputs .cache/submission/zhihu-roundtable-source.zip and .cache/submission/manifest.json from clean HEAD, with commit, size and sha256 printed
+npm run package:source outputs .cache/submission/zhihu-roundtable-source.zip and .cache/submission/manifest.json from clean HEAD, with commit, tracked file count, archive file count, size and sha256 printed
 ```
 
 GitHub 远端状态确认：

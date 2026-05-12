@@ -238,6 +238,7 @@ assertFileIncludes("scripts/package-source.mjs", [
 
 assertFileIncludes("scripts/print-submission-evidence.mjs", [
   ".cache/submission/manifest.json",
+  "archiveFileCount",
   "artifacts/zhihu-roundtable-desktop.png",
   "supportingDocs",
   "docs/demo-day-quick-card.md",

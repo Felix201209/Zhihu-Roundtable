@@ -42,6 +42,9 @@ const packageSha256 = createHash("sha256").update(readFileSync(manifest.package)
 if (packageStats.size !== manifest.sizeBytes || packageSha256 !== manifest.sha256) {
   fail(`${manifest.package} does not match ${manifestPath}. Run npm run package:source.`);
 }
+if (manifest.archiveFileCount !== manifest.fileCount) {
+  fail(`${manifestPath} fileCount ${manifest.fileCount} does not match archiveFileCount ${manifest.archiveFileCount}. Run npm run package:source.`);
+}
 
 const desktop = readPngDimensions(desktopScreenshot);
 const mobile = readPngDimensions(mobileScreenshot);
@@ -63,6 +66,7 @@ const evidence = {
     manifest: manifestPath,
     generatedAt: manifest.generatedAt,
     fileCount: manifest.fileCount,
+    archiveFileCount: manifest.archiveFileCount,
     sizeBytes: manifest.sizeBytes,
     sha256: manifest.sha256,
   },
@@ -149,6 +153,7 @@ function formatMarkdown(evidence) {
     `- Manifest: \`${evidence.sourcePackage.manifest}\``,
     `- Generated at: \`${evidence.sourcePackage.generatedAt}\``,
     `- Files: \`${evidence.sourcePackage.fileCount}\``,
+    `- Archive files: \`${evidence.sourcePackage.archiveFileCount}\``,
     `- Size: \`${evidence.sourcePackage.sizeBytes}\` bytes`,
     `- SHA256: \`${evidence.sourcePackage.sha256}\``,
     "",

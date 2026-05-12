@@ -76,7 +76,7 @@ npm run dev
 - `PUBLIC_DEMO_URL=https://你的线上域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final`：push、部署和仓库授权都完成后的最终严格验收。
 - `npm run completion:audit`：把 `/goal` 拆成产品定位、主流程、安全边界、验证门禁、部署准备和外部交付项逐项检查；本地项失败会退出，公网 Demo、远端 CI、仓库访问这类外部项会列为 blocker。若仓库保持 private，但已给评委/主办方授权，可设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据。
 - `npm run package:source`：从干净 HEAD 生成 `.cache/submission/zhihu-roundtable-source.zip` 和 `.cache/submission/manifest.json`，并打印 commit、大小和 sha256；`verify:submission` 会在打包后自动运行 `evidence:submission`。
-- `npm run evidence:submission`：只读打印当前 commit、源码包 sha256、截图尺寸、支撑材料和最终外部验收命令，要求工作区干净；提交表或路演备忘可用 `node scripts/print-submission-evidence.mjs --markdown` 输出 Markdown，本地预览可追加 `--allow-dirty`。
+- `npm run evidence:submission`：只读打印当前 commit、源码包文件数/ZIP 实际文件数、sha256、截图尺寸、支撑材料和最终外部验收命令，要求工作区干净；提交表或路演备忘可用 `node scripts/print-submission-evidence.mjs --markdown` 输出 Markdown，本地预览可追加 `--allow-dirty`。
 - `npm run verify:judge`：本地评审基础门禁，避免依赖外部 live API 或 npm audit 网络；CI 会跑更完整的 `verify:submission`。
 - `npm run audit:high`：可选依赖安全公告检查，需要 npm registry 网络稳定。
 
