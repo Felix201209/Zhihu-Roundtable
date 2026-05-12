@@ -51,62 +51,72 @@ afterEach(async () => {
 
 describe("backend HTTP server", () => {
   it("serves health, topics and workflow JSON", async () => {
-    started = await startBackendServer({ port: 0 });
-    const baseUrl = `http://127.0.0.1:${started.port}`;
+    const previousDeploymentCommit = process.env.DEPLOYMENT_COMMIT;
+    process.env.DEPLOYMENT_COMMIT = "test-health-commit";
+    try {
+      started = await startBackendServer({ port: 0 });
+      const baseUrl = `http://127.0.0.1:${started.port}`;
 
-    const health = await fetch(`${baseUrl}/api/health`).then((res) => res.json());
-    expect(health).toMatchObject({ ok: true });
-    expect(health.port).toBe(started.port);
-    expect(health.endpoints).toContain("/api/oauth/callback");
-    expect(health.endpoints).toContain("/api/models");
-    expect(health.endpoints).toContain("/api/zhihu/status");
-    expect(health.endpoints).toContain("/api/readiness");
-    expect(health.endpoints).toContain("/api/quota");
-    expect(health.endpoints).toContain("/api/experiment/generate");
+      const health = await fetch(`${baseUrl}/api/health`).then((res) => res.json());
+      expect(health).toMatchObject({ ok: true, deploymentCommit: "test-health-commit" });
+      expect(health.port).toBe(started.port);
+      expect(health.endpoints).toContain("/api/oauth/callback");
+      expect(health.endpoints).toContain("/api/models");
+      expect(health.endpoints).toContain("/api/zhihu/status");
+      expect(health.endpoints).toContain("/api/readiness");
+      expect(health.endpoints).toContain("/api/quota");
+      expect(health.endpoints).toContain("/api/experiment/generate");
 
-    const models = await fetch(`${baseUrl}/api/models`).then((res) => res.json());
-    expect(models.defaultPolicy.roleMap.debate).toBe("deepseek-v4-flash");
-    expect(models.defaultPolicy.roleMap.publish).toBe("deepseek-v4-pro");
-    expect(models.defaultPolicy.roleMap.feedback).toBe("deepseek-v4-flash");
-    expect(models.env).toHaveProperty("zhihuConfigured");
-    expect(models.env).toHaveProperty("deepseekConfigured");
+      const models = await fetch(`${baseUrl}/api/models`).then((res) => res.json());
+      expect(models.defaultPolicy.roleMap.debate).toBe("deepseek-v4-flash");
+      expect(models.defaultPolicy.roleMap.publish).toBe("deepseek-v4-pro");
+      expect(models.defaultPolicy.roleMap.feedback).toBe("deepseek-v4-flash");
+      expect(models.env).toHaveProperty("zhihuConfigured");
+      expect(models.env).toHaveProperty("deepseekConfigured");
 
-    const zhihuStatus = await fetch(`${baseUrl}/api/zhihu/status`).then((res) => res.json());
-    expect(zhihuStatus.mode).toBe("mock");
-    expect(Array.isArray(zhihuStatus.quotas)).toBe(true);
+      const zhihuStatus = await fetch(`${baseUrl}/api/zhihu/status`).then((res) => res.json());
+      expect(zhihuStatus.mode).toBe("mock");
+      expect(Array.isArray(zhihuStatus.quotas)).toBe(true);
 
-    const oauthStatus = await fetch(`${baseUrl}/api/oauth/status`).then((res) => res.json());
-    expect(oauthStatus.callbackUrl).toBe(`${baseUrl}/api/oauth/callback`);
-    expect(oauthStatus.mode).toBe("mock-safe");
+      const oauthStatus = await fetch(`${baseUrl}/api/oauth/status`).then((res) => res.json());
+      expect(oauthStatus.callbackUrl).toBe(`${baseUrl}/api/oauth/callback`);
+      expect(oauthStatus.mode).toBe("mock-safe");
 
-    const topics = await fetch(`${baseUrl}/api/topics?modelMode=mock&defaultProvider=mock`).then((res) => res.json());
-    expect(topics.topics.length).toBeGreaterThan(0);
+      const topics = await fetch(`${baseUrl}/api/topics?modelMode=mock&defaultProvider=mock`).then((res) => res.json());
+      expect(topics.topics.length).toBeGreaterThan(0);
 
-    const workflow = await fetch(`${baseUrl}/api/workflow/run`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        publish: true,
-        modelPolicy: {
-          mode: "mock",
-          defaultProvider: "mock",
-          roleMap: { publish: "mock" },
-        },
-      }),
-    }).then((res) => res.json());
+      const workflow = await fetch(`${baseUrl}/api/workflow/run`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          publish: true,
+          modelPolicy: {
+            mode: "mock",
+            defaultProvider: "mock",
+            roleMap: { publish: "mock" },
+          },
+        }),
+      }).then((res) => res.json());
 
-    expect(workflow.snapshot.stage).toBe("feedback");
-    expect(workflow.publishResult.mode).toBe("mock");
-    expect(workflow.modelPolicy.roleMap.publish).toBe("mock");
-    expect(workflow.modelUsages.length).toBeGreaterThan(0);
+      expect(workflow.snapshot.stage).toBe("feedback");
+      expect(workflow.publishResult.mode).toBe("mock");
+      expect(workflow.modelPolicy.roleMap.publish).toBe("mock");
+      expect(workflow.modelUsages.length).toBeGreaterThan(0);
 
-    const readiness = await fetch(`${baseUrl}/api/readiness`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ snapshot: workflow.snapshot }),
-    }).then((res) => res.json());
-    expect(readiness.report.totalScore).toBeGreaterThan(80);
-    expect(readiness.report.awardTargets).toContain("综合大奖");
+      const readiness = await fetch(`${baseUrl}/api/readiness`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ snapshot: workflow.snapshot }),
+      }).then((res) => res.json());
+      expect(readiness.report.totalScore).toBeGreaterThan(80);
+      expect(readiness.report.awardTargets).toContain("综合大奖");
+    } finally {
+      if (previousDeploymentCommit === undefined) {
+        delete process.env.DEPLOYMENT_COMMIT;
+      } else {
+        process.env.DEPLOYMENT_COMMIT = previousDeploymentCommit;
+      }
+    }
   });
 
   it("uses forwarded public origin for OAuth callback URLs", async () => {
