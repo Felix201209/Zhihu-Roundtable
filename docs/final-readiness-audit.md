@@ -162,7 +162,7 @@ GitHub 远端状态确认：
 repo: https://github.com/Felix201209/Zhihu-Roundtable
 visibility: PUBLIC
 default branch: main
-current HEAD: 899f5511b5c521efc91f36c6bfcfc1eb2d6e4267
+current HEAD: git rev-parse HEAD / npm run evidence:submission output
 remote workflow: Verify completed/success for current HEAD
 remote CI verifier: npm run verify:remote-ci -- --wait passed for current HEAD
 ```
