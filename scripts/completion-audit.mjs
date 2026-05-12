@@ -171,7 +171,12 @@ check("提交包安全", "git 跟踪文件和源码包 ZIP 实际内容不包含
 });
 
 check("截图 artifacts", "桌面和移动截图存在且不是空文件", () => {
-  for (const file of ["artifacts/zhihu-roundtable-desktop.png", "artifacts/zhihu-roundtable-mobile.png"]) {
+  for (const file of [
+    "artifacts/zhihu-roundtable-desktop.png",
+    "artifacts/zhihu-roundtable-mobile.png",
+    "artifacts/zhihu-roundtable-public-desktop.png",
+    "artifacts/zhihu-roundtable-public-mobile.png",
+  ]) {
     assertExists(file);
     assert(statSync(file).size > 10_000, `${file} appears too small`);
   }

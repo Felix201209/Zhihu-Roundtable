@@ -8,6 +8,8 @@ const markdown = args.has("--markdown");
 const manifestPath = ".cache/submission/manifest.json";
 const desktopScreenshot = "artifacts/zhihu-roundtable-desktop.png";
 const mobileScreenshot = "artifacts/zhihu-roundtable-mobile.png";
+const publicDesktopScreenshot = "artifacts/zhihu-roundtable-public-desktop.png";
+const publicMobileScreenshot = "artifacts/zhihu-roundtable-public-mobile.png";
 const supportingDocs = [
   { label: "评审快速指南", path: "JUDGE_GUIDE.md", purpose: "3 分钟验证入口" },
   { label: "路演当天速查卡", path: "docs/demo-day-quick-card.md", purpose: "现场点击顺序和兜底动作" },
@@ -48,6 +50,8 @@ if (manifest.archiveFileCount !== manifest.fileCount) {
 
 const desktop = readPngDimensions(desktopScreenshot);
 const mobile = readPngDimensions(mobileScreenshot);
+const publicDesktop = readPngDimensions(publicDesktopScreenshot);
+const publicMobile = readPngDimensions(publicMobileScreenshot);
 for (const doc of supportingDocs) {
   if (!existsSync(doc.path)) {
     fail(`missing supporting doc: ${doc.path}`);
@@ -73,6 +77,8 @@ const evidence = {
   screenshots: {
     desktop: { path: desktopScreenshot, ...desktop },
     mobile: { path: mobileScreenshot, ...mobile },
+    publicDesktop: { path: publicDesktopScreenshot, ...publicDesktop },
+    publicMobile: { path: publicMobileScreenshot, ...publicMobile },
   },
   supportingDocs,
   localGates: [
@@ -161,6 +167,8 @@ function formatMarkdown(evidence) {
     "",
     formatScreenshot("Desktop", evidence.screenshots.desktop),
     formatScreenshot("Mobile", evidence.screenshots.mobile),
+    formatScreenshot("Public desktop", evidence.screenshots.publicDesktop),
+    formatScreenshot("Public mobile", evidence.screenshots.publicMobile),
     "",
     "## 支撑材料",
     "",
