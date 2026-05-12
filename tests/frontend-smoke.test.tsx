@@ -226,6 +226,8 @@ describe("frontend smoke", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
     await waitFor(() => expect(screen.getByText("正在拉取知乎热榜...")).toBeInTheDocument());
+    expect(screen.getByRole("status", { name: /正在拉取知乎热榜/ })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "当前处理进度" })).toHaveAttribute("aria-valuenow");
     expect(screen.getByText("真实知乎/DeepSeek 链路")).toBeInTheDocument();
     expect(screen.getByText("读接口与模型结果会缓存")).toBeInTheDocument();
     expect(screen.getByText(/\d+s/)).toBeInTheDocument();

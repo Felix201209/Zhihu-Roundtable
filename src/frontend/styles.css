@@ -1248,6 +1248,18 @@ button {
   transform: scale(0.98);
 }
 
+.primary-button:focus-visible,
+.ghost-button:focus-visible,
+.brand-button:focus-visible,
+.text-button:focus-visible,
+.example-row button:focus-visible,
+.topic-row button:focus-visible,
+.variant-card input:focus-visible,
+.advanced-details summary:focus-visible {
+  outline: 3px solid rgba(15, 124, 255, 0.28);
+  outline-offset: 3px;
+}
+
 .busy-strip,
 .error-strip {
   min-height: 38px;
@@ -1718,6 +1730,17 @@ button {
 
 .advanced-grid strong {
   color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 @media (max-width: 860px) {

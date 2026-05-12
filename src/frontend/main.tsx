@@ -437,7 +437,7 @@ export function App() {
   }
 
   return (
-    <main className="experiment-shell">
+    <main className="experiment-shell" aria-busy={Boolean(busy)}>
       <header className="experiment-topbar">
         <button className="brand-lockup brand-button" onClick={() => setMode("home")} aria-label="回到知辩圆桌首页">
           <span>创作者和圈主的 AI 讨论组织台</span>
@@ -449,7 +449,7 @@ export function App() {
         </div>
       </header>
 
-      {error ? <div className="error-strip">{error}</div> : null}
+      {error ? <div className="error-strip" role="alert">{error}</div> : null}
       {busy ? <BusyStrip label={busy} elapsedSeconds={busyElapsedSeconds} status={zhihuStatus} /> : null}
 
       {mode === "home" ? (
@@ -1306,13 +1306,20 @@ function BusyStrip({
   const progress = matchedStage >= 0 ? Math.min(92, Math.round(((matchedStage + 1) / stages.length) * 100)) : 18;
 
   return (
-    <div className="busy-strip">
+    <div className="busy-strip" role="status" aria-live="polite" aria-label={`${label}，已等待 ${elapsedLabel}`}>
       <div className="busy-main">
         <Loader2 size={16} className="spin" />
         <strong>{label}</strong>
         <span>{elapsedLabel}</span>
       </div>
-      <div className="busy-progress-track" aria-hidden="true">
+      <div
+        className="busy-progress-track"
+        role="progressbar"
+        aria-label="当前处理进度"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progress}
+      >
         <div className="busy-progress-fill" style={{ width: `${progress}%` }} />
       </div>
       <div className="busy-meta">
