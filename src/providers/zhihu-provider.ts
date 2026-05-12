@@ -231,6 +231,14 @@ function plainTextValue(value: unknown, fallback = ""): string {
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, "\"")
     .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_match, code: string) => {
+      const parsed = Number(code);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : "";
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) => {
+      const parsed = Number.parseInt(code, 16);
+      return Number.isFinite(parsed) ? String.fromCodePoint(parsed) : "";
+    })
     .replace(/\s+/g, " ")
     .trim();
 }

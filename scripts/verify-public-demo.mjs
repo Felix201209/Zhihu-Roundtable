@@ -44,6 +44,17 @@ if (expectedProvider === "mock") {
   assert(zhihuStatus.cache?.llmJsonEnabled !== false, "live public demo should keep DeepSeek JSON cache enabled");
 }
 
+const topics = await fetchJson(`${origin}/api/topics`);
+assert(Array.isArray(topics.topics), "public demo topics endpoint should return topics[]");
+assert(topics.topics.length > 0, "public demo topics endpoint should return at least one topic");
+for (const topic of topics.topics.slice(0, 6)) {
+  assert(typeof topic.title === "string" && topic.title.trim().length > 0, "public demo topic title should be non-empty text");
+  assert(!containsRawHtml(topic.title), `public demo topic title should be plain text, got ${JSON.stringify(topic.title)}`);
+  if (typeof topic.reason === "string") {
+    assert(!containsRawHtml(topic.reason), `public demo topic reason should be plain text, got ${JSON.stringify(topic.reason)}`);
+  }
+}
+
 const models = await fetchJson(`${origin}/api/models`);
 assert(models.defaultPolicy?.roleMap?.publish, "public demo models endpoint should expose the default publish role");
 if (expectedProvider === "mock") {
@@ -106,4 +117,8 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function containsRawHtml(value) {
+  return /<\/?[a-z][\s\S]*?>/i.test(value) || /&(nbsp|amp|lt|gt|quot|apos|#[0-9]+);/i.test(value);
 }

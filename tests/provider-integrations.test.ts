@@ -206,7 +206,7 @@ describe("provider integrations", () => {
             id: "q1",
             title: "<p>AI 工具是否改变新人评价？</p>",
             heat: 98,
-            excerpt: "<p>热榜摘要&nbsp;&amp;讨论背景</p>",
+            excerpt: "<p>热榜摘要&nbsp;&amp;讨论背景：&#34;旧答案&#34;与&#x65B0;问题</p>",
           }],
         });
       }
@@ -268,7 +268,7 @@ describe("provider integrations", () => {
       id: "q1",
       source: "zhihu_hot",
       title: "AI 工具是否改变新人评价？",
-      reason: "热榜摘要 &讨论背景",
+      reason: "热榜摘要 &讨论背景：\"旧答案\"与新问题",
     });
     expect(evidence[0]).toMatchObject({ title: "站内回答", summary: "站内证据" });
     expect(evidence.map((item) => item.source)).toEqual(["zhihu", "global"]);
