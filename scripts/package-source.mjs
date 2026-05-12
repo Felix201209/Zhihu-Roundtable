@@ -33,6 +33,7 @@ const requiredSourceFiles = [
   "scripts/verify-remote-ci.mjs",
   "scripts/verify-raspberry-pi-templates.mjs",
   "scripts/verify-public-demo.mjs",
+  "scripts/verify-final.mjs",
   "scripts/verify-production-server.mjs",
   "scripts/verify-production-flow.mjs",
   "src/backend/workflow-service.ts",

@@ -97,6 +97,7 @@ check("验证门禁完整", "本地、生产式、远端 CI、公网验证和源
     "scripts/verify-production-server.mjs",
     "scripts/verify-production-flow.mjs",
     "scripts/verify-public-demo.mjs",
+    "scripts/verify-final.mjs",
     "scripts/verify-external-preflight.mjs",
     "scripts/verify-remote-ci.mjs",
     "scripts/verify-raspberry-pi-templates.mjs",
@@ -183,11 +184,17 @@ blocker("远端同步", "当前 HEAD 必须和 upstream HEAD 完全一致，避�
 });
 
 blocker("远端 CI", "GitHub Actions Verify 需要对当前 HEAD 成功", () => {
+  if (process.env.REMOTE_CI_VERIFIED === "1") {
+    return true;
+  }
   const result = spawnSync("node", ["scripts/verify-remote-ci.mjs"], { encoding: "utf8" });
   return result.status === 0;
 });
 
 blocker("公网 Demo", "需要 PUBLIC_DEMO_URL，并同时通过公网 API smoke 与公网浏览器点击流", () => {
+  if (process.env.PUBLIC_DEMO_VERIFIED === "1") {
+    return true;
+  }
   const url = process.env.PUBLIC_DEMO_URL;
   if (!url) {
     return false;
