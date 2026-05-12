@@ -177,6 +177,7 @@ PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER
 ```
 
 - 公网验收会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/topics`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
+- `verify:final` 会把当前 git HEAD 传给公网 smoke，要求 `/api/health.deploymentCommit` 与当前提交一致，避免公网 demo 落后于仓库。
 - `/api/topics` 会被抽样检查标题、原因是否为纯文本，避免知乎 live 富文本里的 HTML tag 或 entity 漏到 UI。
 - 当前公网 demo 运行在 `live` 读链路，`/api/zhihu/status` 报告知乎 app credentials、base URL、读接口缓存和 LLM JSON 缓存均开启。
 - 真实写操作仍需要 confirmation token；公网浏览器流验证了首页到评论复盘的完整路径。

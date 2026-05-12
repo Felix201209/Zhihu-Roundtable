@@ -317,6 +317,17 @@ function cookieValue(req: IncomingMessage, key: string): string | undefined {
   return undefined;
 }
 
+async function deploymentCommit(): Promise<string | undefined> {
+  if (process.env.DEPLOYMENT_COMMIT) {
+    return process.env.DEPLOYMENT_COMMIT;
+  }
+  try {
+    return (await readFile(resolve(".deployed-commit"), "utf8")).trim() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function jsonHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
@@ -502,6 +513,7 @@ async function handleRequest(
       ok: true,
       service: "zhihu-roundtable-backend",
       port: req.socket.localPort,
+      deploymentCommit: await deploymentCommit(),
       endpoints: [
         "/api/topics",
         "/api/oauth/start",

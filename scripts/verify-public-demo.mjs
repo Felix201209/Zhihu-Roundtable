@@ -7,6 +7,7 @@ if (!rawUrl) {
 
 const origin = normalizeOrigin(rawUrl);
 const expectedProvider = process.env.PUBLIC_DEMO_EXPECT_PROVIDER ?? "mock";
+const expectedCommit = process.env.PUBLIC_DEMO_EXPECT_COMMIT;
 
 const home = await fetchText(`${origin}/`);
 if (!home.includes("<!doctype html>") || !home.includes("/assets/")) {
@@ -26,6 +27,12 @@ const health = await fetchJson(`${origin}/api/health`);
 assert(health.ok === true, "public demo health payload must include ok: true");
 assert(health.service === "zhihu-roundtable-backend", "public demo health payload has unexpected service");
 assert(Array.isArray(health.endpoints), "public demo health payload must list endpoints");
+if (expectedCommit) {
+  assert(
+    health.deploymentCommit === expectedCommit,
+    `public demo deploymentCommit should be ${expectedCommit}, got ${health.deploymentCommit ?? "missing"}`,
+  );
+}
 for (const endpoint of ["/api/workflow/run", "/api/zhihu/status", "/api/oauth/status"]) {
   assert(health.endpoints.includes(endpoint), `public demo health payload is missing ${endpoint}`);
 }
@@ -76,6 +83,9 @@ if (expectedProvider === "mock") {
 
 console.log(`public demo smoke passed at ${origin}`);
 console.log(`provider: ${zhihuStatus.mode}`);
+if (health.deploymentCommit) {
+  console.log(`deployment commit: ${health.deploymentCommit}`);
+}
 console.log(`oauth callback: ${oauthStatus.callbackUrl}`);
 
 async function fetchPublicBundles(origin, homeHtml) {

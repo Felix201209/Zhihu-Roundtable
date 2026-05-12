@@ -279,6 +279,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "npm run verify:submission",
   "npm run verify:external-preflight",
   "PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final",
+  "/api/health.deploymentCommit",
   "remote CI verifier: npm run verify:remote-ci -- --wait passed for current HEAD",
   "node scripts/print-submission-evidence.mjs --markdown",
   "npm run completion:audit",
