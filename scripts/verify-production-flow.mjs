@@ -20,6 +20,7 @@ if (!chromePath) {
 const app = externalOrigin ? null : spawn("npm", ["run", "start"], {
   stdio: "pipe",
   shell: process.platform === "win32",
+  detached: process.platform !== "win32",
   env: {
     ...process.env,
     PORT: appPort,
@@ -51,7 +52,7 @@ const chrome = spawn(chromePath, [
   `--remote-debugging-port=${chromePort}`,
   `--user-data-dir=${userDataDir}`,
   "about:blank",
-], { stdio: ["ignore", "ignore", "pipe"] });
+], { stdio: ["ignore", "ignore", "pipe"], detached: process.platform !== "win32" });
 
 let chromeOutput = "";
 chrome.stderr.on("data", (chunk) => {
@@ -64,8 +65,8 @@ try {
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
-  app?.kill("SIGTERM");
-  chrome.kill("SIGTERM");
+  terminateProcess(app);
+  terminateProcess(chrome);
 }
 
 async function runBrowserFlow() {
@@ -300,4 +301,21 @@ function withTimeout(promise, ms, message) {
     timeout = setTimeout(() => reject(new Error(message)), ms);
   });
   return Promise.race([promise, timer]).finally(() => clearTimeout(timeout));
+}
+
+function terminateProcess(child) {
+  if (!child || child.killed) return;
+  try {
+    if (process.platform !== "win32" && child.pid) {
+      process.kill(-child.pid, "SIGTERM");
+      return;
+    }
+    child.kill("SIGTERM");
+  } catch {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // Process already exited.
+    }
+  }
 }
