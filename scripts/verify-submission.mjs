@@ -255,8 +255,9 @@ assertFileIncludes("scripts/print-submission-evidence.mjs", [
   "--markdown",
   "# 知辩圆桌提交证据",
   "submission evidence requires a clean worktree",
-  "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
-  "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
+  "process.env.PUBLIC_DEMO_URL",
+  "PUBLIC_DEMO_EXPECT_PROVIDER",
+  "npm run verify:goal-readiness",
 ]);
 
 assertFileIncludes(".github/workflows/verify.yml", [

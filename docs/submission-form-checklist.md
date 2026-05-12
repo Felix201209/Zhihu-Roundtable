@@ -86,6 +86,7 @@ npm run capture:demo:auto:mock
 PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:public:full
 npm run verify:remote-ci -- --wait
 PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:goal-readiness
 ```
 
 `verify:submission` 会跑评审门禁、生成源码 ZIP，并在打包后自动运行 `evidence:submission`；它要求 git 工作区干净。
@@ -94,6 +95,7 @@ PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER
 `verify:public:full` 用于部署后公网验收，会检查首页 bundle、后端健康、模型状态、知乎状态、OAuth callback，并对公网 Demo 跑首页到评论复盘的浏览器点击流，默认要求线上 demo 是 mock-safe。
 `verify:remote-ci -- --wait` 用于 push 后等待并确认 GitHub Actions `Verify` 已针对当前 HEAD 成功。
 `verify:final` 用于 push、远端 CI、公网 Demo 和仓库授权都完成后的最终严格验收。
+`verify:goal-readiness` 是 `/goal` 最终完成前的总闸门；在 2026-05-13 07:30 +08:00 前会拒绝通过，时间到后会串起本地 verify、公网 final、源码包和证据输出。
 
 公网部署推荐：
 

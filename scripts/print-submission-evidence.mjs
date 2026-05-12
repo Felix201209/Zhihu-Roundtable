@@ -10,6 +10,8 @@ const desktopScreenshot = "artifacts/zhihu-roundtable-desktop.png";
 const mobileScreenshot = "artifacts/zhihu-roundtable-mobile.png";
 const publicDesktopScreenshot = "artifacts/zhihu-roundtable-public-desktop.png";
 const publicMobileScreenshot = "artifacts/zhihu-roundtable-public-mobile.png";
+const publicDemoUrl = process.env.PUBLIC_DEMO_URL ?? "https://你的线上-demo域名";
+const expectedProvider = process.env.PUBLIC_DEMO_EXPECT_PROVIDER ?? "live";
 const supportingDocs = [
   { label: "评审快速指南", path: "JUDGE_GUIDE.md", purpose: "3 分钟验证入口" },
   { label: "路演当天速查卡", path: "docs/demo-day-quick-card.md", purpose: "现场点击顺序和兜底动作" },
@@ -89,8 +91,9 @@ const evidence = {
   externalGates: [
     "git push origin main",
     "npm run verify:remote-ci -- --wait",
-    "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
-    "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
+    `PUBLIC_DEMO_URL=${publicDemoUrl} PUBLIC_DEMO_EXPECT_PROVIDER=${expectedProvider} npm run verify:public:full`,
+    `PUBLIC_DEMO_URL=${publicDemoUrl} PUBLIC_DEMO_EXPECT_PROVIDER=${expectedProvider} REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final`,
+    `PUBLIC_DEMO_URL=${publicDemoUrl} PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:goal-readiness`,
   ],
 };
 
