@@ -101,7 +101,7 @@ async function runBrowserFlow() {
     if (message.method === "Log.entryAdded") {
       const entry = message.params.entry;
       if (["warning", "error"].includes(entry?.level)) {
-        consoleIssues.push({ type: entry.level, text: entry.text });
+        consoleIssues.push({ type: entry.level, text: entry.text, url: entry.url });
       }
     }
   });
@@ -143,21 +143,30 @@ async function runBrowserFlow() {
   }
 
   async function clickButton(pattern) {
-    const clicked = await evaluate(`(() => {
-      const re = new RegExp(${JSON.stringify(pattern.source)}, ${JSON.stringify(pattern.flags)});
-      const button = [...document.querySelectorAll("button")].find((item) => {
-        const label = item.innerText || item.textContent || item.getAttribute("aria-label") || "";
-        return re.test(label);
-      });
-      if (!button || button.disabled) return false;
-      button.scrollIntoView({ block: "center", inline: "center" });
-      button.click();
-      return true;
-    })()`);
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < 12_000) {
+      const clicked = await evaluate(`(() => {
+        const re = new RegExp(${JSON.stringify(pattern.source)}, ${JSON.stringify(pattern.flags)});
+        const button = [...document.querySelectorAll("button")].find((item) => {
+          const label = item.textContent || item.innerText || item.getAttribute("aria-label") || "";
+          return re.test(label);
+        });
+        if (!button || button.disabled) return false;
+        button.scrollIntoView({ block: "center", inline: "center" });
+        button.click();
+        return true;
+      })()`);
 
-    if (!clicked) {
-      throw new Error(`enabled button not found: ${pattern}`);
+      if (clicked) return;
+      await delay(200);
     }
+
+    const buttons = await evaluate(`JSON.stringify([...document.querySelectorAll("button")].map((item) => ({
+      label: item.textContent || item.innerText || item.getAttribute("aria-label") || "",
+      disabled: item.disabled
+    })))`);
+    const body = await evaluate("document.body.innerText.slice(0, 1200)");
+    throw new Error(`enabled button not found: ${pattern}; buttons: ${buttons}; body: ${JSON.stringify(body)}`);
   }
 
   try {
@@ -186,7 +195,7 @@ async function runBrowserFlow() {
     await observe("feedback", "评论复盘与下一轮创作");
     await observe("next-content", "下一篇内容方向");
 
-    const meaningfulIssues = consoleIssues.filter((issue) => !/favicon|404 \(Not Found\)/i.test(issue.text ?? ""));
+    const meaningfulIssues = consoleIssues.filter((issue) => !isBenignConsoleIssue(issue));
     if (meaningfulIssues.length > 0) {
       throw new Error(`browser console had warnings/errors:\n${JSON.stringify(meaningfulIssues, null, 2)}`);
     }
@@ -195,6 +204,13 @@ async function runBrowserFlow() {
   } finally {
     socket.close();
   }
+}
+
+function isBenignConsoleIssue(issue) {
+  const text = issue.text ?? "";
+  const url = issue.url ?? "";
+  if (/favicon/i.test(`${text} ${url}`)) return true;
+  return /Failed to load resource/i.test(text) && /status of 404|404 \(Not Found\)/i.test(text) && /\/favicon\.ico(?:$|\?)/i.test(url);
 }
 
 async function waitForApp() {
