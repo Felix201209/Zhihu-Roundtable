@@ -85,6 +85,7 @@ check("验证门禁完整", "本地、生产式、远端 CI、公网验证和源
   assertIncludes("package.json", [
     "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source && npm run evidence:submission\"",
     "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
+    "\"verify:external-preflight\": \"node scripts/verify-external-preflight.mjs\"",
     "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
     "\"verify:raspberry-pi\": \"node scripts/verify-raspberry-pi-templates.mjs\"",
     "\"evidence:submission\": \"node scripts/print-submission-evidence.mjs\"",
@@ -96,6 +97,7 @@ check("验证门禁完整", "本地、生产式、远端 CI、公网验证和源
     "scripts/verify-production-server.mjs",
     "scripts/verify-production-flow.mjs",
     "scripts/verify-public-demo.mjs",
+    "scripts/verify-external-preflight.mjs",
     "scripts/verify-remote-ci.mjs",
     "scripts/verify-raspberry-pi-templates.mjs",
     "scripts/package-source.mjs",

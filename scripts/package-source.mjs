@@ -29,6 +29,7 @@ const requiredSourceFiles = [
   "scripts/verify-submission.mjs",
   "scripts/print-submission-evidence.mjs",
   "scripts/completion-audit.mjs",
+  "scripts/verify-external-preflight.mjs",
   "scripts/verify-remote-ci.mjs",
   "scripts/verify-raspberry-pi-templates.mjs",
   "scripts/verify-public-demo.mjs",

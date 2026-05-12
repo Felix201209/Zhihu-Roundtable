@@ -72,6 +72,7 @@ npm run dev
 - `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public`：部署到 Render、树莓派或其他公网 Node 服务后，验证公网首页、`/api/health`、知乎状态和 OAuth callback，默认要求 mock-safe。
 - `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public:full`：部署后同时验证公网 API smoke 和首页到评论复盘的浏览器点击流。
 - `npm run verify:remote-ci`：push 后检查 GitHub Actions `Verify` 是否针对当前 HEAD 成功；远端会运行 `npm run verify:submission`。push 前可用 `node scripts/verify-remote-ci.mjs --allow-not-pushed` 预检远端状态；push 刚完成时可用 `npm run verify:remote-ci -- --wait` 等待 CI 创建并完成。
+- `npm run verify:external-preflight`：push 前只读预检 clean 状态、`git push --dry-run`、远端 CI 当前 HEAD 状态和 GitHub 仓库元数据；不会执行真实 push。GitHub API 抖动会显示 warning，不会覆盖本地 ready 结论；需要机器读取可用 `node scripts/verify-external-preflight.mjs --json`，需要把 GitHub 元数据或远端 CI 查询失败视为失败时追加 `--strict-gh` 或 `--strict-remote-ci`。
 - `PUBLIC_DEMO_URL=https://你的线上域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final`：push、部署和仓库授权都完成后的最终严格验收。
 - `npm run completion:audit`：把 `/goal` 拆成产品定位、主流程、安全边界、验证门禁、部署准备和外部交付项逐项检查；本地项失败会退出，公网 Demo、远端 CI、仓库访问这类外部项会列为 blocker。若仓库保持 private，但已给评委/主办方授权，可设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据。
 - `npm run package:source`：从干净 HEAD 生成 `.cache/submission/zhihu-roundtable-source.zip` 和 `.cache/submission/manifest.json`，并打印 commit、大小和 sha256；`verify:submission` 会在打包后自动运行 `evidence:submission`。

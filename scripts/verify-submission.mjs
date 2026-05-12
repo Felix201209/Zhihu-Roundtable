@@ -31,6 +31,7 @@ const requiredFiles = [
   "scripts/package-source.mjs",
   "scripts/print-submission-evidence.mjs",
   "scripts/completion-audit.mjs",
+  "scripts/verify-external-preflight.mjs",
   "scripts/verify-remote-ci.mjs",
   "scripts/verify-raspberry-pi-templates.mjs",
   "scripts/verify-public-demo.mjs",
@@ -113,12 +114,14 @@ assertFileIncludes("package.json", [
   "\"verify:production\": \"npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs\"",
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
   "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
+  "\"verify:external-preflight\": \"node scripts/verify-external-preflight.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
   "\"verify:raspberry-pi\": \"node scripts/verify-raspberry-pi-templates.mjs\"",
   "\"verify:final\": \"npm run verify:remote-ci -- --wait && npm run verify:public:full && npm run completion:audit -- --strict\"",
   "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   "\"verify:judge\":",
   "node --check scripts/verify-public-demo.mjs",
+  "node --check scripts/verify-external-preflight.mjs",
   "node --check scripts/verify-remote-ci.mjs",
   "node --check scripts/verify-raspberry-pi-templates.mjs",
   "npm run verify:raspberry-pi",
@@ -144,6 +147,7 @@ assertFileIncludes("README.md", [
   "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
   "docs/final-readiness-audit.md",
+  "--strict-remote-ci",
   "npm run evidence:submission",
   "npm run verify:raspberry-pi",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
@@ -188,6 +192,14 @@ assertFileIncludes("scripts/verify-public-demo.mjs", [
   "从热榜生成讨论方案",
   "models.env?.zhihuConfigured",
   "mock-safe public demo should not report Zhihu live credentials configured",
+]);
+
+assertFileIncludes("scripts/verify-external-preflight.mjs", [
+  "push",
+  "--dry-run",
+  "scripts/verify-remote-ci.mjs",
+  "--allow-not-pushed",
+  "verify:final",
 ]);
 
 assertFileIncludes("scripts/verify-production-flow.mjs", [
@@ -327,6 +339,9 @@ assertFileIncludes("deploy/raspberry-pi/cloudflared-config.example.yml", [
 assertFileIncludes("docs/external-closure-runbook.md", [
   "git push origin main",
   "npm run verify:remote-ci -- --wait",
+  "verify:external-preflight",
+  "--strict-gh",
+  "--strict-remote-ci",
   "树莓派部署指南",
   "树莓派公网 Demo 现场检查清单",
   "deploy/raspberry-pi/",

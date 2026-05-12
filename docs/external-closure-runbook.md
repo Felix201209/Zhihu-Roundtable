@@ -18,6 +18,7 @@
 git status -sb
 git log -1 --oneline
 git push --dry-run origin main
+npm run verify:external-preflight
 npm run completion:audit
 ```
 
@@ -25,6 +26,8 @@ npm run completion:audit
 
 - 工作区 clean。
 - `git push --dry-run` 显示 `main -> main`。
+- `verify:external-preflight` 会再次只读检查 dry-run push、远端 CI 是否还未针对当前 HEAD 运行，以及 GitHub 仓库元数据能否读取。
+- 如果 GitHub API 临时 EOF，`verify:external-preflight` 会输出 warning 但不真实推送；需要机器读取时用 `node scripts/verify-external-preflight.mjs --json`，需要把元数据或远端 CI 查询失败视为失败时追加 `--strict-gh` 或 `--strict-remote-ci`。
 - `completion:audit` 本地项 PASS，外部项仍可能 BLOCKED。
 
 ## 2. 推送当前提交
