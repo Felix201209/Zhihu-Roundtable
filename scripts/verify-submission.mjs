@@ -322,6 +322,7 @@ assertFileIncludes("docs/external-closure-runbook.md", [
 assertFileIncludes("docs/submission-form-checklist.md", [
   "项目名称",
   "可运行体验链接",
+  "docs/judge-defense-matrix.md",
   "树莓派或其他公网 Node 服务 URL",
   "知乎登录回调地址",
   "当前仓库为 private",
@@ -359,6 +360,7 @@ assertFileIncludes("docs/submission-package.md", [
   ".cache/submission/manifest.json",
   "HEAD commit",
   "sha256",
+  "docs/judge-defense-matrix.md",
   "docs/external-closure-runbook.md",
   "deploy/raspberry-pi/",
   "evidence:submission",
