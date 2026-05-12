@@ -147,6 +147,8 @@ export function App() {
   const [readiness, setReadiness] = React.useState<ReadinessResponse | null>(null);
   const [zhihuStatus, setZhihuStatus] = React.useState<ZhihuStatusResponse | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [busyStartedAt, setBusyStartedAt] = React.useState<number | null>(null);
+  const [busyNow, setBusyNow] = React.useState(() => Date.now());
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -164,7 +166,21 @@ export function App() {
       .catch(() => undefined);
   }, [experiment?.technicalSnapshot, mode, snapshot]);
 
+  React.useEffect(() => {
+    if (!busy) {
+      setBusyStartedAt(null);
+      return;
+    }
+
+    const startedAt = Date.now();
+    setBusyStartedAt(startedAt);
+    setBusyNow(startedAt);
+    const id = window.setInterval(() => setBusyNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [busy]);
+
   const ideaStage: IdeaExperimentStage = experiment?.stage ?? "Draft";
+  const busyElapsedSeconds = busyStartedAt ? Math.max(0, Math.floor((busyNow - busyStartedAt) / 1000)) : 0;
 
   async function loadTopics() {
     const result = await getTopics();
@@ -427,11 +443,14 @@ export function App() {
           <span>创作者和圈主的 AI 讨论组织台</span>
           <strong>知辩圆桌</strong>
         </button>
-        {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
+        <div className="topbar-status">
+          {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
+          <LiveStatusPill status={zhihuStatus} />
+        </div>
       </header>
 
       {error ? <div className="error-strip">{error}</div> : null}
-      {busy ? <BusyStrip label={busy} /> : null}
+      {busy ? <BusyStrip label={busy} elapsedSeconds={busyElapsedSeconds} status={zhihuStatus} /> : null}
 
       {mode === "home" ? (
         <HomeEntry onRoundtable={() => void openRoundtable()} onIdeaLab={openIdeaLab} />
@@ -694,7 +713,7 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
         ))}
       </div>
       <div className="context-grid">
-        <div className="context-card">
+        <div className="context-card context-card-full">
           <strong>当前议题</strong>
           <p>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</p>
         </div>
@@ -1247,11 +1266,59 @@ function IdeaStageStepper({ stage }: { stage: IdeaExperimentStage }) {
   );
 }
 
-function BusyStrip({ label }: { label: string }) {
+function LiveStatusPill({ status }: { status: ZhihuStatusResponse | null }) {
+  if (!status) {
+    return (
+      <div className="live-status-pill pending" aria-label="接口与缓存状态">
+        <span>检测中</span>
+        <b>缓存状态同步中</b>
+      </div>
+    );
+  }
+
+  const live = status?.mode === "live";
+  const cacheReady = status?.cache?.zhihuReadsEnabled !== false && status?.cache?.llmJsonEnabled !== false;
+
+  return (
+    <div className={`live-status-pill ${live ? "live" : "mock"}`} aria-label="接口与缓存状态">
+      <span>{live ? "Live API" : "Mock-safe"}</span>
+      <b>{cacheReady ? "缓存开启" : "缓存关闭"}</b>
+    </div>
+  );
+}
+
+function BusyStrip({
+  label,
+  elapsedSeconds,
+  status,
+}: {
+  label: string;
+  elapsedSeconds: number;
+  status: ZhihuStatusResponse | null;
+}) {
+  const live = status?.mode === "live";
+  const cacheReady = status ? status.cache?.zhihuReadsEnabled !== false && status.cache?.llmJsonEnabled !== false : null;
+  const elapsedLabel = elapsedSeconds < 60
+    ? `${elapsedSeconds}s`
+    : `${Math.floor(elapsedSeconds / 60)}m ${String(elapsedSeconds % 60).padStart(2, "0")}s`;
+  const stages = ["拉取", "重构", "证据", "校验", "生成", "发布", "反馈", "报告"];
+  const matchedStage = stages.findIndex((stage) => label.includes(stage));
+  const progress = matchedStage >= 0 ? Math.min(92, Math.round(((matchedStage + 1) / stages.length) * 100)) : 18;
+
   return (
     <div className="busy-strip">
-      <Loader2 size={16} className="spin" />
-      {label}
+      <div className="busy-main">
+        <Loader2 size={16} className="spin" />
+        <strong>{label}</strong>
+        <span>{elapsedLabel}</span>
+      </div>
+      <div className="busy-progress-track" aria-hidden="true">
+        <div className="busy-progress-fill" style={{ width: `${progress}%` }} />
+      </div>
+      <div className="busy-meta">
+        <span>{status ? (live ? "真实知乎/DeepSeek 链路" : "演示兜底链路") : "接口状态检测中"}</span>
+        <span>{cacheReady === null ? "缓存状态同步中" : cacheReady ? "读接口与模型结果会缓存" : "缓存未完全开启"}</span>
+      </div>
     </div>
   );
 }
