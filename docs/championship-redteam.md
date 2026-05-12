@@ -48,7 +48,7 @@
 | 正式刘看山素材未授权 | Demo 使用原创占位主持形象；如官方提供素材可直接替换视觉层 |
 | mock-safe 被误解成假功能 | 现场强调 mock 是防限流/断网兜底；需要时可用 `/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true` 临时切 live/auto 策略 |
 | 评委只看 6 分钟，可能看不到后端厚度 | 路演时在最后 20 秒展示 `npm run verify`、`backend-contract.md`、`modelUsages/nodeResults` |
-| 线上体验链接尚未填入提交包 | 当前生产部署需要同时托管 Vite 静态页和 Node API，不能只上传 `dist/` | 已补 `npm run start` 单进程静态/API 服务、`render.yaml`、`docs/deployment.md` 和 `verify:production`；公开部署前必须确认不带 `.env.local` 和真实写权限 |
+| 线上体验链接尚未填入提交包 | 当前生产部署需要同时托管 Vite 静态页和 Node API，不能只上传 `dist/` | 已补 `npm run start` 单进程静态/API 服务、`render.yaml`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md` 和 `verify:production`；公开部署前必须确认不带 `.env.local` 和真实写权限 |
 
 ## 4. 夺冠演示顺序
 
@@ -70,4 +70,4 @@ npm run demo:serve:mock
 npm run capture:demo:auto:mock
 ```
 
-`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run verify:judge` 额外检查演示脚本语法、生产式服务烟测和生产式浏览器点击流，且不依赖外部 live API。`npm run verify:submission` 在 `verify:judge` 后继续生成源码 ZIP；GitHub Actions 推送、PR 和手动触发都会跑这条提交包门禁，并强制要求浏览器流跑通。`npm run verify:production` 会实际启动 `npm run start`、请求 `/` 与 `/api/health`，并在本机存在 Chrome/Chromium 时验证首页到评论复盘的 5 步点击流。`npm run audit:high` 可在网络稳定时单独检查依赖安全公告。`npm run demo:serve:mock` 使用 8877/5177 独立端口，适合现场演示；`npm run capture:demo:auto:mock` 必须能自动启动前后端并生成桌面和移动截图。
+`npm run verify` 必须通过 typecheck、全部测试、build 和 backend demo。`npm run verify:judge` 额外检查演示脚本语法、生产式服务烟测和生产式浏览器点击流，且不依赖外部 live API。`npm run verify:submission` 在 `verify:judge` 后继续生成源码 ZIP，并运行 `evidence:submission` 打印提交证据；GitHub Actions 推送、PR 和手动触发都会跑这条提交包门禁，并强制要求浏览器流跑通。`npm run verify:production` 会实际启动 `npm run start`、请求 `/` 与 `/api/health`，并在本机存在 Chrome/Chromium 时验证首页到评论复盘的 5 步点击流。`npm run audit:high` 可在网络稳定时单独检查依赖安全公告。`npm run demo:serve:mock` 使用 8877/5177 独立端口，适合现场演示；`npm run capture:demo:auto:mock` 必须能自动启动前后端并生成桌面和移动截图。

@@ -27,11 +27,13 @@
     "verify:public": "node scripts/verify-public-demo.mjs",
     "verify:public:full": "npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs",
     "verify:remote-ci": "node scripts/verify-remote-ci.mjs",
+    "verify:raspberry-pi": "node scripts/verify-raspberry-pi-templates.mjs",
     "verify:final": "npm run verify:remote-ci -- --wait && npm run verify:public:full && npm run completion:audit -- --strict",
     "completion:audit": "node scripts/completion-audit.mjs",
-    "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs && node --check scripts/package-source.mjs && node --check scripts/verify-public-demo.mjs && node --check scripts/verify-remote-ci.mjs && node --check scripts/verify-production-server.mjs && node --check scripts/verify-production-flow.mjs && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
-    "verify:submission": "npm run verify:judge && npm run completion:audit && npm run package:source",
+    "verify:judge": "npm run verify && node --check scripts/capture-demo-screenshots.mjs && node --check scripts/serve-demo.mjs && node --check scripts/package-source.mjs && node --check scripts/verify-public-demo.mjs && node --check scripts/verify-remote-ci.mjs && node --check scripts/verify-production-server.mjs && node --check scripts/verify-production-flow.mjs && node --check scripts/verify-raspberry-pi-templates.mjs && npm run verify:raspberry-pi && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs",
+    "verify:submission": "npm run verify:judge && npm run completion:audit && npm run package:source && npm run evidence:submission",
     "package:source": "node scripts/package-source.mjs",
+    "evidence:submission": "node scripts/print-submission-evidence.mjs",
     "audit:high": "npm audit --audit-level=high"
   },
   "dependencies": {

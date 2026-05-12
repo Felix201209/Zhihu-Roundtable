@@ -23,7 +23,7 @@
 | 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
-| 部署准备 | `render.yaml`、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
+| 部署准备 | `render.yaml`、`deploy/raspberry-pi/` 模板、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
 | 公网 Demo URL | 需要部署后填写 | 未完成 |
 | 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
@@ -39,7 +39,7 @@
 | “产品定位清晰” | README/JUDGE/前端文案 | 旧的偏聊天表演口径已清理 |
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
 | “mock-safe 与 live 边界可靠” | `src/providers/zhihu-provider.ts`、`src/backend/http-server.ts`、测试 | mock 强制覆盖 live env，live 写操作要确认 token |
-| “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`docs/deployment.md` | 生产式本地服务与 Render Blueprint 已准备 |
+| “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`deploy/raspberry-pi/`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md` | 生产式本地服务、Render Blueprint、树莓派自托管路径、可复制部署模板和现场排障清单已准备 |
 | “不要用代理信号当完成” | `scripts/completion-audit.mjs` | 把目标拆成可检查项，并把远端同步、远端 CI、公网 Demo、评委仓库访问列为外部 blocker；private repo 可用 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 表示已授权 |
 | “不要泄露 key” | `.gitignore`、`git ls-files`、secret scan | `.env.local`、`.cache`、`dist`、`node_modules` 未被跟踪 |
 
@@ -56,6 +56,7 @@ git log -1 --oneline
 
 ```bash
 npm run verify:submission
+npm run evidence:submission
 npm run completion:audit
 npm run verify:judge
 npm run audit:high
@@ -63,7 +64,7 @@ git push --dry-run origin main
 node scripts/verify-remote-ci.mjs --allow-not-pushed
 ```
 
-`verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
+`verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP，并自动运行 `evidence:submission` 打印提交证据；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
 
 - `npm run typecheck`
 - `npm test`，9 个测试文件，61 个测试通过
@@ -75,6 +76,7 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 - `scripts/verify-public-demo.mjs`
 - `scripts/verify-remote-ci.mjs`
 - `scripts/package-source.mjs` 语法检查
+- `npm run verify:raspberry-pi`，确认树莓派 env、systemd 和 Cloudflare Tunnel 模板 mock-safe 且端口一致
 
 `completion:audit` 会把目标拆成产品定位、主流程、mock-safe、live 写保护、验证门禁、部署准备、提交包安全和截图 artifacts；这些本地项必须 PASS。远端同步、远端 CI、公网 Demo、评委仓库访问在未完成前会列为 BLOCKED，防止把本地绿灯误读为外部交付完成。若仓库保持 private，但已经给评委/主办方授权，可用 `PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final` 作为最终审计证据；其中公网 Demo 会同时跑 API smoke 和公网浏览器点击流。
 
@@ -187,7 +189,7 @@ PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1
 需要用户确认后才能做的动作：
 
 1. push 当前本地提交到 `origin/main`。
-2. 部署 Render 或其他公网服务。
+2. 部署 Render、树莓派或其他公网 Node 服务。
 3. 给评委授权 private repo，或把仓库切为 public。
 
 确认前可继续做的本地动作：

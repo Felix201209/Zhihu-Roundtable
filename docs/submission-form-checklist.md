@@ -46,7 +46,7 @@
 可运行体验链接：
 
 ```text
-待部署后填写 Render 或其他公网 URL。
+待部署后填写 Render、树莓派或其他公网 Node 服务 URL。
 ```
 
 知乎登录回调地址：
@@ -72,6 +72,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 ```bash
 npm ci
 npm run verify:submission
+npm run evidence:submission
 npm run verify:judge
 npm run audit:high
 npm run capture:demo:auto:mock
@@ -80,7 +81,8 @@ npm run verify:remote-ci -- --wait
 PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final
 ```
 
-`verify:submission` 会跑评审门禁并生成源码 ZIP；它要求 git 工作区干净。
+`verify:submission` 会跑评审门禁、生成源码 ZIP，并在打包后自动运行 `evidence:submission`；它要求 git 工作区干净。
+`evidence:submission` 只读打印当前 commit、源码包 sha256、截图尺寸和最终外部验收命令，方便复制到提交备注或路演备忘；正式证据要求工作区干净，本地预览才用 `node scripts/print-submission-evidence.mjs --allow-dirty`。
 `verify:judge` 还会在本机存在 Chrome/Chromium 时启动 headless browser，验证生产式页面可以手动走完 5 步主流程，且不会自动跳过讨论方案准备和主持校验。
 `verify:public:full` 用于部署后公网验收，会检查首页 bundle、后端健康、模型状态、知乎状态、OAuth callback，并对公网 Demo 跑首页到评论复盘的浏览器点击流，默认要求线上 demo 是 mock-safe。
 `verify:remote-ci -- --wait` 用于 push 后等待并确认 GitHub Actions `Verify` 已针对当前 HEAD 成功。
@@ -90,6 +92,7 @@ PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1
 
 ```text
 Render Blueprint: render.yaml
+树莓派自托管: docs/raspberry-pi-deployment.md
 Build Command: npm ci && npm run build
 Start Command: npm run start
 Health Check Path: /api/health
@@ -115,6 +118,6 @@ npm run package:source
 ## 4. 不要填写或提交
 
 - 不要提交 `.env.local`、`.cache/`、`dist/`、`node_modules/`。
-- 不要把真实 `DEEPSEEK_API_KEY`、`ZHIHU_APP_SECRET`、`ZHIHU_APP_KEY` 填进 README、提交材料或 Render Blueprint。
+- 不要把真实 `DEEPSEEK_API_KEY`、`ZHIHU_APP_SECRET`、`ZHIHU_APP_KEY` 填进 README、提交材料、Render Blueprint 或树莓派 systemd 配置。
 - 不要声明已经真实发布到知乎，除非用户明确确认并完成真实写操作。
 - 不要把 mock-safe 演示说成真实评论数据；可以说“真实接口接入边界已准备，现场默认 mock-safe”。

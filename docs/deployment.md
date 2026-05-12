@@ -1,6 +1,6 @@
 # 知辩圆桌部署指南
 
-## 推荐路径：Render
+## 推荐路径 A：Render
 
 本项目需要同时托管前端静态文件和后端 `/api`，不要只把 `dist/` 上传到静态站点。
 
@@ -20,6 +20,19 @@
 - `VITE_DEMO_FALLBACK_TO_MOCK=true`
 
 这条路径不会使用真实知乎 token，也不会触发真实发布。
+
+## 推荐路径 B：树莓派自托管
+
+如果需要回家部署到常驻设备，可以走树莓派路径。它和 Render 一样运行 `npm run build` + `npm run start`，由同一个 Node 服务托管前端页面和 `/api`，再用 Cloudflare Tunnel 或反向代理暴露公网域名。
+
+详见 [树莓派部署指南](raspberry-pi-deployment.md)。关键约束不变：
+
+- 树莓派使用 Node `24.x`。
+- 服务端口可以用 `PORT=8899` 或其他空闲端口。
+- 线上默认保留 `ZHIHU_PROVIDER=mock`、`VITE_DEMO_MODEL_MODE=mock`、`VITE_DEMO_DEFAULT_PROVIDER=mock`、`VITE_DEMO_FALLBACK_TO_MOCK=true`。
+- 可复制模板位于 `deploy/raspberry-pi/`，包含 mock-safe env、systemd service 和 Cloudflare Tunnel 示例。
+- 不上传 `.env.local`，不把真实知乎或模型密钥放进仓库、systemd unit 或提交材料。
+- 公网域名打通后仍用 `PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full` 做最终验收。
 
 ## 本地生产式验证
 
@@ -51,7 +64,7 @@ npm run verify:production
 
 ## 提交表单填写
 
-- 可运行体验链接：Render 服务公网 URL。
+- 可运行体验链接：Render 服务公网 URL，或树莓派公网域名。
 - 知乎登录回调地址：`https://你的线上-demo域名/api/oauth/callback`
 - 代码仓库链接：GitHub 仓库 URL。
 
@@ -89,4 +102,4 @@ ZHIHU_APP_SECRET=...
 ZHIHU_REQUIRE_CONFIRMATION=true
 ```
 
-真实发布、评论和 reaction 必须经过用户确认 token。不要把真实 key 写进仓库、Render Blueprint 或提交材料。
+真实发布、评论和 reaction 必须经过用户确认 token。不要把真实 key 写进仓库、Render Blueprint、树莓派 systemd 配置或提交材料。

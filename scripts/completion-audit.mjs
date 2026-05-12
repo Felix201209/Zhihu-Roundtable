@@ -35,7 +35,7 @@ check("主流程完整", "前端 5 步和后端闭环覆盖选题、准备、主
   ]);
 });
 
-check("mock-safe 边界", "路演脚本和 Render 默认强制 mock，不依赖本机 live env", () => {
+check("mock-safe 边界", "路演脚本和公网部署路径默认强制 mock，不依赖本机 live env", () => {
   assertIncludes("package.json", [
     "\"demo:serve:mock\"",
     "ZHIHU_PROVIDER=mock",
@@ -48,6 +48,12 @@ check("mock-safe 边界", "路演脚本和 Render 默认强制 mock，不依赖�
     "VITE_DEMO_DEFAULT_PROVIDER",
     "VITE_DEMO_FALLBACK_TO_MOCK",
     "value: \"true\"",
+  ]);
+  assertIncludes("docs/raspberry-pi-deployment.md", [
+    "ZHIHU_PROVIDER=mock",
+    "VITE_DEMO_MODEL_MODE=mock",
+    "VITE_DEMO_DEFAULT_PROVIDER=mock",
+    "VITE_DEMO_FALLBACK_TO_MOCK=true",
   ]);
   assertIncludes("src/providers/zhihu-provider.ts", [
     "if (process.env.ZHIHU_PROVIDER === \"mock\")",
@@ -77,27 +83,36 @@ check("live 写操作保护", "真实发布、评论、reaction 需要 confirmat
 
 check("验证门禁完整", "本地、生产式、远端 CI、公网验证和源码打包脚本都存在并被文档化", () => {
   assertIncludes("package.json", [
-    "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source\"",
+    "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source && npm run evidence:submission\"",
     "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
     "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
+    "\"verify:raspberry-pi\": \"node scripts/verify-raspberry-pi-templates.mjs\"",
+    "\"evidence:submission\": \"node scripts/print-submission-evidence.mjs\"",
     "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   ]);
   for (const file of [
     ".github/workflows/verify.yml",
+    "scripts/print-submission-evidence.mjs",
     "scripts/verify-production-server.mjs",
     "scripts/verify-production-flow.mjs",
     "scripts/verify-public-demo.mjs",
     "scripts/verify-remote-ci.mjs",
+    "scripts/verify-raspberry-pi-templates.mjs",
     "scripts/package-source.mjs",
   ]) {
     assertExists(file);
   }
 });
 
-check("部署准备", "同一 Node 服务托管 dist 与 /api，Render Blueprint 和公网 verifier 已准备", () => {
+check("部署准备", "同一 Node 服务托管 dist 与 /api，Render/树莓派部署路径和公网 verifier 已准备", () => {
   assertIncludes("src/backend/http-server.ts", ["staticDir", "serveStatic"]);
   assertIncludes("src/backend/serve.ts", ["STATIC_DIR", "startBackendServer"]);
   assertIncludes("docs/deployment.md", ["Render Blueprint", "verify:public"]);
+  assertIncludes("docs/raspberry-pi-deployment.md", ["Node: `24.x`", "Cloudflare Tunnel", "ZHIHU_PROVIDER=mock"]);
+  assertIncludes("docs/raspberry-pi-ops-checklist.md", [
+    "PUBLIC_DEMO_URL=https://你的树莓派公网域名 npm run verify:public:full",
+    "cloudflared tunnel info zhihu-roundtable",
+  ]);
   assertIncludes("scripts/verify-public-demo.mjs", [
     "fetchPublicBundles",
     "/api/health",
@@ -184,6 +199,12 @@ blocker("评委仓库访问", "GitHub 仓库需要 public，或设置 REVIEWER_R
 
 const failed = checks.filter((item) => item.status === "fail");
 const externalBlockers = checks.filter((item) => item.status === "blocker");
+const blockerNextSteps = new Map([
+  ["远端同步", "next: git push origin main; then git fetch origin main --prune && git status -sb"],
+  ["远端 CI", "next: npm run verify:remote-ci -- --wait"],
+  ["公网 Demo", "next: deploy the Node service, then PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full"],
+  ["评委仓库访问", "next: make the repo public, or confirm reviewer access and run with REVIEWER_REPO_ACCESS_CONFIRMED=1"],
+]);
 
 for (const item of checks) {
   const marker = item.status === "pass" ? "PASS" : item.status === "blocker" ? "BLOCKED" : "FAIL";
@@ -199,6 +220,10 @@ if (externalBlockers.length > 0) {
   console.log(`\ncompletion audit local-ready, external blockers: ${externalBlockers.length}`);
   for (const item of externalBlockers) {
     console.log(`- ${item.name}: ${item.detail}`);
+    const nextStep = blockerNextSteps.get(item.name);
+    if (nextStep) {
+      console.log(`  ${nextStep}`);
+    }
   }
   if (strict) {
     process.exit(2);

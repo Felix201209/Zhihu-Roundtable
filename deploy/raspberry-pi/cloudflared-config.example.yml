@@ -1,0 +1,7 @@
+tunnel: zhihu-roundtable
+credentials-file: /home/pi/.cloudflared/<tunnel-id>.json
+
+ingress:
+  - hostname: zhihu-roundtable.example.com
+    service: http://127.0.0.1:8899
+  - service: http_status:404

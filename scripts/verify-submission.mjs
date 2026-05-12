@@ -18,12 +18,19 @@ const requiredFiles = [
   "docs/submission-package.md",
   "docs/submission-form-checklist.md",
   "docs/deployment.md",
+  "docs/raspberry-pi-deployment.md",
+  "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
   "docs/final-readiness-audit.md",
   "render.yaml",
+  "deploy/raspberry-pi/env.production.local.example",
+  "deploy/raspberry-pi/zhihu-roundtable.service.example",
+  "deploy/raspberry-pi/cloudflared-config.example.yml",
   "scripts/package-source.mjs",
+  "scripts/print-submission-evidence.mjs",
   "scripts/completion-audit.mjs",
   "scripts/verify-remote-ci.mjs",
+  "scripts/verify-raspberry-pi-templates.mjs",
   "scripts/verify-public-demo.mjs",
   "scripts/verify-production-flow.mjs",
   "scripts/verify-production-server.mjs",
@@ -102,13 +109,17 @@ assertFileIncludes("package.json", [
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
   "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
+  "\"verify:raspberry-pi\": \"node scripts/verify-raspberry-pi-templates.mjs\"",
   "\"verify:final\": \"npm run verify:remote-ci -- --wait && npm run verify:public:full && npm run completion:audit -- --strict\"",
   "\"completion:audit\": \"node scripts/completion-audit.mjs\"",
   "\"verify:judge\":",
   "node --check scripts/verify-public-demo.mjs",
   "node --check scripts/verify-remote-ci.mjs",
-  "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source\"",
+  "node --check scripts/verify-raspberry-pi-templates.mjs",
+  "npm run verify:raspberry-pi",
+  "\"verify:submission\": \"npm run verify:judge && npm run completion:audit && npm run package:source && npm run evidence:submission\"",
   "\"package:source\": \"node scripts/package-source.mjs\"",
+  "\"evidence:submission\": \"node scripts/print-submission-evidence.mjs\"",
 ]);
 assertPackageJson();
 
@@ -122,8 +133,12 @@ assertFileIncludes("README.md", [
   "live 只读接口失败",
   "真实写操作失败不会伪装成功",
   "docs/submission-form-checklist.md",
+  "docs/raspberry-pi-deployment.md",
+  "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
   "docs/final-readiness-audit.md",
+  "npm run evidence:submission",
+  "npm run verify:raspberry-pi",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
 ]);
 
@@ -163,10 +178,16 @@ assertFileIncludes("scripts/completion-audit.mjs", [
   "scripts/verify-public-demo.mjs",
   "scripts/verify-production-flow.mjs",
   "PRODUCTION_FLOW_REQUIRE_BROWSER",
+  "公网部署路径默认强制 mock",
+  "blockerNextSteps",
+  "npm run verify:remote-ci -- --wait",
 ]);
 
 assertFileIncludes("scripts/package-source.mjs", [
   ".github/workflows/verify.yml",
+  "deploy/raspberry-pi/env.production.local.example",
+  "scripts/verify-raspberry-pi-templates.mjs",
+  "scripts/print-submission-evidence.mjs",
   "scripts/verify-submission.mjs",
   "scripts/completion-audit.mjs",
   "manifest.json",
@@ -174,6 +195,15 @@ assertFileIncludes("scripts/package-source.mjs", [
   "docs/external-closure-runbook.md",
   "scripts/verify-production-server.mjs",
   "tests/http-server.test.ts",
+]);
+
+assertFileIncludes("scripts/print-submission-evidence.mjs", [
+  ".cache/submission/manifest.json",
+  "artifacts/zhihu-roundtable-desktop.png",
+  "--allow-dirty",
+  "submission evidence requires a clean worktree",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
 ]);
 
 assertFileIncludes(".github/workflows/verify.yml", [
@@ -197,6 +227,9 @@ assertFileIncludes("docs/final-readiness-audit.md", [
   "node scripts/verify-remote-ci.mjs --allow-not-pushed",
   "npm run completion:audit",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
+  "deploy/raspberry-pi/",
+  "npm run verify:raspberry-pi",
+  "docs/raspberry-pi-ops-checklist.md",
   "61 个测试通过",
   "生产式浏览器路径确认",
   "前端 bundle 中的产品关键文案",
@@ -211,16 +244,64 @@ assertFileIncludes("docs/backend-contract.md", [
 
 assertFileIncludes("docs/deployment.md", [
   "npm run verify:remote-ci",
+  "树莓派部署指南",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
   "公网 Demo 会同时验证 `verify:public` 和公网浏览器点击流",
   "npm run verify:remote-ci -- --wait",
   "VITE_DEMO_FALLBACK_TO_MOCK=true",
+  "deploy/raspberry-pi/",
+  "树莓派 systemd 配置",
+]);
+
+assertFileIncludes("docs/raspberry-pi-deployment.md", [
+  "deploy/raspberry-pi/env.production.local.example",
+  "deploy/raspberry-pi/zhihu-roundtable.service.example",
+  "deploy/raspberry-pi/cloudflared-config.example.yml",
+  "npm run verify:raspberry-pi",
+  "树莓派公网 Demo 现场检查清单",
+  "Node: `24.x`",
+  "ZHIHU_PROVIDER=mock",
+  "VITE_DEMO_FALLBACK_TO_MOCK=true",
+  "systemd",
+  "Cloudflare Tunnel",
+  "PUBLIC_DEMO_URL=https://你的树莓派公网域名 npm run verify:public:full",
+  "不要为了演示把确认保护关掉",
+]);
+
+assertFileIncludes("scripts/verify-raspberry-pi-templates.mjs", [
+  "ZHIHU_PROVIDER",
+  "VITE_DEMO_FALLBACK_TO_MOCK",
+  "service: http://127.0.0.1:${env.PORT}",
+  "Raspberry Pi deployment templates verified.",
+]);
+
+assertFileIncludes("deploy/raspberry-pi/env.production.local.example", [
+  "ZHIHU_PROVIDER=mock",
+  "VITE_DEMO_MODEL_MODE=mock",
+  "VITE_DEMO_DEFAULT_PROVIDER=mock",
+  "VITE_DEMO_FALLBACK_TO_MOCK=true",
+]);
+
+assertFileIncludes("deploy/raspberry-pi/zhihu-roundtable.service.example", [
+  "EnvironmentFile=/home/pi/Zhihu-Roundtable/.env.production.local",
+  "ExecStart=/home/pi/.nvm/versions/node/v24.12.0/bin/npm run start",
+  "Restart=always",
+]);
+
+assertFileIncludes("deploy/raspberry-pi/cloudflared-config.example.yml", [
+  "tunnel: zhihu-roundtable",
+  "service: http://127.0.0.1:8899",
+  "service: http_status:404",
 ]);
 
 assertFileIncludes("docs/external-closure-runbook.md", [
   "git push origin main",
   "npm run verify:remote-ci -- --wait",
+  "树莓派部署指南",
+  "树莓派公网 Demo 现场检查清单",
+  "deploy/raspberry-pi/",
+  "npm run verify:raspberry-pi",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
   "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
   "ZHIHU_PROVIDER=mock",
@@ -231,14 +312,24 @@ assertFileIncludes("docs/external-closure-runbook.md", [
 assertFileIncludes("docs/submission-form-checklist.md", [
   "项目名称",
   "可运行体验链接",
+  "树莓派或其他公网 Node 服务 URL",
   "知乎登录回调地址",
   "当前仓库为 private",
   "npm run verify:submission",
+  "npm run evidence:submission",
   "npm run verify:judge",
   "npm run package:source",
   "verify:remote-ci -- --wait",
+  "docs/raspberry-pi-deployment.md",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
   "不要提交 `.env.local`",
+  "树莓派 systemd 配置",
+]);
+
+assertFileIncludes("docs/championship-redteam.md", [
+  "docs/raspberry-pi-deployment.md",
+  "不能只上传 `dist/`",
+  "真实写权限",
 ]);
 
 assertFileIncludes("docs/submission-package.md", [
@@ -247,6 +338,18 @@ assertFileIncludes("docs/submission-package.md", [
   "HEAD commit",
   "sha256",
   "docs/external-closure-runbook.md",
+  "deploy/raspberry-pi/",
+  "evidence:submission",
+  "树莓派公网 Demo 现场检查清单",
+  "树莓派部署指南",
+]);
+
+assertFileIncludes("docs/raspberry-pi-ops-checklist.md", [
+  "ZHIHU_PROVIDER=mock",
+  "npm run verify:raspberry-pi",
+  "cloudflared tunnel info zhihu-roundtable",
+  "PUBLIC_DEMO_URL=https://你的树莓派公网域名 npm run verify:public:full",
+  "PUBLIC_DEMO_URL=https://你的树莓派公网域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
 ]);
 
 for (const file of publicNarrativeFiles) {

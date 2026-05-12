@@ -60,7 +60,7 @@ npm run verify:remote-ci -- --wait
 
 ## 4. 部署公网 Demo
 
-推荐 Render Blueprint：
+可选 Render Blueprint：
 
 ```text
 Blueprint: render.yaml
@@ -81,6 +81,16 @@ VITE_DEMO_FALLBACK_TO_MOCK=true
 ```
 
 不要把 `.env.local`、真实 `DEEPSEEK_API_KEY`、`ZHIHU_APP_KEY` 或 `ZHIHU_APP_SECRET` 填入 Render Blueprint。
+
+也可以部署到树莓派，详见 [树莓派部署指南](raspberry-pi-deployment.md) 和 [树莓派公网 Demo 现场检查清单](raspberry-pi-ops-checklist.md)。树莓派路径同样必须满足：
+
+- 已 push 的当前提交被拉到树莓派。
+- 本地已通过 `npm run verify:raspberry-pi`，确认 env、systemd 和 Cloudflare Tunnel 模板仍保持 mock-safe。
+- `npm ci && npm run build` 成功。
+- `npm run start` 由 systemd 或等价进程管理器常驻。
+- 可先复制 `deploy/raspberry-pi/` 里的 mock-safe env、systemd 和 Cloudflare Tunnel 模板。
+- 公网入口代理到同一个 Node 服务，而不是只代理 `dist/`。
+- 线上环境保持 `ZHIHU_PROVIDER=mock` 和 `VITE_DEMO_FALLBACK_TO_MOCK=true`。
 
 ## 5. 公网验收
 

@@ -68,12 +68,14 @@ npm run dev
 - `npm run typecheck`：TypeScript 类型检查。
 - `npm run verify`：提交前总验证，串行执行类型检查、测试、生产构建和后端完整 Demo。
 - `npm run verify:production`：构建后启动 `npm run start`，真实请求生产式首页和 `/api/health`；本机有 Chrome/Chromium 时还会走完整 5 步浏览器点击流。
-- `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public`：部署后验证公网首页、`/api/health`、知乎状态和 OAuth callback，默认要求 mock-safe。
+- `npm run verify:raspberry-pi`：检查树莓派 env、systemd 和 Cloudflare Tunnel 模板保持 mock-safe，且端口一致。
+- `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public`：部署到 Render、树莓派或其他公网 Node 服务后，验证公网首页、`/api/health`、知乎状态和 OAuth callback，默认要求 mock-safe。
 - `PUBLIC_DEMO_URL=https://你的线上域名 npm run verify:public:full`：部署后同时验证公网 API smoke 和首页到评论复盘的浏览器点击流。
 - `npm run verify:remote-ci`：push 后检查 GitHub Actions `Verify` 是否针对当前 HEAD 成功；远端会运行 `npm run verify:submission`。push 前可用 `node scripts/verify-remote-ci.mjs --allow-not-pushed` 预检远端状态；push 刚完成时可用 `npm run verify:remote-ci -- --wait` 等待 CI 创建并完成。
 - `PUBLIC_DEMO_URL=https://你的线上域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final`：push、部署和仓库授权都完成后的最终严格验收。
 - `npm run completion:audit`：把 `/goal` 拆成产品定位、主流程、安全边界、验证门禁、部署准备和外部交付项逐项检查；本地项失败会退出，公网 Demo、远端 CI、仓库访问这类外部项会列为 blocker。若仓库保持 private，但已给评委/主办方授权，可设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据。
-- `npm run package:source`：从干净 HEAD 生成 `.cache/submission/zhihu-roundtable-source.zip` 和 `.cache/submission/manifest.json`，并打印 commit、大小和 sha256。
+- `npm run package:source`：从干净 HEAD 生成 `.cache/submission/zhihu-roundtable-source.zip` 和 `.cache/submission/manifest.json`，并打印 commit、大小和 sha256；`verify:submission` 会在打包后自动运行 `evidence:submission`。
+- `npm run evidence:submission`：只读打印当前 commit、源码包 sha256、截图尺寸和最终外部验收命令，要求工作区干净；本地预览可用 `node scripts/print-submission-evidence.mjs --allow-dirty`。
 - `npm run verify:judge`：本地评审基础门禁，避免依赖外部 live API 或 npm audit 网络；CI 会跑更完整的 `verify:submission`。
 - `npm run audit:high`：可选依赖安全公告检查，需要 npm registry 网络稳定。
 
@@ -158,6 +160,8 @@ live 写操作不会绕过用户确认：发布、主持评论、reaction 都需
 
 - 评审快速指南：[JUDGE_GUIDE.md](JUDGE_GUIDE.md)
 - 部署指南：[docs/deployment.md](docs/deployment.md)
+- 树莓派部署指南：[docs/raspberry-pi-deployment.md](docs/raspberry-pi-deployment.md)
+- 树莓派现场检查清单：[docs/raspberry-pi-ops-checklist.md](docs/raspberry-pi-ops-checklist.md)
 - 外部交付闭环 Runbook：[docs/external-closure-runbook.md](docs/external-closure-runbook.md)
 - 提交表单清单：[docs/submission-form-checklist.md](docs/submission-form-checklist.md)
 - 后端契约：[docs/backend-contract.md](docs/backend-contract.md)

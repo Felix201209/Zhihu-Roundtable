@@ -65,7 +65,7 @@ ZHIHU_PROVIDER=mock DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 npm run captu
 
 如果本机 `.env.local` 已经填了知乎 live 地址和 token，路演仍建议使用 `npm run demo:serve:mock`；该命令会显式设置 `ZHIHU_PROVIDER=mock`，不会触发真实知乎 provider。
 
-公网体验部署请看 [docs/deployment.md](docs/deployment.md)。推荐 Render Blueprint：构建 `npm ci && npm run build`，启动 `npm run start`，同一个 Node 服务会托管前端页面和 `/api`。
+公网体验部署请看 [docs/deployment.md](docs/deployment.md)。推荐 Render Blueprint 或 [树莓派自托管](docs/raspberry-pi-deployment.md)：构建 `npm ci && npm run build`，启动 `npm run start`，同一个 Node 服务会托管前端页面和 `/api`。
 
 提交前完整 readiness 和剩余外部交付缺口记录在 [docs/final-readiness-audit.md](docs/final-readiness-audit.md)。
 

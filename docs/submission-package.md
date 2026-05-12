@@ -45,7 +45,7 @@
 可运行体验链接：
 
 ```text
-待部署后填写。推荐使用仓库里的 Render Blueprint；平台需运行 Node 服务，而不是只托管 Vite dist。构建命令 `npm ci && npm run build`，启动命令 `npm run start`，健康检查 `/api/health`。
+待部署后填写。推荐使用仓库里的 Render Blueprint，或按 [树莓派部署指南](raspberry-pi-deployment.md)自托管；树莓派可复制模板位于 `deploy/raspberry-pi/`，现场排障看 [树莓派公网 Demo 现场检查清单](raspberry-pi-ops-checklist.md)。平台需运行 Node 服务，而不是只托管 Vite dist。构建命令 `npm ci && npm run build`，启动命令 `npm run start`，健康检查 `/api/health`。
 ```
 
 知乎登录回调地址：
@@ -66,7 +66,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 
 ```text
 README / JUDGE_GUIDE / docs/submission-form-checklist.md / docs/final-readiness-audit.md / docs/external-closure-runbook.md / 产品说明文档链接均可填写
-如平台需要源码压缩包，使用 npm run package:source 生成 .cache/submission/zhihu-roundtable-source.zip 和 .cache/submission/manifest.json；manifest 会记录 HEAD commit、文件数、ZIP 大小和 sha256。
+如平台需要源码压缩包，使用 npm run package:source 生成 .cache/submission/zhihu-roundtable-source.zip 和 .cache/submission/manifest.json；manifest 会记录 HEAD commit、文件数、ZIP 大小和 sha256。提交备注或路演备忘可用 npm run evidence:submission 打印当前 commit、源码包 sha256、截图尺寸和最终外部验收命令；本地预览才使用 `node scripts/print-submission-evidence.mjs --allow-dirty`。
 ```
 
 ## 3. 知乎生态契合度
@@ -146,6 +146,7 @@ GET /ring/moltbook/api/community/story_list
 
 ```bash
 npm ci
+npm run evidence:submission
 npm run verify:judge
 npm run audit:high
 npm run capture:demo:auto:mock
