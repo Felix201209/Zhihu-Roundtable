@@ -47,6 +47,7 @@ const chrome = spawn(chromePath, [
   "--no-sandbox",
   "--no-first-run",
   "--no-default-browser-check",
+  "--remote-allow-origins=*",
   `--remote-debugging-port=${chromePort}`,
   `--user-data-dir=${userDataDir}`,
   "about:blank",
@@ -59,7 +60,7 @@ chrome.stderr.on("data", (chunk) => {
 
 try {
   await waitForApp();
-  const result = await runBrowserFlow();
+  const result = await withTimeout(runBrowserFlow(), 45_000, "production browser flow timed out");
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
@@ -106,15 +107,19 @@ async function runBrowserFlow() {
     }
   });
 
-  await new Promise((resolve, reject) => {
+  await withTimeout(new Promise((resolve, reject) => {
     socket.addEventListener("open", resolve, { once: true });
     socket.addEventListener("error", reject, { once: true });
-  });
+  }), 10_000, "Chrome DevTools WebSocket did not open");
 
   function send(method, params = {}) {
     const requestId = ++id;
     socket.send(JSON.stringify({ id: requestId, method, params }));
-    return new Promise((resolve, reject) => pending.set(requestId, { resolve, reject }));
+    return withTimeout(
+      new Promise((resolve, reject) => pending.set(requestId, { resolve, reject })),
+      10_000,
+      `Chrome DevTools command timed out: ${method}`,
+    );
   }
 
   async function evaluate(expression) {
@@ -286,4 +291,12 @@ function normalizeOrigin(value) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout(promise, ms, message) {
+  let timeout;
+  const timer = new Promise((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timer]).finally(() => clearTimeout(timeout));
 }
