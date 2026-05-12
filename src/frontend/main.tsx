@@ -529,27 +529,37 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
       </div>
       <div className="hero-actions">
         <button className="primary-button hero-main-action" onClick={onRoundtable}>
-          从热榜生成讨论方案 <ArrowRight size={19} />
+          从热榜生成讨论方案 <ArrowRight size={18} />
         </button>
         <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
-          测试一个脑洞 <Lightbulb size={17} />
+          测试一个脑洞 <Lightbulb size={16} />
         </button>
       </div>
-      <div className="promise-grid" aria-label="知辩圆桌能力">
+      <div className="workflow-strip" aria-label="知辩圆桌能力">
         <article>
-          <Search size={19} />
-          <strong>从热榜筛选适合组织讨论的话题</strong>
-          <span>判断争议度、资料丰富度、参与空间和后续创作价值。</span>
+          <Search size={16} />
+          <strong>选题雷达</strong>
+          <span>从热榜筛选适合组织讨论的话题</span>
         </article>
         <article>
-          <ShieldCheck size={19} />
-          <strong>生成完整讨论包和圈子帖草稿</strong>
-          <span>包含开放问题、站队选项、引导评论、风险提醒和发布说明。</span>
+          <ShieldCheck size={16} />
+          <strong>讨论方案</strong>
+          <span>生成完整讨论包和圈子帖草稿</span>
         </article>
         <article>
-          <MessageSquare size={19} />
-          <strong>评论回流成下一轮内容来源</strong>
-          <span>识别高质量评论、新反方、真实经验和下一篇选题方向。</span>
+          <Users size={16} />
+          <strong>主持校验</strong>
+          <span>刘看山校验讨论是否有张力</span>
+        </article>
+        <article>
+          <ClipboardList size={16} />
+          <strong>发布策划</strong>
+          <span>站队选项、引导评论、风险提醒</span>
+        </article>
+        <article>
+          <MessageSquare size={16} />
+          <strong>评论复盘</strong>
+          <span>回收评论区生成下一轮方向</span>
         </article>
       </div>
     </section>
@@ -564,9 +574,9 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
         title="选题雷达"
         subtitle="先从知乎热榜里挑一个值得组织讨论的话题。系统关注争议度、资料丰富度、普通用户参与空间和能否产生下一轮内容。"
       />
-      <div className="topic-grid">
-        {topics.slice(0, 5).map((topic) => (
-          <TopicCard key={topic.id} topic={topic} onSelect={() => onSelect(topic.id)} />
+      <div className="topic-feed">
+        {topics.slice(0, 5).map((topic, index) => (
+          <TopicCard key={topic.id} rank={index + 1} topic={topic} onSelect={() => onSelect(topic.id)} />
         ))}
       </div>
       <div className="flow-actions split">
@@ -578,21 +588,24 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
   );
 }
 
-function TopicCard({ topic, onSelect }: { topic: Topic; onSelect: () => void }) {
+function TopicCard({ rank, topic, onSelect }: { rank: number; topic: Topic; onSelect: () => void }) {
   const controversy = topic.controversyLevel === "high" || topic.debateScore >= 85 ? "高" : topic.debateScore >= 70 ? "中" : "低";
   const evidence = topic.evidenceScore >= 82 ? "高" : topic.evidenceScore >= 68 ? "中" : "低";
 
   return (
-    <article className="topic-card">
-      <div className="topic-card-header">
-        <span>热度 {topic.hotScore}</span>
-        <span>争议度 {controversy}</span>
-        <span>资料 {evidence}</span>
+    <article className="topic-row">
+      <div className={`topic-rank ${rank <= 3 ? "hot" : ""}`}>{rank}</div>
+      <div className="topic-row-body">
+        <h2>{topic.title}</h2>
+        <p>{topic.reason}</p>
+        <div className="topic-row-meta">
+          <span>热度 {topic.hotScore}</span>
+          <span>争议 {controversy}</span>
+          <span>资料 {evidence}</span>
+        </div>
       </div>
-      <h2>{topic.title}</h2>
-      <p>{topic.reason}</p>
       <button className="primary-button" onClick={onSelect}>
-        生成讨论方案 <ArrowRight size={16} />
+        生成讨论方案 <ArrowRight size={14} />
       </button>
     </article>
   );
@@ -610,14 +623,25 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
         subtitle="AI 已把热榜标题改写成开放问题，并先建立证据池。接下来不是让 AI 自嗨聊天，而是为创作者生成可发布、可引导评论的讨论包。"
       />
       <div className="prep-grid">
-        <section className="prep-summary">
-          <span>原始热榜</span>
-          <h2>{topic?.title}</h2>
-          <span>重构后的知乎式问题</span>
-          <p>{snapshot.rewrittenQuestion}</p>
-          <span>讨论目标</span>
-          <p>让创作者、普通用户和圈子成员围绕这个开放问题给出立场、经验和反例，而不是只看一段摘要。</p>
-          <small>AI 会标注观点来源；无法核验的内容会被标为待验证。</small>
+        <section className="prep-pipeline">
+          <div className="prep-source">
+            <span>原始热榜</span>
+            <h2>{topic?.title}</h2>
+          </div>
+          <div className="prep-arrow">自动重构为开放问题</div>
+          <div className="prep-target">
+            <span>重构后的知乎式问题</span>
+            <p>{snapshot.rewrittenQuestion}</p>
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            <span style={{ color: "var(--muted)", fontSize: 11, fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              讨论目标
+            </span>
+            <p style={{ margin: 0, lineHeight: 1.5, fontSize: 14 }}>
+              让创作者、普通用户和圈子成员围绕这个开放问题给出立场、经验和反例，而不是只看一段摘要。
+            </p>
+            <small style={{ color: "var(--muted)" }}>AI 会标注观点来源；无法核验的内容会被标为待验证。</small>
+          </div>
         </section>
         <section className="stance-card">
           <h2>初步讨论设计</h2>
@@ -662,41 +686,35 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
         title="刘看山主持校验"
         subtitle="刘看山不是陪聊 Bot，而是讨论主持人：检查标题是否可讨论、证据是否够用、反方是否成立、普通用户是否愿意回复。站内观点席不模拟具体知乎用户。"
       />
-      <div className="seat-grid">
+      <div className="role-bar">
         {(Object.keys(speakerMeta) as DebateTurn["speaker"][]).map((speaker) => (
-          <article key={speaker} className={`seat-card ${speaker} ${activeSpeaker === speaker ? "active" : ""}`}>
-            <div className="seat-avatar" aria-hidden="true">{seatInitial(speaker)}</div>
-            <div>
-              <strong>{speakerMeta[speaker].name}</strong>
-              <span>{speakerMeta[speaker].role}</span>
-              <small>{activeSpeaker === speaker ? "正在发言" : speakerMeta[speaker].source}</small>
-            </div>
-          </article>
+          <span key={speaker} className={`role-pill ${activeSpeaker === speaker ? "active" : ""}`}>
+            <i className="dot" />
+            {speakerMeta[speaker].name}
+          </span>
         ))}
-        <div className="roundtable-center" aria-hidden="true">
-          <span>讨论包</span>
+      </div>
+      <div className="context-grid">
+        <div className="context-card">
+          <strong>当前议题</strong>
+          <p>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</p>
+        </div>
+        <div className="context-card">
+          <strong>支持观点</strong>
+          <p>{(snapshot.viewpointMap?.support ?? []).slice(0, 2).join("；") || "等待更多证据回流"}</p>
+        </div>
+        <div className="context-card">
+          <strong>反对观点</strong>
+          <p>{(snapshot.viewpointMap?.oppose ?? []).slice(0, 2).join("；") || "等待更多证据回流"}</p>
         </div>
       </div>
-      <div className="roundtable-layout">
-        <aside className="topic-rail">
-          <span>当前议题</span>
-          <h2>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</h2>
-          <MiniList title="发帖目标" items={["引发站队", "征集真实经验", "收集反方质疑", "沉淀下一篇内容方向"]} />
-          <MiniList title="事实证据" items={snapshot.viewpointMap?.facts ?? []} />
-        </aside>
-        <section className="turn-feed">
-          {snapshot.turns.map((turn) => (
-            <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
-          ))}
-        </section>
-        <aside className="viewpoint-rail">
-          <MiniList title="支持观点" items={snapshot.viewpointMap?.support ?? []} />
-          <MiniList title="反对观点" items={snapshot.viewpointMap?.oppose ?? []} />
-          <MiniList title="站队/追问素材" items={buildStandOptions(snapshot).concat(snapshot.viewpointMap?.followups ?? []).slice(0, 6)} />
-        </aside>
+      <div className="chat-feed">
+        {snapshot.turns.map((turn) => (
+          <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
+        ))}
       </div>
       <div className="safety-note">
-        所有发言都服务于“讨论是否能被组织起来”：缺少证据的判断会被标记为待验证，容易引战的表达会被改成开放追问。
+        所有发言都服务于"讨论是否能被组织起来"：缺少证据的判断会被标记为待验证，容易引战的表达会被改成开放追问。
       </div>
       <div className="flow-actions">
         <button className="ghost-button" onClick={onBack}>
@@ -714,8 +732,9 @@ function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }
   const usedEvidence = evidence.filter((item) => turn.evidenceIds.includes(item.id));
 
   return (
-    <article className={`turn-card speaker-${turn.speaker}`}>
-      <div>
+    <article className={`chat-message ${turn.speaker}`}>
+      <div className="chat-header">
+        <div className="chat-avatar">{seatInitial(turn.speaker)}</div>
         <strong>{speakerMeta[turn.speaker].name}</strong>
         <span>{turn.claim}</span>
       </div>
@@ -731,6 +750,46 @@ function seatInitial(speaker: DebateTurn["speaker"]) {
   if (speaker === "expert") return "观";
   if (speaker === "opponent") return "校";
   return "问";
+}
+
+function PostContent({ draft }: { draft: RoundtableSnapshot["publishDraft"] }) {
+  if (!draft) return null;
+  return (
+    <>
+      <div className="post-section">
+        <h3>讨论背景</h3>
+        <p>{draft.opening}</p>
+      </div>
+      <div className="post-section">
+        <h3>开放问题</h3>
+        <p>{draft.questions[0] ?? "如果你站在创作者 / 普通用户 / 平台生态的角度，会如何判断这个问题？"}</p>
+      </div>
+      {draft.consensus.length > 0 || draft.disputes.length > 0 ? (
+        <div className="post-section">
+          <h3>可以直接站队</h3>
+          <ol>
+            {draft.consensus.slice(0, 2).map((item, index) => (
+              <li key={`c-${index}`}>{item}</li>
+            ))}
+            {draft.disputes.slice(0, 2).map((item, index) => (
+              <li key={`d-${index}`}>{item}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+      {draft.questions.length > 1 ? (
+        <div className="post-section">
+          <h3>想邀请大家补充</h3>
+          <ol>
+            {draft.questions.slice(1, 4).map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
+      {draft.disclosure ? <p className="post-disclosure">{draft.disclosure}</p> : null}
+    </>
+  );
 }
 
 function RoundtablePublishView({
@@ -761,9 +820,13 @@ function RoundtablePublishView({
         <ReportBlock title="风险提醒" items={buildRiskReminders(snapshot)} />
       </div>
       <div className="post-preview">
-        <span>圈子帖草稿</span>
-        <h2>{draft?.title}</h2>
-        <pre>{formatPublishDraft(draft)}</pre>
+        <div className="post-preview-header">
+          <span>圈子帖草稿</span>
+          <h2>{draft?.title}</h2>
+        </div>
+        <div className="post-body">
+          <PostContent draft={draft} />
+        </div>
       </div>
       <div className={`publish-safety-strip ${liveMode ? "live" : "mock"}`}>
         <ShieldCheck size={17} />
@@ -804,11 +867,7 @@ function RoundtableFeedbackView({ snapshot, onNextRound }: { snapshot: Roundtabl
         <h1>{insight?.nextRoundSuggestions[0] ?? `围绕「${snapshot.selectedTopic?.title}」继续讨论。`}</h1>
         <p>因为评论区出现了新的反方视角、补充证据、真实经验和用户最关心的问题。</p>
       </div>
-      <div className="sentiment-grid">
-        <SentimentCard label="支持当前方案" value={sentiment.support} />
-        <SentimentCard label="提出反方或质疑" value={sentiment.oppose} />
-        <SentimentCard label="中立补充证据" value={sentiment.neutral} />
-      </div>
+      <CombinedSentimentBar sentiment={sentiment} />
       <div className="report-grid">
         <ReportBlock title="值得回复的评论" items={insight?.highQualityComments ?? []} />
         <ReportBlock title="新的反方/追问" items={insight?.newDisputes ?? []} />
@@ -820,6 +879,27 @@ function RoundtableFeedbackView({ snapshot, onNextRound }: { snapshot: Roundtabl
         </button>
       </div>
     </section>
+  );
+}
+
+function CombinedSentimentBar({ sentiment }: { sentiment: { support: number; oppose: number; neutral: number } }) {
+  return (
+    <div className="sentiment-bar">
+      <div className="sentiment-bar-header">
+        <span>评论情绪分布</span>
+        <span>共 {sentiment.support + sentiment.oppose + sentiment.neutral}%</span>
+      </div>
+      <div className="sentiment-track">
+        <i className="support" style={{ width: `${sentiment.support}%` }} />
+        <i className="oppose" style={{ width: `${sentiment.oppose}%` }} />
+        <i className="neutral" style={{ width: `${sentiment.neutral}%` }} />
+      </div>
+      <div className="sentiment-legend">
+        <span><b style={{ background: "var(--zhihu-blue)" }} /> 支持 {sentiment.support}%</span>
+        <span><b style={{ background: "var(--orange)" }} /> 反方 {sentiment.oppose}%</span>
+        <span><b style={{ background: "#c8cdd5" }} /> 中立 {sentiment.neutral}%</span>
+      </div>
+    </div>
   );
 }
 
@@ -951,10 +1031,16 @@ function PublishPreview({
         subtitle="系统只负责生成主帖和三个选项评论，真正发布前必须由你确认。"
       />
       <div className="post-preview">
-        <span>主帖预览</span>
-        <h2>{preview?.title}</h2>
-        <pre>{preview?.body}</pre>
-        <small>{preview?.disclosure}</small>
+        <div className="post-preview-header">
+          <span>主帖预览</span>
+          <h2>{preview?.title}</h2>
+        </div>
+        <div className="post-body">
+          <div className="post-section">
+            <p>{preview?.body}</p>
+          </div>
+          {preview?.disclosure ? <p className="post-disclosure">{preview.disclosure}</p> : null}
+        </div>
       </div>
       <div className="comment-preview-grid">
         {preview?.optionComments.map((comment) => (
@@ -1262,16 +1348,6 @@ function SourceLine({ evidence, fallback }: { evidence: Evidence[]; fallback?: s
     <span className="source-line">
       来源：{[...counts.entries()].map(([label, count]) => `${label} ${count} 条`).join(" / ")}
     </span>
-  );
-}
-
-function SentimentCard({ label, value }: { label: string; value: number }) {
-  return (
-    <article className="sentiment-card">
-      <span>{label}</span>
-      <strong>{value}%</strong>
-      <div><i style={{ width: `${value}%` }} /></div>
-    </article>
   );
 }
 
