@@ -69,6 +69,8 @@ try {
   terminateProcess(chrome);
 }
 
+process.exit(0);
+
 async function runBrowserFlow() {
   const target = await waitForPageTarget();
   const socket = new WebSocket(target.webSocketDebuggerUrl);
