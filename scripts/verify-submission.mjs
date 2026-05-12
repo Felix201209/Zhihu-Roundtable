@@ -18,6 +18,7 @@ const requiredFiles = [
   "docs/submission-package.md",
   "docs/submission-form-checklist.md",
   "docs/deployment.md",
+  "docs/judge-defense-matrix.md",
   "docs/raspberry-pi-deployment.md",
   "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
@@ -58,6 +59,7 @@ const publicNarrativeFiles = [
   "JUDGE_GUIDE.md",
   "docs/submission-package.md",
   "docs/submission-form-checklist.md",
+  "docs/judge-defense-matrix.md",
   "docs/hackathon-demo-plan.md",
   "docs/championship-redteam.md",
   "docs/final-readiness-audit.md",
@@ -133,6 +135,7 @@ assertFileIncludes("README.md", [
   "live 只读接口失败",
   "真实写操作失败不会伪装成功",
   "docs/submission-form-checklist.md",
+  "docs/judge-defense-matrix.md",
   "docs/raspberry-pi-deployment.md",
   "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
@@ -140,6 +143,11 @@ assertFileIncludes("README.md", [
   "npm run evidence:submission",
   "npm run verify:raspberry-pi",
   "REVIEWER_REPO_ACCESS_CONFIRMED=1",
+]);
+
+assertFileIncludes("JUDGE_GUIDE.md", [
+  "docs/judge-defense-matrix.md",
+  "路演问答时优先按这页回答",
 ]);
 
 assertFileIncludes(".env.example", [
@@ -333,6 +341,17 @@ assertFileIncludes("docs/championship-redteam.md", [
   "docs/raspberry-pi-deployment.md",
   "不能只上传 `dist/`",
   "真实写权限",
+]);
+
+assertFileIncludes("docs/judge-defense-matrix.md", [
+  "这是不是 AI 帮用户写知乎回答？",
+  "和普通热榜摘要有什么区别？",
+  "真实接口没打通怎么办？",
+  "会不会自动发帖或误触真实知乎写操作？",
+  "AI 胡说或编证据怎么控制？",
+  "不展示或打印 `.env.local`",
+  "node scripts/print-submission-evidence.mjs --markdown",
+  "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
 ]);
 
 assertFileIncludes("docs/submission-package.md", [

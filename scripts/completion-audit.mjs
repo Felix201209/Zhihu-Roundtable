@@ -104,6 +104,17 @@ check("验证门禁完整", "本地、生产式、远端 CI、公网验证和源
   }
 });
 
+check("防追问证据", "评委尖锐追问有短答、现场动作和文件/命令证据", () => {
+  assertIncludes("JUDGE_GUIDE.md", ["docs/judge-defense-matrix.md"]);
+  assertIncludes("docs/final-readiness-audit.md", ["docs/judge-defense-matrix.md"]);
+  assertIncludes("docs/judge-defense-matrix.md", [
+    "这是不是 AI 帮用户写知乎回答？",
+    "真实接口没打通怎么办？",
+    "会不会自动发帖或误触真实知乎写操作？",
+    "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
+  ]);
+});
+
 check("部署准备", "同一 Node 服务托管 dist 与 /api，Render/树莓派部署路径和公网 verifier 已准备", () => {
   assertIncludes("src/backend/http-server.ts", ["staticDir", "serveStatic"]);
   assertIncludes("src/backend/serve.ts", ["STATIC_DIR", "startBackendServer"]);

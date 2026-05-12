@@ -19,6 +19,7 @@ const requiredSourceFiles = [
   "deploy/raspberry-pi/cloudflared-config.example.yml",
   "docs/backend-contract.md",
   "docs/deployment.md",
+  "docs/judge-defense-matrix.md",
   "docs/raspberry-pi-deployment.md",
   "docs/raspberry-pi-ops-checklist.md",
   "docs/external-closure-runbook.md",
