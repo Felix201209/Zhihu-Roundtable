@@ -30,6 +30,7 @@ jobs:
           chromium --version || \
           chromium-browser --version
 
+      # Equivalent to npm run verify:submission, split for clearer CI failure evidence.
       - name: Verify core
         run: npm run verify
 
