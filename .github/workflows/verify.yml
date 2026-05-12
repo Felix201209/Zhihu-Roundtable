@@ -30,7 +30,37 @@ jobs:
           chromium --version || \
           chromium-browser --version
 
-      - name: Verify submission package
-        run: npm run verify:submission
+      - name: Verify core
+        run: npm run verify
+
+      - name: Check verifier scripts
+        run: |
+          node --check scripts/capture-demo-screenshots.mjs
+          node --check scripts/serve-demo.mjs
+          node --check scripts/package-source.mjs
+          node --check scripts/verify-public-demo.mjs
+          node --check scripts/verify-external-preflight.mjs
+          node --check scripts/verify-remote-ci.mjs
+          node --check scripts/verify-production-server.mjs
+          node --check scripts/verify-production-flow.mjs
+          node --check scripts/verify-raspberry-pi-templates.mjs
+
+      - name: Verify Raspberry Pi templates
+        run: npm run verify:raspberry-pi
+
+      - name: Verify production server
+        run: node scripts/verify-production-server.mjs
+
+      - name: Verify production browser flow
+        run: node scripts/verify-production-flow.mjs
         env:
           PRODUCTION_FLOW_REQUIRE_BROWSER: "true"
+
+      - name: Completion audit
+        run: npm run completion:audit
+
+      - name: Package source
+        run: npm run package:source
+
+      - name: Print submission evidence
+        run: npm run evidence:submission
