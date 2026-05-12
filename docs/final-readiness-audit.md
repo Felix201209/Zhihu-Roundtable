@@ -1,6 +1,6 @@
 # 知辩圆桌最终 Readiness 审计
 
-审计日期：2026-05-12
+审计日期：2026-05-13
 
 本文件用于判断当前 `/goal` 是否真的完成，而不是用“能跑”或“测试通过”替代交付结论。
 
@@ -21,20 +21,20 @@
 | live 边界可靠 | live 写操作需要后端 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才放行；真实写失败不会伪装 mock 成功；`.env.local` 被忽略 | 已完成 |
 | UI 可路演 | 浏览器主流程已跑通，截图存在桌面和移动视口 | 已完成 |
 | 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/demo-day-quick-card.md`、`docs/judge-defense-matrix.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
-| 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run verify:external-preflight`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
+| 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run verify:external-preflight`、`npm run audit:high` 通过；`PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final` 已对当前 HEAD 通过 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`deploy/raspberry-pi/` 模板、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、跟踪文件数、ZIP 实际文件数、文件大小和 sha256 | 已准备 |
-| 公网 Demo URL | 需要部署后填写 | 未完成 |
-| 代码远端同步 | 当前本地分支已提交但尚未 push；以 `git status -sb`、`git log -1 --oneline` 和 `git push --dry-run origin main` 为准 | 未完成 |
-| 评委仓库访问 | GitHub 仓库当前为 private；可切 public，或给评委/主办方授权后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 验收 | 未完成 |
+| 公网 Demo URL | `https://zhihu-roundtable.felixypz.me`；公网 smoke 和公网浏览器点击流已通过 | 已完成 |
+| 代码远端同步 | 当前 HEAD 已 push 到 `origin/main`；`completion:audit --strict` 验证本地 HEAD 与 upstream 一致 | 已完成 |
+| 评委仓库访问 | GitHub 仓库为 public：`https://github.com/Felix201209/Zhihu-Roundtable` | 已完成 |
 
 ## 2. Prompt-to-Artifact Checklist
 
 | 明确要求 | 对应产物 | 已检查证据 |
 | --- | --- | --- |
 | “可提交” | `docs/submission-package.md`、`docs/submission-form-checklist.md`、`README.md`、`JUDGE_GUIDE.md`、`scripts/print-submission-evidence.mjs` | 提交包有项目介绍、赛道、运行命令、仓库链接、部署占位、源码 ZIP 兜底和可复制提交证据 |
-| “可路演” | `docs/demo-day-quick-card.md`、`docs/hackathon-demo-plan.md`、截图 artifacts | 一页式现场操作卡、6 分钟脚本、3 分钟压缩版、Q&A、桌面/移动截图 |
+| “可路演” | `docs/demo-day-quick-card.md`、`docs/hackathon-demo-plan.md`、截图 artifacts | 一页式现场操作卡、6 分钟脚本、3 分钟压缩版、Q&A、本地桌面/移动截图和公网桌面/移动截图 |
 | “可防追问” | `docs/judge-defense-matrix.md`、`docs/championship-redteam.md`、`docs/final-readiness-audit.md`、`docs/external-closure-runbook.md` | 尖锐追问短答、现场动作、风险、边界、live/mock、安全发布、部署缺口和外部闭环步骤已列明 |
 | “产品定位清晰” | README/JUDGE/前端文案 | 旧的偏聊天表演口径已清理 |
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
@@ -45,7 +45,7 @@
 
 ## 3. 最新实证
 
-当前本地 Git 状态以提交前终端输出为准，提交前重新运行：
+当前本地 Git 状态以终端输出为准，最终复核时重新运行：
 
 ```bash
 git status -sb
@@ -61,14 +61,13 @@ npm run completion:audit
 npm run verify:judge
 npm run verify:external-preflight
 npm run audit:high
-git push --dry-run origin main
-node scripts/verify-remote-ci.mjs --allow-not-pushed
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
 ```
 
 `verify:submission` 会先跑 `verify:judge`，再跑 `completion:audit`，最后生成并检查源码 ZIP，并自动运行 `evidence:submission` 打印提交证据；打包脚本会打印 HEAD commit、文件大小和 sha256，便于提交前留存证据。`verify:judge` 覆盖：
 
 - `npm run typecheck`
-- `npm test`，9 个测试文件，61 个测试通过
+- `npm test`，9 个测试文件，64 个测试通过
 - `npm run build`
 - `npm run backend:demo`
 - 脚本语法检查
@@ -112,6 +111,8 @@ published: https://www.zhihu.com/pin/mock-...
 ```text
 artifacts/zhihu-roundtable-desktop.png: 1440 x 1100
 artifacts/zhihu-roundtable-mobile.png: 390 x 900
+artifacts/zhihu-roundtable-public-desktop.png: 1440 x 1100
+artifacts/zhihu-roundtable-public-mobile.png: 390 x 900
 ```
 
 浏览器人工路径确认：
@@ -159,50 +160,43 @@ GitHub 远端状态确认：
 
 ```text
 repo: https://github.com/Felix201209/Zhihu-Roundtable
-visibility: PRIVATE
+visibility: PUBLIC
 default branch: main
-last pushed: 2026-05-09T05:18:35Z
-push dry-run: origin/main..HEAD main -> main passed
-remote workflow: Verify active on current remote
-local HEAD workflow: push, PR and manual dispatch all run npm run verify:submission
-local HEAD browser gate: GitHub Actions checks Chrome/Chromium version first, then runs PRODUCTION_FLOW_REQUIRE_BROWSER=true
-local HEAD package gate: GitHub Actions also runs package:source through verify:submission
-remote CI verifier: npm run verify:remote-ci checks current HEAD after push; npm run verify:remote-ci -- --wait waits for GitHub Actions to create and finish the current HEAD run
-external preflight verifier: npm run verify:external-preflight checks clean status, push dry-run, remote CI precheck and GitHub metadata without pushing
-remote CI precheck: no run yet for current unpushed HEAD; latest remote run was completed/success
-push dry-run: origin/main..HEAD main -> main passed
-note: local workflow hardening only becomes active on GitHub after push
+current HEAD: 899f5511b5c521efc91f36c6bfcfc1eb2d6e4267
+remote workflow: Verify completed/success for current HEAD
+remote CI verifier: npm run verify:remote-ci -- --wait passed for current HEAD
 ```
 
 公网 Demo 验收准备：
 
 ```text
-PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full
-PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:public:full
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
 ```
 
-- 部署后会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
-- 默认要求线上 demo 仍是 `mock` / `mock-safe`，避免评审访问时消耗真实知乎额度或触发 live 边界风险。
-- mock-safe 公网 demo 不能报告知乎 live 凭证已配置；OAuth callback 必须匹配公网域名下的 `/api/oauth/callback`。
+- 公网验收会检查公网首页、前端 bundle 中的产品关键文案、`/api/health`、`/api/models`、`/api/zhihu/status` 和 `/api/oauth/status`。
+- 当前公网 demo 运行在 `live` 读链路，`/api/zhihu/status` 报告知乎 app credentials、base URL、读接口缓存和 LLM JSON 缓存均开启。
+- 真实写操作仍需要 confirmation token；公网浏览器流验证了首页到评论复盘的完整路径。
+- OAuth callback 匹配公网域名下的 `/api/oauth/callback`。
 
-## 4. 不能标记 Goal 完成的原因
+## 4. 完成状态
 
-当前工程本身已经达到本地高置信状态，但 `/goal` 要求“可提交、可路演、可防追问”。这里的“可提交”还包含外部交付闭环，因此目前不能标记完成：
+当前工程已达到本地和外部高置信状态：
 
-1. 没有公网可访问 Demo URL。
-2. 本地提交还没有 push 到远端；`git push --dry-run origin main` 已确认推送计划可行。
-3. GitHub 仓库仍是 private，评委无法直接访问，除非后续授权并设置 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 作为审计证据，或切 public。
+1. 公网 Demo URL 已可访问：`https://zhihu-roundtable.felixypz.me`。
+2. 当前 HEAD 已 push，GitHub Actions Verify 对当前 HEAD 成功。
+3. 仓库为 public，可供评委访问。
+4. `verify:final` 严格验收已通过，`completion:audit --strict` 无 local failures 或 external blockers。
+5. `/goal` 仍必须遵守用户指定的时间约束：不能在 `2026-05-13 07:30 Asia/Shanghai` 之前标记完成。
 
 ## 5. 下一步动作
 
-需要用户确认后才能做的动作：
+在 `2026-05-13 07:30 Asia/Shanghai` 之后，做最后一次快速复核：
 
-1. push 当前本地提交到 `origin/main`。
-2. 部署 Render、树莓派或其他公网 Node 服务。
-3. 给评委授权 private repo，或把仓库切为 public。
+```bash
+/Users/felix/.codex/skills/check-date-time/scripts/check-date-time.sh
+git status --short
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
+```
 
-确认前可继续做的本地动作：
-
-1. 做一次人工浏览器全流程检查。
-2. 等待用户确认后 push，并检查远端 CI 结果。
-3. 等待用户确认后部署公网 Demo。
+只有这些仍然通过，才可以调用 `update_goal(status=complete)`。

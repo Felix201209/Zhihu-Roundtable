@@ -45,13 +45,17 @@
 可运行体验链接：
 
 ```text
-待部署后填写。推荐使用仓库里的 Render Blueprint，或按 [树莓派部署指南](raspberry-pi-deployment.md)自托管；树莓派可复制模板位于 `deploy/raspberry-pi/`，现场排障看 [树莓派公网 Demo 现场检查清单](raspberry-pi-ops-checklist.md)。平台需运行 Node 服务，而不是只托管 Vite dist。构建命令 `npm ci && npm run build`，启动命令 `npm run start`，健康检查 `/api/health`。
+https://zhihu-roundtable.felixypz.me
+
+当前公网 Demo 部署在树莓派，通过 Cloudflare Tunnel 对外提供同一 Node 服务；同一进程托管 `dist/` 和 `/api`。构建命令 `npm ci && npm run build`，启动命令 `npm run start`，健康检查 `/api/health`。
+
+部署模板目录：`deploy/raspberry-pi/`；部署步骤看 `docs/raspberry-pi-deployment.md`（树莓派部署指南），现场排障看 `docs/raspberry-pi-ops-checklist.md`（树莓派公网 Demo 现场检查清单）。
 ```
 
 知乎登录回调地址：
 
 ```text
-https://你的线上-demo域名/api/oauth/callback
+https://zhihu-roundtable.felixypz.me/api/oauth/callback
 ```
 
 代码仓库链接：
@@ -59,7 +63,7 @@ https://你的线上-demo域名/api/oauth/callback
 ```text
 https://github.com/Felix201209/Zhihu-Roundtable
 
-当前仓库是 private；提交前需要给评委/主办方授予访问权限，或经确认后切为 public。若保持 private，授权完成后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 留下最终审计证据。
+当前仓库是 public，可供评委访问。最终严格验收命令为 `PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final`。
 ```
 
 其他链接：

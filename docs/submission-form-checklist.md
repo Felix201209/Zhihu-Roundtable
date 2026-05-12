@@ -46,13 +46,13 @@
 可运行体验链接：
 
 ```text
-待部署后填写 Render、树莓派或其他公网 Node 服务 URL。
+https://zhihu-roundtable.felixypz.me
 ```
 
 知乎登录回调地址：
 
 ```text
-https://你的线上-demo域名/api/oauth/callback
+https://zhihu-roundtable.felixypz.me/api/oauth/callback
 ```
 
 代码仓库链接：
@@ -64,7 +64,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 仓库访问状态：
 
 ```text
-当前仓库为 private。提交前必须给评委/主办方授权，或经确认后切为 public。若保持 private，授权完成后用 `REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run completion:audit -- --strict` 留下最终审计证据。
+当前仓库为 public，可供评委访问。
 ```
 
 补充材料链接：
@@ -83,9 +83,9 @@ node scripts/print-submission-evidence.mjs --markdown
 npm run verify:judge
 npm run audit:high
 npm run capture:demo:auto:mock
-PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:public:full
 npm run verify:remote-ci -- --wait
-PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final
+PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final
 ```
 
 `verify:submission` 会跑评审门禁、生成源码 ZIP，并在打包后自动运行 `evidence:submission`；它要求 git 工作区干净。
