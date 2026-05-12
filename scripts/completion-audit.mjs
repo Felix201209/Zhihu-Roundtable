@@ -115,6 +115,17 @@ check("防追问证据", "评委尖锐追问有短答、现场动作和文件/�
   ]);
 });
 
+check("路演速查卡", "现场开场、点击顺序、失败兜底和收束命令集中在一页", () => {
+  assertIncludes("JUDGE_GUIDE.md", ["docs/demo-day-quick-card.md"]);
+  assertIncludes("docs/final-readiness-audit.md", ["docs/demo-day-quick-card.md"]);
+  assertIncludes("docs/demo-day-quick-card.md", [
+    "上台前 3 条命令",
+    "现场点击顺序",
+    "如果现场出问题",
+    "不把 mock-safe 演示说成真实知乎发帖",
+  ]);
+});
+
 check("部署准备", "同一 Node 服务托管 dist 与 /api，Render/树莓派部署路径和公网 verifier 已准备", () => {
   assertIncludes("src/backend/http-server.ts", ["staticDir", "serveStatic"]);
   assertIncludes("src/backend/serve.ts", ["STATIC_DIR", "startBackendServer"]);

@@ -159,6 +159,7 @@ live 写操作不会绕过用户确认：发布、主持评论、reaction 都需
 ## Reviewer 入口
 
 - 评审快速指南：[JUDGE_GUIDE.md](JUDGE_GUIDE.md)
+- 路演当天速查卡：[docs/demo-day-quick-card.md](docs/demo-day-quick-card.md)
 - 评委追问防守矩阵：[docs/judge-defense-matrix.md](docs/judge-defense-matrix.md)
 - 部署指南：[docs/deployment.md](docs/deployment.md)
 - 树莓派部署指南：[docs/raspberry-pi-deployment.md](docs/raspberry-pi-deployment.md)

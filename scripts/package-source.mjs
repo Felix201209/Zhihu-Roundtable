@@ -18,6 +18,7 @@ const requiredSourceFiles = [
   "deploy/raspberry-pi/zhihu-roundtable.service.example",
   "deploy/raspberry-pi/cloudflared-config.example.yml",
   "docs/backend-contract.md",
+  "docs/demo-day-quick-card.md",
   "docs/deployment.md",
   "docs/judge-defense-matrix.md",
   "docs/raspberry-pi-deployment.md",

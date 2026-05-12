@@ -34,7 +34,7 @@
 | 明确要求 | 对应产物 | 已检查证据 |
 | --- | --- | --- |
 | “可提交” | `docs/submission-package.md`、`docs/submission-form-checklist.md`、`README.md`、`JUDGE_GUIDE.md` | 提交包有项目介绍、赛道、运行命令、仓库链接、部署占位和源码 ZIP 兜底 |
-| “可路演” | `docs/hackathon-demo-plan.md`、截图 artifacts | 6 分钟脚本、3 分钟压缩版、Q&A、桌面/移动截图 |
+| “可路演” | `docs/demo-day-quick-card.md`、`docs/hackathon-demo-plan.md`、截图 artifacts | 一页式现场操作卡、6 分钟脚本、3 分钟压缩版、Q&A、桌面/移动截图 |
 | “可防追问” | `docs/judge-defense-matrix.md`、`docs/championship-redteam.md`、`docs/final-readiness-audit.md`、`docs/external-closure-runbook.md` | 尖锐追问短答、现场动作、风险、边界、live/mock、安全发布、部署缺口和外部闭环步骤已列明 |
 | “产品定位清晰” | README/JUDGE/前端文案 | 旧的偏聊天表演口径已清理 |
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |

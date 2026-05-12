@@ -69,7 +69,7 @@ ZHIHU_PROVIDER=mock DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 npm run captu
 
 提交前完整 readiness 和剩余外部交付缺口记录在 [docs/final-readiness-audit.md](docs/final-readiness-audit.md)。
 
-评委追问的短答、现场动作和证据路径集中在 [docs/judge-defense-matrix.md](docs/judge-defense-matrix.md)，路演问答时优先按这页回答。
+路演当天的短版操作卡见 [docs/demo-day-quick-card.md](docs/demo-day-quick-card.md)。评委追问的短答、现场动作和证据路径集中在 [docs/judge-defense-matrix.md](docs/judge-defense-matrix.md)，路演问答时优先按这页回答。
 
 如需切模型策略，不改代码即可使用：
 

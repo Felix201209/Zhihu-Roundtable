@@ -10,6 +10,7 @@ const requiredFiles = [
   ".node-version",
   ".github/workflows/verify.yml",
   "docs/backend-contract.md",
+  "docs/demo-day-quick-card.md",
   "docs/hackathon-demo-plan.md",
   "docs/hackathon-source-notes.md",
   "docs/championship-redteam.md",
@@ -57,8 +58,10 @@ const requiredPngDimensions = new Map([
 const publicNarrativeFiles = [
   "README.md",
   "JUDGE_GUIDE.md",
+  "docs/demo-day-quick-card.md",
   "docs/submission-package.md",
   "docs/submission-form-checklist.md",
+  "docs/demo-day-quick-card.md",
   "docs/judge-defense-matrix.md",
   "docs/hackathon-demo-plan.md",
   "docs/championship-redteam.md",
@@ -134,6 +137,7 @@ assertFileIncludes("README.md", [
   "CI 会跑更完整的 `verify:submission`",
   "live 只读接口失败",
   "真实写操作失败不会伪装成功",
+  "docs/demo-day-quick-card.md",
   "docs/submission-form-checklist.md",
   "docs/judge-defense-matrix.md",
   "docs/raspberry-pi-deployment.md",
@@ -146,8 +150,18 @@ assertFileIncludes("README.md", [
 ]);
 
 assertFileIncludes("JUDGE_GUIDE.md", [
+  "docs/demo-day-quick-card.md",
   "docs/judge-defense-matrix.md",
   "路演问答时优先按这页回答",
+]);
+
+assertFileIncludes("docs/demo-day-quick-card.md", [
+  "上台前 3 条命令",
+  "npm run demo:serve:mock",
+  "现场点击顺序",
+  "如果现场出问题",
+  "不把 mock-safe 演示说成真实知乎发帖",
+  "不说 goal 已最终完成",
 ]);
 
 assertFileIncludes(".env.example", [
