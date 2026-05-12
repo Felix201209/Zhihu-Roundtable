@@ -202,12 +202,17 @@ describe("provider integrations", () => {
 
       if (url.includes("/api/v1/content/hot_list")) {
         return Response.json({
-          data: [{ id: "q1", title: "AI 工具是否改变新人评价？", heat: 98, excerpt: "热榜摘要" }],
+          data: [{
+            id: "q1",
+            title: "<p>AI 工具是否改变新人评价？</p>",
+            heat: 98,
+            excerpt: "<p>热榜摘要&nbsp;&amp;讨论背景</p>",
+          }],
         });
       }
 
       if (url.includes("/api/v1/content/zhihu_search")) {
-        return Response.json({ data: [{ id: "a1", title: "站内回答", summary: "站内证据" }] });
+        return Response.json({ data: [{ id: "a1", title: "<b>站内回答</b>", summary: "<p>站内证据</p>" }] });
       }
 
       if (url.includes("/api/v1/content/global_search")) {
@@ -259,7 +264,13 @@ describe("provider integrations", () => {
     const comment = await provider.createComment({ publishId: publish.id, content: "主持补充" });
     const reaction = await provider.react({ targetId: publish.id, type: "support" });
 
-    expect(topics[0]).toMatchObject({ id: "q1", source: "zhihu_hot" });
+    expect(topics[0]).toMatchObject({
+      id: "q1",
+      source: "zhihu_hot",
+      title: "AI 工具是否改变新人评价？",
+      reason: "热榜摘要 &讨论背景",
+    });
+    expect(evidence[0]).toMatchObject({ title: "站内回答", summary: "站内证据" });
     expect(evidence.map((item) => item.source)).toEqual(["zhihu", "global"]);
     expect(publish).toMatchObject({ id: "p1", mode: "live" });
     expect(comments).toEqual(["支持，但想看更多证据"]);

@@ -219,8 +219,25 @@ function stringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
+function plainTextValue(value: unknown, fallback = ""): string {
+  const raw = stringValue(value, fallback);
+  return raw
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, " ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  const text = plainTextValue(value);
+  return text.length > 0 ? text : undefined;
 }
 
 function officialStatusError(json: unknown): string | undefined {
@@ -239,7 +256,7 @@ function contentTokenFrom(data: Record<string, unknown>, fallback: string): stri
 
 function topicFromApi(item: unknown, index: number): Topic {
   const record = asRecord(item);
-  const title = stringValue(record.title ?? record.name ?? record.question_title, `知乎热榜话题 ${index + 1}`);
+  const title = plainTextValue(record.title ?? record.name ?? record.question_title, `知乎热榜话题 ${index + 1}`);
   const hotScore = numberValue(record.hotScore ?? record.hot_score ?? record.heat ?? record.score, 70);
 
   return {
@@ -249,15 +266,15 @@ function topicFromApi(item: unknown, index: number): Topic {
     hotScore,
     debateScore: numberValue(record.debateScore ?? record.debate_score, Math.min(95, Math.round(hotScore * 0.9))),
     evidenceScore: numberValue(record.evidenceScore ?? record.evidence_score, 72),
-    reason: stringValue(record.reason ?? record.excerpt ?? record.summary, "来自知乎热榜，等待 AI 讨论潜力评分。"),
+    reason: plainTextValue(record.reason ?? record.excerpt ?? record.summary, "来自知乎热榜，等待 AI 讨论潜力评分。"),
   };
 }
 
 function evidenceFromApi(item: unknown, index: number, source: Evidence["source"]): Evidence {
   const record = asRecord(item);
   const id = stringValue(record.id ?? record.answer_id ?? record.article_id, `${source}-ev-${index + 1}`);
-  const title = stringValue(record.title ?? record.question_title ?? record.name, `证据 ${index + 1}`);
-  const summary = stringValue(record.summary ?? record.excerpt ?? record.content ?? record.text, title);
+  const title = plainTextValue(record.title ?? record.question_title ?? record.name, `证据 ${index + 1}`);
+  const summary = plainTextValue(record.summary ?? record.excerpt ?? record.content ?? record.text, title);
   const stance = ["support", "oppose", "neutral", "background"].includes(String(record.stance))
     ? (record.stance as Evidence["stance"])
     : "neutral";
@@ -287,8 +304,8 @@ function ringContentFrom(json: unknown): unknown[] {
 
 function topicFromRingContent(item: unknown, index: number): Topic {
   const record = asRecord(item);
-  const content = stringValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子讨论 ${index + 1}`);
-  const title = stringValue(record.title, content.replace(/\s+/g, " ").slice(0, 42)) || `圈子讨论 ${index + 1}`;
+  const content = plainTextValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子讨论 ${index + 1}`);
+  const title = plainTextValue(record.title, content.slice(0, 42)) || `圈子讨论 ${index + 1}`;
   const likeCount = numberValue(record.like_num ?? record.likeCount ?? record.like_count, 0);
   const commentCount = numberValue(record.comment_num ?? record.commentCount ?? record.comment_count, 0);
   const hotScore = Math.min(100, 68 + Math.round(Math.log10(Math.max(1, likeCount + commentCount * 3)) * 12));
@@ -308,8 +325,8 @@ function topicFromRingContent(item: unknown, index: number): Topic {
 
 function evidenceFromRingContent(item: unknown, index: number): Evidence {
   const record = asRecord(item);
-  const content = stringValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子内容 ${index + 1}`);
-  const title = stringValue(record.title, content.replace(/\s+/g, " ").slice(0, 36)) || `圈子内容 ${index + 1}`;
+  const content = plainTextValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子内容 ${index + 1}`);
+  const title = plainTextValue(record.title, content.slice(0, 36)) || `圈子内容 ${index + 1}`;
   const likeCount = numberValue(record.like_num ?? record.likeCount ?? record.like_count, 0);
   const commentCount = numberValue(record.comment_num ?? record.commentCount ?? record.comment_count, 0);
 
