@@ -8,6 +8,15 @@ const markdown = args.has("--markdown");
 const manifestPath = ".cache/submission/manifest.json";
 const desktopScreenshot = "artifacts/zhihu-roundtable-desktop.png";
 const mobileScreenshot = "artifacts/zhihu-roundtable-mobile.png";
+const supportingDocs = [
+  { label: "评审快速指南", path: "JUDGE_GUIDE.md", purpose: "3 分钟验证入口" },
+  { label: "路演当天速查卡", path: "docs/demo-day-quick-card.md", purpose: "现场点击顺序和兜底动作" },
+  { label: "评委追问防守矩阵", path: "docs/judge-defense-matrix.md", purpose: "尖锐追问短答和证据路径" },
+  { label: "提交表单清单", path: "docs/submission-form-checklist.md", purpose: "平台填表材料" },
+  { label: "树莓派部署指南", path: "docs/raspberry-pi-deployment.md", purpose: "回家部署公网 Demo" },
+  { label: "树莓派现场检查清单", path: "docs/raspberry-pi-ops-checklist.md", purpose: "公网 Demo 排障和验收" },
+  { label: "外部交付闭环", path: "docs/external-closure-runbook.md", purpose: "push、CI、公网和仓库访问收口" },
+];
 
 const head = run("git", ["rev-parse", "HEAD"]).trim();
 const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
@@ -36,6 +45,11 @@ if (packageStats.size !== manifest.sizeBytes || packageSha256 !== manifest.sha25
 
 const desktop = readPngDimensions(desktopScreenshot);
 const mobile = readPngDimensions(mobileScreenshot);
+for (const doc of supportingDocs) {
+  if (!existsSync(doc.path)) {
+    fail(`missing supporting doc: ${doc.path}`);
+  }
+}
 
 const evidence = {
   project: "知辩圆桌",
@@ -56,6 +70,7 @@ const evidence = {
     desktop: { path: desktopScreenshot, ...desktop },
     mobile: { path: mobileScreenshot, ...mobile },
   },
+  supportingDocs,
   localGates: [
     "npm run verify:submission",
     "npm run verify:raspberry-pi",
@@ -141,6 +156,10 @@ function formatMarkdown(evidence) {
     "",
     formatScreenshot("Desktop", evidence.screenshots.desktop),
     formatScreenshot("Mobile", evidence.screenshots.mobile),
+    "",
+    "## 支撑材料",
+    "",
+    ...evidence.supportingDocs.map((doc) => `- ${doc.label}: \`${doc.path}\` - ${doc.purpose}`),
     "",
     "## 本地门禁",
     "",

@@ -222,6 +222,11 @@ assertFileIncludes("scripts/package-source.mjs", [
 assertFileIncludes("scripts/print-submission-evidence.mjs", [
   ".cache/submission/manifest.json",
   "artifacts/zhihu-roundtable-desktop.png",
+  "supportingDocs",
+  "docs/demo-day-quick-card.md",
+  "docs/judge-defense-matrix.md",
+  "docs/raspberry-pi-ops-checklist.md",
+  "## 支撑材料",
   "--allow-dirty",
   "--markdown",
   "# 知辩圆桌提交证据",
