@@ -34,6 +34,10 @@ class FailingLivePublishProvider extends LiveLikeProvider {
   publishDraft: ZhihuProvider["publishDraft"] = async () => {
     throw new Error("知乎 API 业务错误: rate limit exceeded");
   };
+
+  listComments: ZhihuProvider["listComments"] = async () => {
+    throw new Error("mock publish results must not query live comments");
+  };
 }
 
 type StartedServer = Awaited<ReturnType<typeof startBackendServer>>;

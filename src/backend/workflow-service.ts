@@ -846,13 +846,12 @@ export class RoundtableWorkflowService {
     }
 
     const topic = requireTopic(snapshot);
-    let comments = await this.zhihuProvider.listComments({
-      topicId: topic.id,
-      publishId: publishResult?.id,
-    });
-    if (comments.length === 0 && publishResult?.mode === "mock") {
-      comments = await new MockZhihuProvider().listComments({ topicId: topic.id });
-    }
+    const comments = publishResult?.mode === "mock"
+      ? await new MockZhihuProvider().listComments({ topicId: topic.id })
+      : await this.zhihuProvider.listComments({
+        topicId: topic.id,
+        publishId: publishResult?.id,
+      });
     const node = startNode("comment_feedback", "评论回流分析节点");
     const result = await this.llmProvider.analyzeComments({
       publishDraft: snapshot.publishDraft,
