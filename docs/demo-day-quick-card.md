@@ -8,11 +8,12 @@
 知辩圆桌不是 AI 写回答，而是面向知乎创作者和圈子运营者的讨论组织台：把热榜变成有证据、有反方、有站队、有评论回流的圈子讨论。
 ```
 
-## 1. 上台前 3 条命令
+## 1. 上台前 4 条命令
 
 ```bash
 git status -sb
 npm run verify:submission
+npm run verify:external-preflight
 npm run demo:serve:mock
 ```
 
@@ -20,6 +21,7 @@ npm run demo:serve:mock
 
 - 工作区 clean。
 - `verify:submission` 本地门禁通过，外部项只在未 push/未部署时保持 blocked。
+- `verify:external-preflight` 只做 dry-run push 和只读 GitHub 检查，不会真实 push；GitHub API 抖动只显示 warning。
 - 本地 demo 地址打开后，首页主按钮是 `从热榜生成讨论方案`。
 
 ## 2. 现场点击顺序

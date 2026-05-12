@@ -121,7 +121,8 @@ check("路演速查卡", "现场开场、点击顺序、失败兜底和收束命
   assertIncludes("JUDGE_GUIDE.md", ["docs/demo-day-quick-card.md"]);
   assertIncludes("docs/final-readiness-audit.md", ["docs/demo-day-quick-card.md"]);
   assertIncludes("docs/demo-day-quick-card.md", [
-    "上台前 3 条命令",
+    "上台前 4 条命令",
+    "npm run verify:external-preflight",
     "现场点击顺序",
     "如果现场出问题",
     "不把 mock-safe 演示说成真实知乎发帖",
