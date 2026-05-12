@@ -86,6 +86,7 @@ if (!stats || stats.size < 10_000) {
   process.exit(1);
 }
 
+const archiveFiles = assertArchiveEntriesSafe(outputPath, sourceFiles, prefix);
 const commit = run("git", ["rev-parse", "HEAD"], { capture: true }).stdout.trim();
 const sha256 = createHash("sha256").update(readFileSync(outputPath)).digest("hex");
 const manifestPath = join(dirname(outputPath), "manifest.json");
@@ -95,6 +96,7 @@ const manifest = {
   generatedAt: new Date().toISOString(),
   commit,
   fileCount: sourceFiles.length,
+  archiveFileCount: archiveFiles.length,
   sizeBytes: stats.size,
   sha256,
   allowDirty,
@@ -107,6 +109,7 @@ assertManifestMatchesPackage(manifestPath, manifest);
 console.log(`source package ready: ${outputPath}`);
 console.log(`manifest: ${manifestPath}`);
 console.log(`files: ${sourceFiles.length}`);
+console.log(`archive files: ${archiveFiles.length}`);
 console.log(`commit: ${commit}`);
 console.log(`size: ${stats.size} bytes`);
 console.log(`sha256: ${sha256}`);
@@ -122,7 +125,7 @@ function assertCleanWorktree() {
 
 function assertManifestMatchesPackage(manifestPath, expected) {
   const actual = JSON.parse(readFileSync(manifestPath, "utf8"));
-  for (const key of ["package", "manifest", "commit", "fileCount", "sizeBytes", "sha256", "allowDirty"]) {
+  for (const key of ["package", "manifest", "commit", "fileCount", "archiveFileCount", "sizeBytes", "sha256", "allowDirty"]) {
     if (actual[key] !== expected[key]) {
       console.error(`source package manifest mismatch for ${key}: expected ${expected[key]}, got ${actual[key]}`);
       process.exit(1);
@@ -149,6 +152,100 @@ function assertManifestMatchesPackage(manifestPath, expected) {
     console.error("source package manifest missing requiredSourceFiles");
     process.exit(1);
   }
+}
+
+function assertArchiveEntriesSafe(zipPath, expectedFiles, archivePrefix) {
+  const entries = listZipEntries(zipPath);
+  const archiveFiles = [];
+  const forbiddenEntries = [];
+
+  for (const entry of entries) {
+    if (!entry.startsWith(archivePrefix)) {
+      forbiddenEntries.push(entry);
+      continue;
+    }
+
+    const file = entry.slice(archivePrefix.length);
+    if (!file || file.endsWith("/")) {
+      continue;
+    }
+
+    archiveFiles.push(file);
+    if (isForbiddenArchiveEntry(file)) {
+      forbiddenEntries.push(file);
+    }
+  }
+
+  if (forbiddenEntries.length > 0) {
+    console.error(`source package contains forbidden archive entries:\n${forbiddenEntries.join("\n")}`);
+    process.exit(1);
+  }
+
+  const actual = [...archiveFiles].sort();
+  const expected = [...expectedFiles].sort();
+  if (actual.length !== expected.length || actual.some((file, index) => file !== expected[index])) {
+    const missing = expected.filter((file) => !actual.includes(file));
+    const extra = actual.filter((file) => !expected.includes(file));
+    console.error("source package archive entries do not match HEAD.");
+    if (missing.length) console.error(`missing from archive:\n${missing.join("\n")}`);
+    if (extra.length) console.error(`extra in archive:\n${extra.join("\n")}`);
+    process.exit(1);
+  }
+
+  return archiveFiles;
+}
+
+function isForbiddenArchiveEntry(file) {
+  if (file === ".env.example") {
+    return false;
+  }
+
+  return (
+    file === ".env" ||
+    file.startsWith(".env.") ||
+    file === ".git" ||
+    file.startsWith(".git/") ||
+    file.startsWith(".cache/") ||
+    file.startsWith("dist/") ||
+    file.startsWith("node_modules/")
+  );
+}
+
+function listZipEntries(zipPath) {
+  const buffer = readFileSync(zipPath);
+  const eocdOffset = findEndOfCentralDirectory(buffer);
+  const totalEntries = buffer.readUInt16LE(eocdOffset + 10);
+  let offset = buffer.readUInt32LE(eocdOffset + 16);
+  const entries = [];
+
+  for (let index = 0; index < totalEntries; index += 1) {
+    if (buffer.readUInt32LE(offset) !== 0x02014b50) {
+      console.error(`source package central directory is corrupt near entry ${index}`);
+      process.exit(1);
+    }
+
+    const fileNameLength = buffer.readUInt16LE(offset + 28);
+    const extraLength = buffer.readUInt16LE(offset + 30);
+    const commentLength = buffer.readUInt16LE(offset + 32);
+    const nameStart = offset + 46;
+    entries.push(buffer.toString("utf8", nameStart, nameStart + fileNameLength));
+    offset = nameStart + fileNameLength + extraLength + commentLength;
+  }
+
+  return entries;
+}
+
+function findEndOfCentralDirectory(buffer) {
+  const signature = 0x06054b50;
+  const minOffset = Math.max(0, buffer.length - 65_557);
+  for (let offset = buffer.length - 22; offset >= minOffset; offset -= 1) {
+    if (buffer.readUInt32LE(offset) === signature) {
+      return offset;
+    }
+  }
+
+  console.error("source package is missing a ZIP central directory.");
+  process.exit(1);
 }
 
 function run(cmd, args, options = {}) {

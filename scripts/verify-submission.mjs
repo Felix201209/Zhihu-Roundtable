@@ -228,6 +228,8 @@ assertFileIncludes("scripts/package-source.mjs", [
   "scripts/verify-submission.mjs",
   "scripts/completion-audit.mjs",
   "manifest.json",
+  "archiveFileCount",
+  "assertArchiveEntriesSafe",
   "generatedAt",
   "docs/external-closure-runbook.md",
   "scripts/verify-production-server.mjs",
