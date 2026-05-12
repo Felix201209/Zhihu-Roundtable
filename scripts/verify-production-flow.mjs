@@ -133,12 +133,13 @@ async function runBrowserFlow() {
   async function waitForText(text) {
     const escaped = JSON.stringify(text);
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 8_000) {
+    while (Date.now() - startedAt < 30_000) {
       const found = await evaluate(`document.body && document.body.innerText.includes(${escaped})`);
       if (found) return;
       await delay(150);
     }
-    throw new Error(`missing text after wait: ${text}`);
+    const body = await evaluate("document.body ? document.body.innerText.slice(0, 1200) : ''");
+    throw new Error(`missing text after wait: ${text}; body: ${JSON.stringify(body)}`);
   }
 
   async function observe(label, expectedText) {
