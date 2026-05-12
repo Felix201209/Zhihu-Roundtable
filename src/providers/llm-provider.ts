@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type {
   AgentBrief,
   CommentInsight,
@@ -44,6 +45,7 @@ import {
   parseTopicScores,
   parseViewpointMap,
 } from "../llm/schemas.js";
+import { JsonFileCache } from "../backend/cache.js";
 
 export type LlmProviderRole = ModelRole;
 
@@ -119,23 +121,35 @@ export interface LlmProvider {
 }
 
 export const DEFAULT_MODEL_POLICY: ModelPolicy = {
-  mode: "mock",
+  mode: "auto",
   kimiModel: "kimi-k2.6",
   deepseekFlashModel: "deepseek-v4-flash",
   deepseekProModel: "deepseek-v4-pro",
-  defaultProvider: "mock",
+  defaultProvider: "deepseek-v4-pro",
   roleMap: {
     topic_scoring: "deepseek-v4-flash",
     question: "deepseek-v4-pro",
-    evidence: "kimi",
+    evidence: "deepseek-v4-flash",
     briefing: "deepseek-v4-flash",
-    debate: "kimi",
+    debate: "deepseek-v4-flash",
     synthesis: "deepseek-v4-pro",
     publish: "deepseek-v4-pro",
     feedback: "deepseek-v4-flash",
   },
   fallbackToMock: true,
 };
+
+type CachedLlmResponse =
+  | { ok: true; json: unknown }
+  | { ok: false; message: string };
+
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+
+function envMs(key: string, fallback: number): number {
+  const parsed = Number(process.env[key]);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
 
 function usage(profile: LlmProviderProfile, role: ModelRole, task: string, fallbackUsed = false): ModelUsage {
   return {
@@ -507,6 +521,7 @@ export type OpenAiCompatibleProviderOptions = {
   maxRetries?: number;
   timeoutMs?: number;
   fetchImpl?: typeof fetch;
+  cache?: JsonFileCache | false;
 };
 
 export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
@@ -516,6 +531,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
   private readonly maxRetries: number;
   private readonly timeoutMs: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly cache?: JsonFileCache;
 
   constructor(options: OpenAiCompatibleProviderOptions) {
     super();
@@ -529,11 +545,28 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     this.maxRetries = options.maxRetries ?? 1;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.cache = options.cache === false
+      ? undefined
+      : options.cache ?? (options.fetchImpl ? undefined : defaultLlmCache());
   }
 
-  private async completeJson(prompt: LlmPrompt): Promise<{ json: unknown; latencyMs: number; attempts: number }> {
+  private async completeJson(prompt: LlmPrompt): Promise<{ json: unknown; latencyMs: number; attempts: number; cached?: boolean }> {
     if (!this.apiKey) {
       throw new Error(`${this.profile.provider} 缺少 API key，无法调用真实模型。`);
+    }
+
+    const cacheKey = this.cacheKey(prompt);
+    const cached = this.cache?.get<CachedLlmResponse>(cacheKey);
+    if (cached) {
+      if (cached.ok) {
+        return {
+          json: cached.json,
+          latencyMs: 0,
+          attempts: 0,
+          cached: true,
+        };
+      }
+      throw new Error(cached.message);
     }
 
     const started = Date.now();
@@ -569,8 +602,15 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
           throw new Error(`${this.profile.provider} 返回缺少 message.content。`);
         }
 
+        const parsed = parseJsonContent(content);
+        this.cache?.set<CachedLlmResponse>(
+          cacheKey,
+          { ok: true, json: parsed },
+          envMs("LLM_CACHE_TTL_MS", 24 * HOUR_MS),
+        );
+
         return {
-          json: parseJsonContent(content),
+          json: parsed,
           latencyMs: Date.now() - started,
           attempts: attempt,
         };
@@ -579,28 +619,47 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
       }
     }
 
-    throw lastError instanceof Error ? lastError : new Error(`${this.profile.provider} 调用失败。`);
+    const error = lastError instanceof Error ? lastError : new Error(`${this.profile.provider} 调用失败。`);
+    this.cache?.set<CachedLlmResponse>(
+      cacheKey,
+      { ok: false, message: error.message },
+      envMs("LLM_CACHE_ERROR_TTL_MS", 5 * MINUTE_MS),
+    );
+    throw error;
+  }
+
+  private cacheKey(prompt: LlmPrompt): string {
+    const hash = createHash("sha256")
+      .update(JSON.stringify({
+        provider: this.profile.provider,
+        model: this.profile.model,
+        baseUrl: this.baseUrl.replace(/\/$/, ""),
+        task: prompt.task,
+        messages: prompt.messages,
+      }))
+      .digest("hex");
+    return `llm-json:${hash}`;
   }
 
   override async scoreTopics(input: { topics: Topic[] }): Promise<LlmCallResult<TopicScore[]>> {
     const prompt = buildTopicScoringPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseTopicScores(completed.json);
-    return { value, usage: { ...usage(this.profile, "topic_scoring", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "synthesis", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async rewriteQuestion(input: { topic: Topic; evidence?: Evidence[] }): Promise<LlmCallResult<RewriteQuestionResult>> {
     const prompt = buildQuestionRewritePrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseQuestionRewrite(completed.json);
-    return { value, usage: { ...usage(this.profile, "question", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "question", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async buildEvidencePool(input: { topic: Topic; rawEvidence: Evidence[] }): Promise<LlmCallResult<EvidencePool>> {
     const prompt = buildEvidencePoolPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseEvidencePool(completed.json);
-    return { value, usage: { ...usage(this.profile, "evidence", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "evidence", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async buildAgentBriefs(input: {
@@ -611,7 +670,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildAgentBriefingPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseAgentBriefs(completed.json);
-    return { value, usage: { ...usage(this.profile, "briefing", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "briefing", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async generateAgentTurn(input: {
@@ -625,7 +684,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildAgentTurnPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseDebateTurn(completed.json);
-    return { value, usage: { ...usage(this.profile, "debate", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "debate", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async buildConsensus(input: {
@@ -637,7 +696,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildConsensusPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseViewpointMap(completed.json);
-    return { value, usage: { ...usage(this.profile, "topic_scoring", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "topic_scoring", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async buildPublishPackage(input: {
@@ -650,7 +709,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildPublishDraftPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parsePublishPackage(completed.json);
-    return { value, usage: { ...usage(this.profile, "publish", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "publish", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async analyzeComments(input: {
@@ -660,7 +719,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildCommentAnalysisPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseCommentInsight(completed.json);
-    return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async generateIdeaVariants(input: {
@@ -671,7 +730,7 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildIdeaVariantsPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseIdeaVariants(completed.json);
-    return { value, usage: { ...usage(this.profile, "synthesis", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "synthesis", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
 
   override async buildExperimentReport(input: {
@@ -682,8 +741,15 @@ export class OpenAiCompatibleJsonProvider extends MockLlmProvider {
     const prompt = buildExperimentReportPrompt(input);
     const completed = await this.completeJson(prompt);
     const value = parseExperimentReport(completed.json);
-    return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts } };
+    return { value, usage: { ...usage(this.profile, "feedback", prompt.task), latencyMs: completed.latencyMs, attempts: completed.attempts, cached: completed.cached } };
   }
+}
+
+function defaultLlmCache(): JsonFileCache | undefined {
+  if (process.env.LLM_CACHE_ENABLED === "false") {
+    return undefined;
+  }
+  return new JsonFileCache(process.env.LLM_CACHE_FILE ?? ".cache/llm-json-cache.json");
 }
 
 export class RoutedLlmProvider implements LlmProvider {

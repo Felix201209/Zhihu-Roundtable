@@ -181,6 +181,7 @@ export type ModelUsage = {
   fallbackUsed: boolean;
   latencyMs?: number;
   attempts?: number;
+  cached?: boolean;
   errorMessage?: string;
 };
 

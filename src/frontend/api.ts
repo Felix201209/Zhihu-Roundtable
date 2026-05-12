@@ -262,8 +262,8 @@ export function streamWorkflow(input: {
 function getFrontendModelPolicy(): Record<string, unknown> {
   const query = getSearchParams();
   const env = getFrontendEnv();
-  const mode = query.get("modelMode") ?? env.VITE_DEMO_MODEL_MODE ?? "mock";
-  const defaultProvider = query.get("defaultProvider") ?? env.VITE_DEMO_DEFAULT_PROVIDER ?? "mock";
+  const mode = query.get("modelMode") ?? env.VITE_DEMO_MODEL_MODE ?? "auto";
+  const defaultProvider = query.get("defaultProvider") ?? env.VITE_DEMO_DEFAULT_PROVIDER ?? "deepseek-v4-pro";
   const policy: Record<string, unknown> = {
     mode,
     defaultProvider,

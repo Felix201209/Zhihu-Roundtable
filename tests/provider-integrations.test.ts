@@ -117,6 +117,52 @@ describe("provider integrations", () => {
     expect(variants.value[2]).toMatchObject({ id: "C", title: "众测版" });
   });
 
+  it("caches successful DeepSeek-compatible JSON calls before hitting the model again", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "llm-cache-"));
+    try {
+      let fetchCount = 0;
+      const provider = new OpenAiCompatibleJsonProvider({
+        provider: "deepseek-v4-pro",
+        model: "deepseek-v4-pro",
+        apiKey: "test-key",
+        baseUrl: "https://deepseek.example.test/v1",
+        preferredRoles: ["question"],
+        cache: new JsonFileCache(join(dir, "cache.json")),
+        fetchImpl: async () => {
+          fetchCount += 1;
+          return Response.json({
+            choices: [{
+              message: {
+                content: "{\"rewrittenQuestion\":\"AI 工具会如何改变新人评价？\",\"rationale\":\"把热榜改成可讨论问题\",\"evidenceIds\":[\"ev-1\"]}",
+              },
+            }],
+          });
+        },
+      });
+      const input = {
+        topic: {
+          id: "topic-1",
+          title: "AI 工具是否改变新人评价？",
+          hotScore: 90,
+          debateScore: 88,
+          evidenceScore: 82,
+          reason: "demo",
+        },
+        evidence: [],
+      };
+
+      const first = await provider.rewriteQuestion(input);
+      const second = await provider.rewriteQuestion(input);
+
+      expect(fetchCount).toBe(1);
+      expect(first.usage.cached).toBeUndefined();
+      expect(second.usage.cached).toBe(true);
+      expect(second.usage.attempts).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("maps live Zhihu API endpoints into backend topic/evidence/publish shapes", async () => {
     const requested: string[] = [];
     const fetchImpl: typeof fetch = async (input, init) => {
@@ -313,11 +359,68 @@ describe("provider integrations", () => {
       await expect(provider.getHotTopics()).rejects.toThrow(/知乎 API 404/);
       await expect(provider.getHotTopics()).rejects.toThrow(/知乎 API 404/);
 
-      expect(fetchCount).toBe(1);
+      expect(fetchCount).toBe(2);
       expect(provider.getQuotaStatus().find((quota) => quota.key === "hot_list")?.used).toBe(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("uses live ring detail as a read fallback when content hot list is unavailable", async () => {
+    let hotListHits = 0;
+    let ringHits = 0;
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = new URL(input.toString());
+      if (url.pathname.includes("/api/v1/content/hot_list")) {
+        hotListHits += 1;
+        return Response.json({ error: "missing" }, { status: 404 });
+      }
+      if (url.pathname.includes("/openapi/ring/detail")) {
+        ringHits += 1;
+        return Response.json({
+          status: 0,
+          msg: "success",
+          data: {
+            ring_info: { ring_id: "ring-1", ring_name: "黑客松脑洞补给站" },
+            contents: [{
+              content_token: "pin-1",
+              content: "AI 作品集是否应该展示工具使用过程？",
+              like_num: 42,
+              comment_num: 9,
+            }],
+          },
+        });
+      }
+      return Response.json({}, { status: 404 });
+    };
+    const provider = new LiveZhihuProvider({
+      baseUrl: "https://example.test",
+      fetchImpl,
+      readCache: false,
+    });
+
+    const topics = await provider.getHotTopics();
+    const evidence = await provider.searchEvidence(topics[0]);
+
+    expect(topics[0]).toMatchObject({
+      id: "pin-1",
+      source: "zhihu_hot",
+      title: "AI 作品集是否应该展示工具使用过程？",
+    });
+    expect(evidence[0]).toMatchObject({
+      id: "pin-1",
+      source: "zhihu",
+      summary: "AI 作品集是否应该展示工具使用过程？",
+    });
+    expect(hotListHits).toBe(1);
+    expect(ringHits).toBeGreaterThanOrEqual(1);
+    expect(provider.failures.map((failure) => failure.operation)).toEqual(
+      expect.arrayContaining([
+        "getHotTopics.hotList",
+        "searchEvidence.zhihuSearch",
+        "searchEvidence.globalSearch",
+      ]),
+    );
   });
 
   it("lets an explicit mock provider override live Zhihu env configuration", () => {

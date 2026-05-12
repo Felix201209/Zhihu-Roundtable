@@ -66,6 +66,13 @@ export type ZhihuStatusResponse = {
   baseUrlConfigured: boolean;
   ringIdConfigured?: boolean;
   hotListHours?: string;
+  cache?: {
+    zhihuReadsEnabled: boolean;
+    llmJsonEnabled: boolean;
+    hotTtlMs?: string;
+    searchTtlMs?: string;
+    llmTtlMs?: string;
+  };
   failures: ZhihuProviderFailure[];
   quotas: ApiQuotaStatus[];
 };

@@ -61,7 +61,7 @@ chrome.stderr.on("data", (chunk) => {
 
 try {
   await waitForApp();
-  const result = await withTimeout(runBrowserFlow(), 90_000, "production browser flow timed out");
+  const result = await withTimeout(runBrowserFlow(), 180_000, "production browser flow timed out");
   console.log(`production browser flow passed at ${origin}`);
   console.log(`steps: ${result.observations.map((item) => item.label).join(" -> ")}`);
 } finally {
@@ -136,7 +136,7 @@ async function runBrowserFlow() {
   async function waitForText(text) {
     const escaped = JSON.stringify(text);
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 30_000) {
+    while (Date.now() - startedAt < 120_000) {
       const found = await evaluate(`document.body && document.body.innerText.includes(${escaped})`);
       if (found) return;
       await delay(150);
@@ -153,7 +153,7 @@ async function runBrowserFlow() {
 
   async function clickButton(pattern) {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 30_000) {
+    while (Date.now() - startedAt < 120_000) {
       const clicked = await evaluate(`(() => {
         const re = new RegExp(${JSON.stringify(pattern.source)}, ${JSON.stringify(pattern.flags)});
         const button = [...document.querySelectorAll("button")].find((item) => {
@@ -188,9 +188,9 @@ async function runBrowserFlow() {
     await clickButton(/从热榜生成讨论方案/);
     await observe("radar", "选题雷达");
     await clickButton(/生成讨论方案/);
-    await observe("prepare", "讨论方案准备");
+    await observe("prepare", "讨论方案");
     await delay(2_500);
-    const stayedOnPrepare = (await evaluate("document.body.innerText")).includes("讨论方案准备");
+    const stayedOnPrepare = (await evaluate("document.body.innerText")).includes("讨论方案");
     if (!stayedOnPrepare) {
       throw new Error("production flow skipped away from discussion preparation after generating a plan");
     }

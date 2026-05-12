@@ -2,7 +2,7 @@
 
 后端核心是 framework-agnostic 的 `RoundtableWorkflowService`，HTTP 层只是轻量适配器。前端可以直接 import service，也可以启动 HTTP server 调接口。
 
-这版后端不再把 AI 只用于一个局部步骤：热榜评分、问题重构、证据池、Agent briefing、圆桌发言、观点地图、发布稿、标题候选、发布质量评分、评论回流都通过 `LlmProvider`。默认是 mock-safe；配置 key 后可以按角色路由到 Kimi K2.6 和 DeepSeek V4。
+这版后端不再把 AI 只用于一个局部步骤：热榜评分、问题重构、证据池、Agent briefing、圆桌发言、观点地图、发布稿、标题候选、发布质量评分、评论回流都通过 `LlmProvider`。默认策略是 DeepSeek 优先；没有 key 或 live 调用失败时才按 `fallbackToMock` 回到 mock。
 
 ## Scripts
 
@@ -17,18 +17,18 @@
 
 ```json
 {
-  "mode": "mock",
+  "mode": "auto",
   "kimiModel": "kimi-k2.6",
   "deepseekFlashModel": "deepseek-v4-flash",
   "deepseekProModel": "deepseek-v4-pro",
-  "defaultProvider": "mock",
+  "defaultProvider": "deepseek-v4-pro",
   "fallbackToMock": true,
   "roleMap": {
     "topic_scoring": "deepseek-v4-flash",
     "question": "deepseek-v4-pro",
-    "evidence": "kimi",
+    "evidence": "deepseek-v4-flash",
     "briefing": "deepseek-v4-flash",
-    "debate": "kimi",
+    "debate": "deepseek-v4-flash",
     "synthesis": "deepseek-v4-pro",
     "publish": "deepseek-v4-pro",
     "feedback": "deepseek-v4-flash"
@@ -49,21 +49,22 @@
 
 ```bash
 VITE_DEMO_MODEL_MODE=auto
-VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-flash
+VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-pro
 VITE_DEMO_FALLBACK_TO_MOCK=true
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
+DEEPSEEK_PRO_MODEL=deepseek-v4-pro
 ```
 
 `npm run backend:serve`、`npm run backend:demo`、`npm run demo:serve`、`npm run capture:demo:auto` 都会读取 `.env.local`；shell 里已经设置的环境变量优先级更高。
 
 所有模型调用都要求 JSON object，并经过 zod schema 校验；如果 `fallbackToMock=true` 且 live 调用失败，会自动回退 mock 并在 `modelUsages[].fallbackUsed` 标记。
 
-前端路演默认使用 mock-safe，但不再需要改代码才能切 live/auto。可在 URL 上追加：
+前端路演默认使用 `auto + deepseek-v4-pro`，不再需要改代码才能切 live/auto/mock。可在 URL 上追加：
 
 ```text
-/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true
+/?modelMode=auto&defaultProvider=deepseek-v4-pro&fallbackToMock=true
 ```
 
 也可通过 `VITE_DEMO_MODEL_MODE`、`VITE_DEMO_DEFAULT_PROVIDER`、`VITE_DEMO_KIMI_MODEL`、`VITE_DEMO_DEEPSEEK_FLASH_MODEL`、`VITE_DEMO_DEEPSEEK_PRO_MODEL`、`VITE_DEMO_FALLBACK_TO_MOCK` 固化到本地 `.env`。这些值会同时作用于 `POST /api/workflow/run` 和 `GET /api/workflow/stream`。
@@ -74,7 +75,8 @@ DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
 - 使用 `response_format: { "type": "json_object" }`。
 - 如果模型仍返回 ```json fence``` 或 JSON 前后夹杂文字，会尝试提取 JSON object/array。
 - 默认 30 秒超时、1 次重试；失败后按 `fallbackToMock` 决定是否回退。
-- `modelUsages[]` 会记录 `provider`、`model`、`role`、`task`、`fallbackUsed`、`latencyMs`、`attempts`、`errorMessage`。
+- DeepSeek/OpenAI-compatible JSON 响应默认写入 `.cache/llm-json-cache.json`，由 `LLM_CACHE_TTL_MS` 控制 TTL，失败由 `LLM_CACHE_ERROR_TTL_MS` 做短负缓存。
+- `modelUsages[]` 会记录 `provider`、`model`、`role`、`task`、`fallbackUsed`、`latencyMs`、`attempts`、`cached`、`errorMessage`。
 
 ## Zhihu Provider
 
@@ -122,7 +124,7 @@ Live provider 对齐方案里的官方接口规划：
 - 可选故事/知识接口作为内容创意补充；当前主线不依赖，避免踩付费内容署名和非商用边界。
 - 可选知乎直答 Agent：通过 `defaultProvider=custom` + `CUSTOM_LLM_BASE_URL=https://api.zhihu.com/v1` 或 `ZHIHU_DIRECT_AGENT_BASE_URL` 接入 OpenAI-compatible `/chat/completions`。
 
-接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装；live 只读接口失败会记录在 `provider.failures[]` 并使用缓存或 mock 案例继续演示，live 写操作失败必须显式失败。
+接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装。内容热榜/搜索接口如果对当前 app 返回 404，会记录 `provider.failures[]`，然后继续走真实 `ring/detail` 读接口生成候选话题和证据；只有这些 live 读接口都失败时，外层 `FallbackZhihuProvider` 才切到 mock。若知乎给当前 app 下发了不同路径，可用 `ZHIHU_ENDPOINT_HOT_LIST`、`ZHIHU_ENDPOINT_ZHIHU_SEARCH`、`ZHIHU_ENDPOINT_GLOBAL_SEARCH`、`ZHIHU_ENDPOINT_RING_DETAIL` 覆盖默认路径。live 写操作失败必须显式失败。
 
 官方限制已进入后端保护：
 

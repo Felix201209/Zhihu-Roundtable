@@ -55,7 +55,7 @@ describe("backend HTTP server", () => {
     expect(health.endpoints).toContain("/api/experiment/generate");
 
     const models = await fetch(`${baseUrl}/api/models`).then((res) => res.json());
-    expect(models.defaultPolicy.roleMap.debate).toBe("kimi");
+    expect(models.defaultPolicy.roleMap.debate).toBe("deepseek-v4-flash");
     expect(models.defaultPolicy.roleMap.publish).toBe("deepseek-v4-pro");
     expect(models.defaultPolicy.roleMap.feedback).toBe("deepseek-v4-flash");
     expect(models.env).toHaveProperty("zhihuConfigured");
@@ -471,8 +471,8 @@ describe("backend HTTP server", () => {
           roleMap: {
             topic_scoring: "deepseek-v4-flash",
             question: "deepseek-v4-pro",
-            evidence: "kimi",
-            debate: "kimi",
+            evidence: "deepseek-v4-flash",
+            debate: "deepseek-v4-flash",
             synthesis: "deepseek-v4-pro",
             publish: "deepseek-v4-pro",
             feedback: "deepseek-v4-flash",

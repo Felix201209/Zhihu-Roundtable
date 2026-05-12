@@ -22,7 +22,7 @@
 ## 技术亮点
 
 - 固定状态机 + 讨论组织台：比自由群聊稳定，适合黑客松路演。
-- Kimi K2.6 + DeepSeek V4 可配置国内模型路由：证据/发言走 Kimi，批量分类走 DeepSeek V4 Flash，重构/总结/发布润色走 DeepSeek V4 Pro。
+- DeepSeek V4 默认真实模型路由：Flash 负责热榜评分、证据池、角色 brief 和讨论席，Pro 负责问题重构、观点综合和发布稿；Kimi / custom provider 仍可按需切换。
 - 所有模型输出 JSON 化，并用 zod schema 校验。
 - 官方 API wrapper：热榜、知乎搜索、全网搜索、圈子、发布、评论、reaction。
 - Mock-safe + live-ready：现场只读 API 或模型失败可 fallback，不影响完整 Demo；真实写操作失败不会伪装成功。
@@ -82,7 +82,7 @@ npm run dev
 
 ## 真实 API / 模型环境变量
 
-默认不需要任何 key，使用 mock-safe 演示。
+默认不需要任何 key；不填 key 时会 mock-safe 演示。填入 DeepSeek / 知乎 key 后，默认优先走真实 DeepSeek 和知乎 live provider，并保留 mock 兜底。
 
 可从 `.env.example` 复制本地配置；不要提交真实 `.env`。`.env.local`、`.env`、`.env.*` 都已被 `.gitignore` 忽略，后端和一键脚本会自动读取 `.env.local`。
 
@@ -96,11 +96,12 @@ cp .env.example .env.local
 
 ```bash
 VITE_DEMO_MODEL_MODE=auto
-VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-flash
+VITE_DEMO_DEFAULT_PROVIDER=deepseek-v4-pro
 VITE_DEMO_FALLBACK_TO_MOCK=true
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
+DEEPSEEK_PRO_MODEL=deepseek-v4-pro
 ```
 
 真实模型：
@@ -111,12 +112,15 @@ DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
 - `DEEPSEEK_API_KEY`
 - `DEEPSEEK_BASE_URL`
 - `DEEPSEEK_FLASH_MODEL` / `DEEPSEEK_PRO_MODEL` / `DEEPSEEK_MODEL`（可选，用于覆盖默认 DeepSeek V4 模型名）
+- `LLM_CACHE_FILE=.cache/llm-json-cache.json`
+- `LLM_CACHE_TTL_MS=86400000`，DeepSeek JSON 结果默认缓存 24 小时
+- `LLM_CACHE_ERROR_TTL_MS=300000`，模型失败默认负缓存 5 分钟，避免错误配置反复烧额度
 
 前端路演模型切换：
 
-- 默认 mock-safe：不设置即可。
+- 默认 DeepSeek 优先：有 key 就走真实 DeepSeek；无 key 或失败时按 `fallbackToMock` 兜底。
 - 路演强制安全模式：`npm run demo:serve:mock`，即使本机 `.env.local` 里有 `ZHIHU_API_BASE_URL` 也不会进入 live provider。
-- URL 临时切换：`/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true`
+- URL 临时切换：`/?modelMode=auto&defaultProvider=deepseek-v4-pro&fallbackToMock=true`
 - Vite 环境变量：`VITE_DEMO_MODEL_MODE`、`VITE_DEMO_DEFAULT_PROVIDER`、`VITE_DEMO_KIMI_MODEL`、`VITE_DEMO_DEEPSEEK_FLASH_MODEL`、`VITE_DEMO_DEEPSEEK_PRO_MODEL`、`VITE_DEMO_FALLBACK_TO_MOCK`
 
 知乎 live provider：
@@ -130,6 +134,8 @@ DEEPSEEK_FLASH_MODEL=deepseek-v4-flash
 - `ZHIHU_HOT_LIST_HOURS`，热榜最近 N 小时时间窗
 
 OpenAPI 请求会按官方文档自动生成 `X-App-Key`、`X-Timestamp`、`X-Log-Id`、`X-Sign`、`X-Extra-Info`，签名字符串为 `app_key:{app_key}|ts:{timestamp}|logid:{log_id}|extra_info:{extra_info}`。
+
+如果知乎给你的 app 下发了不同路径，可以用 `ZHIHU_ENDPOINT_HOT_LIST`、`ZHIHU_ENDPOINT_ZHIHU_SEARCH`、`ZHIHU_ENDPOINT_GLOBAL_SEARCH`、`ZHIHU_ENDPOINT_RING_DETAIL` 覆盖默认 endpoint。当前实现会先试内容热榜/搜索；若内容接口不可用，会继续用真实 `ring/detail` 读接口生成候选话题和证据，不会立刻掉成纯 mock。
 
 为保护每日调用额度，live 只读接口默认启用本地文件缓存：
 

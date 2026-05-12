@@ -665,6 +665,13 @@ async function handleRequest(
       baseUrlConfigured: liveEffective && Boolean(process.env.ZHIHU_API_BASE_URL),
       ringIdConfigured: Boolean(process.env.ZHIHU_RING_ID),
       hotListHours: process.env.ZHIHU_HOT_LIST_HOURS,
+      cache: {
+        zhihuReadsEnabled: process.env.ZHIHU_CACHE_ENABLED !== "false",
+        llmJsonEnabled: process.env.LLM_CACHE_ENABLED !== "false",
+        hotTtlMs: process.env.ZHIHU_CACHE_HOT_TTL_MS,
+        searchTtlMs: process.env.ZHIHU_CACHE_SEARCH_TTL_MS,
+        llmTtlMs: process.env.LLM_CACHE_TTL_MS,
+      },
       failures: service.getProviderFailures(),
       quotas: service.getQuotaStatus(),
     });

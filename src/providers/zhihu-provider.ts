@@ -278,6 +278,57 @@ function evidenceFromApi(item: unknown, index: number, source: Evidence["source"
   };
 }
 
+function ringContentFrom(json: unknown): unknown[] {
+  const record = asRecord(json);
+  const data = asRecord(record.data ?? record);
+  const contents = data.contents ?? data.items ?? data.list ?? data.results;
+  return Array.isArray(contents) ? contents : [];
+}
+
+function topicFromRingContent(item: unknown, index: number): Topic {
+  const record = asRecord(item);
+  const content = stringValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子讨论 ${index + 1}`);
+  const title = stringValue(record.title, content.replace(/\s+/g, " ").slice(0, 42)) || `圈子讨论 ${index + 1}`;
+  const likeCount = numberValue(record.like_num ?? record.likeCount ?? record.like_count, 0);
+  const commentCount = numberValue(record.comment_num ?? record.commentCount ?? record.comment_count, 0);
+  const hotScore = Math.min(100, 68 + Math.round(Math.log10(Math.max(1, likeCount + commentCount * 3)) * 12));
+
+  return {
+    id: stringValue(record.content_token ?? record.pin_id ?? record.id, `zhihu-ring-${index + 1}`),
+    title,
+    source: "zhihu_hot",
+    hotScore,
+    debateScore: Math.min(96, Math.max(72, hotScore + Math.min(8, commentCount))),
+    evidenceScore: Math.min(94, Math.max(72, 76 + Math.min(12, Math.round(likeCount / 20)))),
+    discussionPotential: Math.min(96, Math.max(74, hotScore + Math.min(10, commentCount))),
+    controversyLevel: commentCount >= 20 ? "high" : commentCount >= 5 ? "medium" : "low",
+    reason: content || "来自知乎圈子内容列表，适合作为讨论组织候选。",
+  };
+}
+
+function evidenceFromRingContent(item: unknown, index: number): Evidence {
+  const record = asRecord(item);
+  const content = stringValue(record.content ?? record.text ?? record.summary ?? record.excerpt, `圈子内容 ${index + 1}`);
+  const title = stringValue(record.title, content.replace(/\s+/g, " ").slice(0, 36)) || `圈子内容 ${index + 1}`;
+  const likeCount = numberValue(record.like_num ?? record.likeCount ?? record.like_count, 0);
+  const commentCount = numberValue(record.comment_num ?? record.commentCount ?? record.comment_count, 0);
+
+  return {
+    id: stringValue(record.content_token ?? record.pin_id ?? record.id, `zhihu-ring-ev-${index + 1}`),
+    source: "zhihu",
+    title,
+    summary: content,
+    url: optionalString(record.url) ?? optionalString(record.link),
+    author: optionalString(record.author_name ?? record.author),
+    publishedAt: optionalString(record.created_at ?? record.createdAt),
+    relevanceScore: Math.min(100, likeCount + commentCount * 2),
+    favoriteCount: likeCount,
+    commentCount,
+    stance: "background",
+    qualityScore: Math.min(95, Math.max(76, 78 + Math.min(12, Math.round((likeCount + commentCount) / 10)))),
+  };
+}
+
 export class LiveZhihuProvider implements ZhihuProvider {
   readonly mode = "live";
   readonly failures: ZhihuProviderFailure[] = [];
@@ -297,43 +348,66 @@ export class LiveZhihuProvider implements ZhihuProvider {
   }
 
   async getHotTopics(): Promise<Topic[]> {
-    const json = await this.request("/api/v1/content/hot_list", {
-      hours: this.options.hotListHours,
-    }, undefined, {
-      quotaKey: "hot_list",
-      cacheTtlMs: envMs("ZHIHU_CACHE_HOT_TTL_MS", 30 * MINUTE_MS),
-    });
-    const topics = asArray(json).map(topicFromApi);
+    let topics: Topic[] = [];
+
+    try {
+      const json = await this.request(this.endpoint("hotList", "/api/v1/content/hot_list"), {
+        hours: this.options.hotListHours,
+      }, undefined, {
+        quotaKey: "hot_list",
+        cacheTtlMs: envMs("ZHIHU_CACHE_HOT_TTL_MS", 30 * MINUTE_MS),
+      });
+      topics = asArray(json).map(topicFromApi);
+    } catch (error) {
+      this.recordFailure("getHotTopics.hotList", error);
+      const json = await this.fetchRingDetail({
+        cacheTtlMs: envMs("ZHIHU_CACHE_HOT_TTL_MS", 30 * MINUTE_MS),
+      });
+      topics = ringContentFrom(json).map(topicFromRingContent);
+    }
 
     if (topics.length === 0) {
-      throw new Error("知乎热榜接口返回空列表。");
+      throw new Error("知乎 live 读接口返回空列表。");
     }
 
     return topics;
   }
 
   async searchEvidence(topic: Topic): Promise<Evidence[]> {
-    const zhihu = await this.request("/api/v1/content/zhihu_search", { q: topic.title }, undefined, {
-      quotaKey: "zhihu_search",
-      cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
-    });
-    const global = await this.request("/api/v1/content/global_search", { q: topic.title }, undefined, {
-      quotaKey: "global_search",
-      cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
-    });
+    const evidence: Evidence[] = [];
 
-    return [
-      ...asArray(zhihu).map((item, index) => evidenceFromApi(item, index, "zhihu")),
-      ...asArray(global).map((item, index) => evidenceFromApi(item, index, "global")),
-    ];
+    try {
+      const zhihu = await this.request(this.endpoint("zhihuSearch", "/api/v1/content/zhihu_search"), { q: topic.title }, undefined, {
+        quotaKey: "zhihu_search",
+        cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
+      });
+      evidence.push(...asArray(zhihu).map((item, index) => evidenceFromApi(item, index, "zhihu")));
+    } catch (error) {
+      this.recordFailure("searchEvidence.zhihuSearch", error);
+    }
+
+    try {
+      const global = await this.request(this.endpoint("globalSearch", "/api/v1/content/global_search"), { q: topic.title }, undefined, {
+        quotaKey: "global_search",
+        cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
+      });
+      evidence.push(...asArray(global).map((item, index) => evidenceFromApi(item, index, "global")));
+    } catch (error) {
+      this.recordFailure("searchEvidence.globalSearch", error);
+    }
+
+    if (evidence.length > 0) {
+      return evidence;
+    }
+
+    const json = await this.fetchRingDetail({
+      cacheTtlMs: envMs("ZHIHU_CACHE_SEARCH_TTL_MS", 12 * HOUR_MS),
+    });
+    return ringContentFrom(json).map(evidenceFromRingContent);
   }
 
   async getDefaultRing(): Promise<RingDetail> {
-    const json = asRecord(await this.request("/openapi/ring/detail", {
-      ring_id: this.options.ringId ?? HACKATHON_DEFAULT_RING_ID,
-      page_num: "1",
-      page_size: "20",
-    }, undefined, {
+    const json = asRecord(await this.fetchRingDetail({
       quotaKey: "ring_detail",
       cacheTtlMs: envMs("ZHIHU_CACHE_RING_TTL_MS", DAY_MS),
     }));
@@ -463,6 +537,32 @@ export class LiveZhihuProvider implements ZhihuProvider {
 
   async getCachedCommentInsight(): Promise<CommentInsight | undefined> {
     return undefined;
+  }
+
+  private fetchRingDetail(options: { quotaKey?: ApiQuotaKey; cacheTtlMs?: number } = {}): Promise<unknown> {
+    return this.request(this.endpoint("ringDetail", "/openapi/ring/detail"), {
+      ring_id: this.options.ringId ?? HACKATHON_DEFAULT_RING_ID,
+      page_num: "1",
+      page_size: "20",
+    }, undefined, options);
+  }
+
+  private endpoint(kind: "hotList" | "zhihuSearch" | "globalSearch" | "ringDetail", fallback: string): string {
+    const envKey = {
+      hotList: "ZHIHU_ENDPOINT_HOT_LIST",
+      zhihuSearch: "ZHIHU_ENDPOINT_ZHIHU_SEARCH",
+      globalSearch: "ZHIHU_ENDPOINT_GLOBAL_SEARCH",
+      ringDetail: "ZHIHU_ENDPOINT_RING_DETAIL",
+    } satisfies Record<typeof kind, string>;
+    return process.env[envKey[kind]] ?? fallback;
+  }
+
+  private recordFailure(operation: string, error: unknown): void {
+    this.failures.push({
+      operation,
+      message: error instanceof Error ? error.message : "未知知乎 provider 错误",
+      at: new Date().toISOString(),
+    });
   }
 
   private async request(

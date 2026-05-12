@@ -414,7 +414,7 @@ describe("frontend smoke", () => {
     expect(screen.getByText("AI 工具是否正在改变职场新人能力评价？")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案准备" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
     expect(screen.getAllByText("知乎站内").length).toBeGreaterThan(0);
     expect(screen.getByText(/AI 会标注观点来源/)).toBeInTheDocument();
 
@@ -494,7 +494,7 @@ describe("frontend smoke", () => {
         node: { id: "evidence_pool", label: "证据池", status: "completed", summary: "完成", startedAt: "2026-05-08T00:00:00.000Z" },
       });
     });
-    expect(screen.getByRole("heading", { name: "讨论方案准备" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument();
 
     act(() => {
       source.emit("debate_turn", {
@@ -510,7 +510,7 @@ describe("frontend smoke", () => {
       });
     });
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案准备" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
     expect(screen.queryByRole("heading", { name: "发布策划与圈子帖预览" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /让刘看山校验讨论方案/ }));
@@ -572,7 +572,7 @@ describe("frontend smoke", () => {
       FakeEventSource.instances[1].triggerError();
     });
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案准备" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
     expect(requests.some((url) => url.includes("/api/workflow/run"))).toBe(true);
   });
 

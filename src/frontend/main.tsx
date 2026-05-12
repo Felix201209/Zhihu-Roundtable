@@ -614,48 +614,45 @@ function TopicCard({ rank, topic, onSelect }: { rank: number; topic: Topic; onSe
 function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNext: () => void }) {
   const topic = snapshot.selectedTopic;
   const stance = snapshot.stancePreview;
+  const evidencePreview = snapshot.evidence.slice(0, 3);
 
   return (
-    <section className="flow-card">
+    <section className="flow-card prepare-workbench">
       <PageHeading
         icon={<ShieldCheck size={20} />}
-        title="讨论方案准备"
-        subtitle="AI 已把热榜标题改写成开放问题，并先建立证据池。接下来不是让 AI 自嗨聊天，而是为创作者生成可发布、可引导评论的讨论包。"
+        title="讨论方案"
+        subtitle="把热榜压成一个可发起的开放问题，再给主持人准备最少但够用的立场和证据。"
       />
-      <div className="prep-grid">
-        <section className="prep-pipeline">
-          <div className="prep-source">
-            <span>原始热榜</span>
-            <h2>{topic?.title}</h2>
-          </div>
-          <div className="prep-arrow">自动重构为开放问题</div>
-          <div className="prep-target">
-            <span>重构后的知乎式问题</span>
-            <p>{snapshot.rewrittenQuestion}</p>
-          </div>
-          <div style={{ display: "grid", gap: 8 }}>
-            <span style={{ color: "var(--muted)", fontSize: 11, fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              讨论目标
-            </span>
-            <p style={{ margin: 0, lineHeight: 1.5, fontSize: 14 }}>
-              让创作者、普通用户和圈子成员围绕这个开放问题给出立场、经验和反例，而不是只看一段摘要。
-            </p>
-            <small style={{ color: "var(--muted)" }}>AI 会标注观点来源；无法核验的内容会被标为待验证。</small>
+
+      <div className="prep-board">
+        <section className="question-panel">
+          <span>从热榜到讨论题</span>
+          <h2>{snapshot.rewrittenQuestion}</h2>
+          <p>原始热榜：{topic?.title}</p>
+          <div className="task-list">
+            <p><CheckCircle2 size={14} /> 让创作者、普通用户和圈子成员围绕同一个问题给出立场、经验和反例。</p>
+            <p><CheckCircle2 size={14} /> AI 会标注观点来源；无法核验的内容会被标为待验证。</p>
           </div>
         </section>
-        <section className="stance-card">
-          <h2>初步讨论设计</h2>
-          <MiniList title="支持观点" items={stance?.support ?? []} />
-          <MiniList title="反对观点" items={stance?.oppose ?? []} />
-          <MiniList title="背景事实" items={stance?.background ?? []} />
-          <MiniList title="适合参与的人" items={["相关创作者", "普通用户", "圈主/社区运营者", "有亲历经验的人"]} />
-        </section>
+
+        <aside className="discussion-brief">
+          <span>主持提纲</span>
+          <MiniList title="支持" items={(stance?.support ?? []).slice(0, 2)} />
+          <MiniList title="反对" items={(stance?.oppose ?? []).slice(0, 2)} />
+          <MiniList title="背景" items={(stance?.background ?? []).slice(0, 1)} />
+        </aside>
       </div>
-      <div className="evidence-grid">
-        {snapshot.evidence.slice(0, 6).map((item) => (
+
+      <section className="evidence-rail" aria-label="证据缓存">
+        <div className="evidence-rail-header">
+          <span>证据缓存</span>
+          <small>{snapshot.evidence.length} 条，优先展示质量最高的 3 条</small>
+        </div>
+        {evidencePreview.map((item) => (
           <EvidenceCard key={item.id} evidence={item} />
         ))}
-      </div>
+      </section>
+
       <div className="flow-actions single">
         <button className="primary-button" onClick={onNext} disabled={!snapshot.turns.length}>
           {snapshot.turns.length ? "让刘看山校验讨论方案" : "正在生成主持校验..."} <ArrowRight size={16} />
@@ -667,11 +664,13 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
 
 function EvidenceCard({ evidence }: { evidence: Evidence }) {
   return (
-    <article className="evidence-card">
-      <SourceBadge evidence={evidence} />
-      <h3>{evidence.title}</h3>
+    <article className="evidence-row">
+      <div>
+        <SourceBadge evidence={evidence} />
+        <strong>{evidence.title}</strong>
+      </div>
       <p>{evidence.summary}</p>
-      <small>质量分 {evidence.qualityScore} / 立场 {stanceLabel(evidence.stance)}</small>
+      <small>质量 {evidence.qualityScore} · {stanceLabel(evidence.stance)}</small>
     </article>
   );
 }
@@ -1175,6 +1174,10 @@ function AdvancedDetails({
             写操作必须用户确认。
           </p>
           {zhihuStatus?.hotListHours ? <p>热榜时间窗：最近 {zhihuStatus.hotListHours} 小时。</p> : null}
+          <p>
+            缓存：知乎读接口 {zhihuStatus?.cache?.zhihuReadsEnabled === false ? "关闭" : "开启"}，
+            DeepSeek JSON {zhihuStatus?.cache?.llmJsonEnabled === false ? "关闭" : "开启"}。
+          </p>
           <p>当前阶段：{activeStage}</p>
         </section>
         <section>
@@ -1186,9 +1189,11 @@ function AdvancedDetails({
         </section>
         <section>
           <h2>模型策略</h2>
-          <p>DeepSeek Flash 快速生成与分类，Kimi 负责中文表达，Mock 兜底。</p>
+          <p>DeepSeek Flash 处理快速分类和讨论席，DeepSeek Pro 处理问题改写、综合与发布稿；Mock 只做失败兜底。</p>
           {modelUsages.length ? modelUsages.slice(-4).map((usage, index) => (
-            <p key={`${usage.role}-${usage.task}-${usage.model}-${index}`}>{usage.task}：{usage.provider}/{usage.model}{usage.fallbackUsed ? " fallback" : ""}</p>
+            <p key={`${usage.role}-${usage.task}-${usage.model}-${index}`}>
+              {usage.task}：{usage.provider}/{usage.model}{usage.cached ? " cache" : ""}{usage.fallbackUsed ? " fallback" : ""}
+            </p>
           )) : <p>完成主流程后将展示每次模型调用和 fallback 证据。</p>}
         </section>
         <section>
