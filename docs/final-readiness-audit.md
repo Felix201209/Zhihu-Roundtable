@@ -20,8 +20,8 @@
 | mock-safe 可靠 | `demo:serve:mock`、`capture:demo:auto:mock`、`ZHIHU_PROVIDER=mock` hard override、本地验证输出 `provider: mock` | 已完成 |
 | live 边界可靠 | live 写操作需要后端 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才放行；真实写失败不会伪装 mock 成功；`.env.local` 被忽略 | 已完成 |
 | UI 可路演 | 浏览器主流程已跑通，截图存在桌面和移动视口 | 已完成 |
-| 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
-| 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
+| 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/demo-day-quick-card.md`、`docs/judge-defense-matrix.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
+| 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run verify:external-preflight`、`npm run audit:high` 通过；`npm run verify:remote-ci` 和 `npm run verify:final` 已准备给 push/部署后验收 | 已完成 |
 | 完成审计可执行化 | `npm run completion:audit` 将本页 checklist 固化为脚本，本地失败直接退出，外部交付项列为 blocker | 已完成 |
 | 部署准备 | `render.yaml`、`deploy/raspberry-pi/` 模板、`npm run start`、`npm run verify:production`、`npm run verify:public:full`、`scripts/verify-production-flow.mjs`、`scripts/verify-public-demo.mjs`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md`；公网部署后可一条命令复用 API smoke 和浏览器点击流 | 已准备 |
 | 源码包兜底 | `npm run package:source` 可生成干净源码 ZIP 和 `.cache/submission/manifest.json`，并输出 HEAD commit、文件大小和 sha256 | 已准备 |
@@ -33,13 +33,13 @@
 
 | 明确要求 | 对应产物 | 已检查证据 |
 | --- | --- | --- |
-| “可提交” | `docs/submission-package.md`、`docs/submission-form-checklist.md`、`README.md`、`JUDGE_GUIDE.md` | 提交包有项目介绍、赛道、运行命令、仓库链接、部署占位和源码 ZIP 兜底 |
+| “可提交” | `docs/submission-package.md`、`docs/submission-form-checklist.md`、`README.md`、`JUDGE_GUIDE.md`、`scripts/print-submission-evidence.mjs` | 提交包有项目介绍、赛道、运行命令、仓库链接、部署占位、源码 ZIP 兜底和可复制提交证据 |
 | “可路演” | `docs/demo-day-quick-card.md`、`docs/hackathon-demo-plan.md`、截图 artifacts | 一页式现场操作卡、6 分钟脚本、3 分钟压缩版、Q&A、桌面/移动截图 |
 | “可防追问” | `docs/judge-defense-matrix.md`、`docs/championship-redteam.md`、`docs/final-readiness-audit.md`、`docs/external-closure-runbook.md` | 尖锐追问短答、现场动作、风险、边界、live/mock、安全发布、部署缺口和外部闭环步骤已列明 |
 | “产品定位清晰” | README/JUDGE/前端文案 | 旧的偏聊天表演口径已清理 |
 | “主流程完整” | `src/frontend/main.tsx`、`src/backend/workflow-service.ts` | 前后端都覆盖发布前策划和发布后回流 |
 | “mock-safe 与 live 边界可靠” | `src/providers/zhihu-provider.ts`、`src/backend/http-server.ts`、测试 | mock 强制覆盖 live env，live 写操作要确认 token |
-| “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`deploy/raspberry-pi/`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md` | 生产式本地服务、Render Blueprint、树莓派自托管路径、可复制部署模板和现场排障清单已准备 |
+| “UI/文档/验证/部署准备” | `package.json` scripts、`render.yaml`、`deploy/raspberry-pi/`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md`、`docs/raspberry-pi-ops-checklist.md`、`scripts/verify-external-preflight.mjs` | 生产式本地服务、Render Blueprint、树莓派自托管路径、可复制部署模板、现场排障清单和 push 前只读外部预检已准备 |
 | “不要用代理信号当完成” | `scripts/completion-audit.mjs` | 把目标拆成可检查项，并把远端同步、远端 CI、公网 Demo、评委仓库访问列为外部 blocker；private repo 可用 `REVIEWER_REPO_ACCESS_CONFIRMED=1` 表示已授权 |
 | “不要泄露 key” | `.gitignore`、`git ls-files`、secret scan | `.env.local`、`.cache`、`dist`、`node_modules` 未被跟踪 |
 
@@ -59,6 +59,7 @@ npm run verify:submission
 npm run evidence:submission
 npm run completion:audit
 npm run verify:judge
+npm run verify:external-preflight
 npm run audit:high
 git push --dry-run origin main
 node scripts/verify-remote-ci.mjs --allow-not-pushed
@@ -74,6 +75,7 @@ node scripts/verify-remote-ci.mjs --allow-not-pushed
 - `scripts/verify-production-server.mjs`
 - `scripts/verify-production-flow.mjs`
 - `scripts/verify-public-demo.mjs`
+- `scripts/verify-external-preflight.mjs`
 - `scripts/verify-remote-ci.mjs`
 - `scripts/package-source.mjs` 语法检查
 - `npm run verify:raspberry-pi`，确认树莓派 env、systemd 和 Cloudflare Tunnel 模板 mock-safe 且端口一致
@@ -89,6 +91,12 @@ files: <tracked source file count>
 commit: <current HEAD>
 size: <zip size>
 sha256: <zip sha256>
+```
+
+`evidence:submission` 还会输出可提交证据块，包含当前 commit、源码包 sha256、截图尺寸、支撑材料、可复跑本地门禁和外部闭环命令。Markdown 版可用：
+
+```bash
+node scripts/print-submission-evidence.mjs --markdown
 ```
 
 `backend:demo` 输出确认：
@@ -160,6 +168,7 @@ local HEAD workflow: push, PR and manual dispatch all run npm run verify:submiss
 local HEAD browser gate: GitHub Actions checks Chrome/Chromium version first, then runs PRODUCTION_FLOW_REQUIRE_BROWSER=true
 local HEAD package gate: GitHub Actions also runs package:source through verify:submission
 remote CI verifier: npm run verify:remote-ci checks current HEAD after push; npm run verify:remote-ci -- --wait waits for GitHub Actions to create and finish the current HEAD run
+external preflight verifier: npm run verify:external-preflight checks clean status, push dry-run, remote CI precheck and GitHub metadata without pushing
 remote CI precheck: no run yet for current unpushed HEAD; latest remote run was completed/success
 push dry-run: origin/main..HEAD main -> main passed
 note: local workflow hardening only becomes active on GitHub after push
