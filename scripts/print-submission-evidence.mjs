@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 
 const args = new Set(process.argv.slice(2));
 const allowDirty = args.has("--allow-dirty");
+const markdown = args.has("--markdown");
 const manifestPath = ".cache/submission/manifest.json";
 const desktopScreenshot = "artifacts/zhihu-roundtable-desktop.png";
 const mobileScreenshot = "artifacts/zhihu-roundtable-mobile.png";
@@ -36,7 +37,7 @@ if (packageStats.size !== manifest.sizeBytes || packageSha256 !== manifest.sha25
 const desktop = readPngDimensions(desktopScreenshot);
 const mobile = readPngDimensions(mobileScreenshot);
 
-console.log(JSON.stringify({
+const evidence = {
   project: "知辩圆桌",
   branch,
   head,
@@ -66,7 +67,13 @@ console.log(JSON.stringify({
     "PUBLIC_DEMO_URL=https://你的线上-demo域名 npm run verify:public:full",
     "PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1 npm run verify:final",
   ],
-}, null, 2));
+};
+
+if (markdown) {
+  console.log(formatMarkdown(evidence));
+} else {
+  console.log(JSON.stringify(evidence, null, 2));
+}
 
 function readJson(path) {
   if (!existsSync(path)) {
@@ -103,4 +110,48 @@ function run(cmd, args) {
 function fail(message) {
   console.error(message);
   process.exit(1);
+}
+
+function formatMarkdown(evidence) {
+  return [
+    "# 知辩圆桌提交证据",
+    "",
+    "## 版本",
+    "",
+    `- Branch: \`${evidence.branch}\``,
+    `- HEAD: \`${evidence.head}\``,
+    `- Latest commit: \`${evidence.latestCommit}\``,
+    `- Allow dirty preview: \`${String(evidence.allowDirty)}\``,
+    "- Git status:",
+    "",
+    "```text",
+    evidence.gitStatus,
+    "```",
+    "",
+    "## 源码包",
+    "",
+    `- Path: \`${evidence.sourcePackage.path}\``,
+    `- Manifest: \`${evidence.sourcePackage.manifest}\``,
+    `- Generated at: \`${evidence.sourcePackage.generatedAt}\``,
+    `- Files: \`${evidence.sourcePackage.fileCount}\``,
+    `- Size: \`${evidence.sourcePackage.sizeBytes}\` bytes`,
+    `- SHA256: \`${evidence.sourcePackage.sha256}\``,
+    "",
+    "## 截图",
+    "",
+    formatScreenshot("Desktop", evidence.screenshots.desktop),
+    formatScreenshot("Mobile", evidence.screenshots.mobile),
+    "",
+    "## 本地门禁",
+    "",
+    ...evidence.localGates.map((gate) => `- \`${gate}\``),
+    "",
+    "## 外部闭环",
+    "",
+    ...evidence.externalGates.map((gate) => `- \`${gate}\``),
+  ].join("\n");
+}
+
+function formatScreenshot(label, screenshot) {
+  return `- ${label}: \`${screenshot.path}\` (${screenshot.width}x${screenshot.height}, ${screenshot.sizeBytes} bytes)`;
 }

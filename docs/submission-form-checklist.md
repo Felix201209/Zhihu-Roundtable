@@ -73,6 +73,7 @@ https://github.com/Felix201209/Zhihu-Roundtable
 npm ci
 npm run verify:submission
 npm run evidence:submission
+node scripts/print-submission-evidence.mjs --markdown
 npm run verify:judge
 npm run audit:high
 npm run capture:demo:auto:mock
@@ -82,7 +83,7 @@ PUBLIC_DEMO_URL=https://你的线上-demo域名 REVIEWER_REPO_ACCESS_CONFIRMED=1
 ```
 
 `verify:submission` 会跑评审门禁、生成源码 ZIP，并在打包后自动运行 `evidence:submission`；它要求 git 工作区干净。
-`evidence:submission` 只读打印当前 commit、源码包 sha256、截图尺寸和最终外部验收命令，方便复制到提交备注或路演备忘；正式证据要求工作区干净，本地预览才用 `node scripts/print-submission-evidence.mjs --allow-dirty`。
+`evidence:submission` 只读打印当前 commit、源码包 sha256、截图尺寸和最终外部验收命令，方便复制到提交备注或路演备忘；`node scripts/print-submission-evidence.mjs --markdown` 会输出更适合直接粘贴的 Markdown 版。正式证据要求工作区干净，本地预览才追加 `--allow-dirty`。
 `verify:judge` 还会在本机存在 Chrome/Chromium 时启动 headless browser，验证生产式页面可以手动走完 5 步主流程，且不会自动跳过讨论方案准备和主持校验。
 `verify:public:full` 用于部署后公网验收，会检查首页 bundle、后端健康、模型状态、知乎状态、OAuth callback，并对公网 Demo 跑首页到评论复盘的浏览器点击流，默认要求线上 demo 是 mock-safe。
 `verify:remote-ci -- --wait` 用于 push 后等待并确认 GitHub Actions `Verify` 已针对当前 HEAD 成功。
