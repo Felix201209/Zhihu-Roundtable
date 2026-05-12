@@ -141,7 +141,7 @@ assertFileIncludes("README.md", [
   "npm run demo:serve:mock",
   "CI 会跑更完整的 `verify:submission`",
   "live 只读接口失败",
-  "真实写操作失败不会伪装成功",
+  "发布被限流时会明确标注并转入 mock-safe 复盘",
   "docs/demo-day-quick-card.md",
   "docs/submission-form-checklist.md",
   "docs/judge-defense-matrix.md",
@@ -290,7 +290,7 @@ assertFileIncludes("docs/final-readiness-audit.md", [
 
 assertFileIncludes("docs/backend-contract.md", [
   "live 只读接口失败",
-  "live 写操作失败必须显式失败",
+  "发布被限流时会明确转入 mock-safe 复盘",
   "服务层默认拒绝 live 写操作",
 ]);
 

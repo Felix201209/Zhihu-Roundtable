@@ -233,7 +233,7 @@
 处理：
 
 1. 切回默认 mock provider。
-2. 打开 quota panel，说明 live 只读接口失败会 fallback，真实写操作失败不会伪装成 mock 成功。
+2. 打开 quota panel，说明 live 只读接口失败会 fallback；发布被限流会明确进入 mock-safe 复盘，评论和 reaction 失败不伪装成功。
 3. 展示 `provider.failures[]` / `fallbackUsed`，把事故转成稳定性证据。
 
 话术：

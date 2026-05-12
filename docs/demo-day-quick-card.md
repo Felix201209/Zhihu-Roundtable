@@ -39,7 +39,7 @@ npm run demo:serve:mock
 | 情况 | 立刻做什么 | 话术 |
 | --- | --- | --- |
 | 公网 URL 访问慢 | 切本机 `npm run demo:serve:mock` | “公网链路不稳定不影响项目闭环，本地 mock-safe 路径和线上服务是同一套 Node/API。” |
-| 知乎 live API 或网络失败 | 保持 mock-safe，展示 provider/fallback 标记 | “真实写操作不会 fallback 成假成功，读接口失败只影响 live 数据新鲜度，不影响流程验证。” |
+| 知乎 live API 或网络失败 | 保持 mock-safe，展示 provider/fallback 标记 | “读接口失败只影响 live 数据新鲜度；发布限流会明确转 mock-safe 复盘，不会伪装成真实知乎成功。” |
 | 模型 key 或模型超时 | 使用 mock/fallback 输出，展示 schema 和 modelUsages | “模型不可用会显式降级，系统仍能保留结构化流程和证据边界。” |
 | 时间只剩 3 分钟 | 只走热榜 -> 证据 -> 主持校验 -> 发布策划 -> 评论回流 | “我们演示的是社区讨论闭环，不是单次生成。” |
 | 被追问可信度 | 打开 `docs/judge-defense-matrix.md` | “每个尖锐问题都有短答、现场动作和文件/命令证据。” |

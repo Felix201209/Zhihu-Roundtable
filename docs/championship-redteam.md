@@ -23,7 +23,7 @@
 | 提交 README 使用本机绝对链接 | GitHub/reviewer 打开不可用 | 改为相对文档链接 |
 | 社区互动缺少二次确认 | reaction / 主持评论如果 live 调用会代表用户互动 | `有启发` 和 `主持评论` 都新增社区互动确认弹层；HTTP 缺 token 返回 `confirmation_required` |
 | 人工确认只停在前端 | 如果 live 后端允许直接 POST 发布，会被质疑“AI 自动替用户发帖” | live 写操作新增一次性 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才传 `allowLiveWrite: true`；`run/stream publish=true` 在 live 模式拒绝绕过确认 |
-| live 写失败被 mock 成功掩盖 | 评委可能以为真实发帖成功，实际只是 fallback | publish/comment/reaction 失败不再 fallback 成 mock 成功；读接口仍可 fallback 保障路演 |
+| live 写失败被 mock 成功掩盖 | 评委可能以为真实发帖成功，实际只是 fallback | 发布失败会明确标注并进入 mock-safe 复盘，评论和 reaction 失败不伪装成功；读接口仍可 fallback 保障路演 |
 | live API base URL 误配泄露凭证 | `ZHIHU_API_BASE_URL` 如果指向非知乎域，会把官方 HMAC 头发错地方 | 真实 fetch 强制知乎 HTTPS 域名；测试注入 `fetchImpl` 才允许假域 |
 | 原始 plan 完成度靠口头说明 | 评委可能追问 60 节点和 30 节方案是否真的完成 | 新增 `docs/original-plan-coverage.md` 逐项映射完成度 |
 | 热榜卡片只像可选但不驱动后端 | 评委点击第二个话题如果内容不变，会破坏“从知乎热榜开始”的可信度 | 前端切换、重播、SSE、发布全部传递 `topicId`，并新增烟测防回归 |

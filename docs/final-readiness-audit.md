@@ -18,7 +18,7 @@
 | 主流程完整 | 前端 5 步：选题雷达、讨论方案准备、刘看山主持校验、发布策划、评论复盘 | 已完成 |
 | 后端闭环完整 | `RoundtableWorkflowService.runFullWorkflow` 覆盖热榜、证据、校验席位、观点地图、发布草稿、确认发布、评论回流 | 已完成 |
 | mock-safe 可靠 | `demo:serve:mock`、`capture:demo:auto:mock`、`ZHIHU_PROVIDER=mock` hard override、本地验证输出 `provider: mock` | 已完成 |
-| live 边界可靠 | live 写操作需要后端 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才放行；真实写失败不会伪装 mock 成功；`.env.local` 被忽略 | 已完成 |
+| live 边界可靠 | live 写操作需要后端 confirmation token；服务层默认拒绝 live 写，HTTP 消费 token 后才放行；发布被限流时会明确转入 mock-safe 复盘，评论和 reaction 失败不伪装成功；`.env.local` 被忽略 | 已完成 |
 | UI 可路演 | 浏览器主流程已跑通，截图存在桌面和移动视口 | 已完成 |
 | 文档可交付 | `README.md`、`JUDGE_GUIDE.md`、`docs/demo-day-quick-card.md`、`docs/judge-defense-matrix.md`、`docs/submission-package.md`、`docs/deployment.md`、`docs/external-closure-runbook.md`、`docs/hackathon-demo-plan.md` | 已完成 |
 | 验证门禁 | `npm run verify:submission`、`npm run verify:judge`、`npm run verify:external-preflight`、`npm run audit:high` 通过；`PUBLIC_DEMO_URL=https://zhihu-roundtable.felixypz.me PUBLIC_DEMO_EXPECT_PROVIDER=live npm run verify:final` 已对当前 HEAD 通过 | 已完成 |

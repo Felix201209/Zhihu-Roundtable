@@ -124,7 +124,7 @@ Live provider 对齐方案里的官方接口规划：
 - 可选故事/知识接口作为内容创意补充；当前主线不依赖，避免踩付费内容署名和非商用边界。
 - 可选知乎直答 Agent：通过 `defaultProvider=custom` + `CUSTOM_LLM_BASE_URL=https://api.zhihu.com/v1` 或 `ZHIHU_DIRECT_AGENT_BASE_URL` 接入 OpenAI-compatible `/chat/completions`。
 
-接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装。live 只读接口失败会先记录到 `provider.failures[]`；内容热榜/搜索接口如果对当前 app 返回 404，会继续走真实 `ring/detail` 读接口生成候选话题和证据；只有这些 live 读接口都失败时，外层 `FallbackZhihuProvider` 才切到 mock。若知乎给当前 app 下发了不同路径，可用 `ZHIHU_ENDPOINT_HOT_LIST`、`ZHIHU_ENDPOINT_ZHIHU_SEARCH`、`ZHIHU_ENDPOINT_GLOBAL_SEARCH`、`ZHIHU_ENDPOINT_RING_DETAIL` 覆盖默认路径。live 写操作失败必须显式失败。
+接口返回 shape 做了宽松映射，支持常见的 `data/items/list/results/comments` 包装。live 只读接口失败会先记录到 `provider.failures[]`；内容热榜/搜索接口如果对当前 app 返回 404，会继续走真实 `ring/detail` 读接口生成候选话题和证据；只有这些 live 读接口都失败时，外层 `FallbackZhihuProvider` 才切到 mock。若知乎给当前 app 下发了不同路径，可用 `ZHIHU_ENDPOINT_HOT_LIST`、`ZHIHU_ENDPOINT_ZHIHU_SEARCH`、`ZHIHU_ENDPOINT_GLOBAL_SEARCH`、`ZHIHU_ENDPOINT_RING_DETAIL` 覆盖默认路径。live 写操作仍由服务层 confirmation token 保护；发布被限流时会明确转入 mock-safe 复盘，评论和 reaction 失败则显式失败。
 
 官方限制已进入后端保护：
 

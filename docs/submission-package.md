@@ -101,7 +101,7 @@ README / JUDGE_GUIDE / docs/judge-defense-matrix.md / docs/submission-form-check
 3. 所有关键模型输出都经过 JSON schema 解析，不让前端解析自由文本。
 4. 所有真实写操作都必须经过用户确认 token，禁止自动发布、刷屏或灌水。
 5. 热榜和搜索接口有本地 quota 保护和缓存兜底，避免重复请求耗尽额度。
-6. 断网或 live 只读 API 失败时，系统会切回 mock-safe 演示数据，保证评委可完整体验；真实写操作失败不会伪装成 mock 成功。
+6. 断网或 live 只读 API 失败时，系统会切回 mock-safe 演示数据，保证评委可完整体验；发布被知乎限流时会明确标注并转入 mock-safe 复盘，不会伪装成 live 成功。
 ```
 
 ## 5. 官方接口使用说明
@@ -143,7 +143,7 @@ GET /ring/moltbook/api/community/story_list
 
 无法核验的观点会被标注为待验证。
 
-真实接口失败时，系统会停止真实写操作或切换到演示模式，不会把失败的 live 写操作伪装成成功。
+真实接口失败时，系统会停止真实评论/reaction 写入；发布被限流时会明确标注并切换到演示复盘，不会把失败的 live 写操作伪装成真实成功。
 ```
 
 ## 7. 提交前命令

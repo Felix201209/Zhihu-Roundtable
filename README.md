@@ -25,7 +25,7 @@
 - DeepSeek V4 默认真实模型路由：Flash 负责热榜评分、证据池、角色 brief 和讨论席，Pro 负责问题重构、观点综合和发布稿；Kimi / custom provider 仍可按需切换。
 - 所有模型输出 JSON 化，并用 zod schema 校验。
 - 官方 API wrapper：热榜、知乎搜索、全网搜索、圈子、发布、评论、reaction。
-- Mock-safe + live-ready：现场只读 API 或模型失败可 fallback，不影响完整 Demo；真实写操作失败不会伪装成功。
+- Mock-safe + live-ready：现场只读 API 或模型失败可 fallback，不影响完整 Demo；真实写操作不会伪装成 live 成功，发布被限流时会明确标注并转入 mock-safe 复盘。
 - SSE 路演流：前端可逐节点播放“选题、证据、讨论方案、发布、回流”。
 - Readiness 自检：按官方评分维度生成夺奖面板。
 - 前端无需改代码即可切模型策略：URL 参数或 `VITE_DEMO_*` 环境变量可切 `mock/auto/live`。
@@ -149,7 +149,7 @@ OpenAPI 请求会按官方文档自动生成 `X-App-Key`、`X-Timestamp`、`X-Lo
 - `ZHIHU_CACHE_COMMENT_TTL_MS=60000`，评论默认缓存 1 分钟
 - `ZHIHU_CACHE_ERROR_TTL_MS=900000`，404/失败默认负缓存 15 分钟，避免错误路径反复烧额度
 
-写接口不走缓存，也不会在 live 失败时伪装成 mock 成功。
+写接口不走缓存；发布被知乎限流或拒绝时不会伪装成 live 成功，系统会明确记录失败并转入 mock-safe 评论复盘。评论和 reaction 失败则保持失败，不自动伪造成功。
 
 知乎 OAuth 登录回调：
 
@@ -164,7 +164,7 @@ OpenAPI 请求会按官方文档自动生成 `X-App-Key`、`X-Timestamp`、`X-Lo
 - `CUSTOM_LLM_API_KEY` 或 `ZHIHU_DIRECT_AGENT_API_KEY`
 - `CUSTOM_LLM_MODEL` 或 `ZHIHU_DIRECT_AGENT_MODEL`
 
-live 写操作不会绕过用户确认：发布、主持评论、reaction 都需要后端一次性 confirmation token；真实写失败不会被伪装成 mock 成功。
+live 写操作不会绕过用户确认：发布、主持评论、reaction 都需要后端一次性 confirmation token；发布失败会明确标注并转入 mock-safe 复盘，评论和 reaction 失败不会被伪装成功。
 
 ## Reviewer 入口
 
