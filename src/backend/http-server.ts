@@ -672,20 +672,20 @@ async function handleRequest(
       mode: "auto",
       defaultProvider: "deepseek-v4-flash",
       roleMap: {
-        topic_scoring: "deepseek-v4-flash",
+        question: "deepseek-v4-flash",
       },
       fallbackToMock: false,
     }));
-    const result = await probeProvider.scoreTopics({
-      topics: [{
+    const result = await probeProvider.rewriteQuestion({
+      topic: {
         id: `deepseek-probe-${Date.now()}`,
-        title: "知乎黑客松提交前模型探针",
+        title: "知乎黑客松提交前，创作者如何判断一个热点是否值得组织讨论？",
         source: "mock",
         hotScore: 1,
         debateScore: 1,
         evidenceScore: 1,
         reason: "只读探针，用于确认线上 DeepSeek JSON 调用可用。",
-      }],
+      },
     });
     sendJson(res, 200, {
       ok: true,
@@ -695,6 +695,7 @@ async function handleRequest(
       fallbackUsed: result.usage.fallbackUsed === true,
       latencyMs: result.usage.latencyMs,
       attempts: result.usage.attempts,
+      rewrittenQuestionLength: result.value.rewrittenQuestion.length,
     });
     return;
   }

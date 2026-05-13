@@ -77,6 +77,7 @@ if (expectedProvider === "mock") {
   assert(probe.ok === true, "live public model probe should return ok: true");
   assert(String(probe.provider).startsWith("deepseek-v4-"), `live public model probe should use DeepSeek, got ${probe.provider}`);
   assert(probe.fallbackUsed !== true, "live public model probe should not use mock fallback");
+  assert(probe.rewrittenQuestionLength > 8, "live public model probe should return a usable DeepSeek rewrite");
 }
 
 const oauthStatus = await fetchJson(`${origin}/api/oauth/status`);
