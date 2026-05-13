@@ -100,5 +100,5 @@ ZHIHU_PROVIDER=mock DEMO_BACKEND_PORT=8877 DEMO_FRONTEND_PORT=5177 npm run captu
 ## 不可控但已说明
 
 - 完整用户 OAuth token 字段取决于官方最终文档；当前已提供 callback/start/status 端点、开发者绑定凭证、access token 和写操作人工确认。
-- 官方刘看山素材需授权；当前用原创占位主持形象，避免盗图。
+- 刘看山 IP 素材已接入前端首屏与主持流；素材来自参赛者本机提供的官方活动资源包，代码中仅使用前端展示所需的裁切后正面图。
 - 比赛结果无法承诺 100%，但当前没有已知可复现实现 blocker。

@@ -264,6 +264,45 @@ button {
   justify-content: center;
 }
 
+.proof-strip {
+  width: min(100%, 820px);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: -8px auto 0;
+}
+
+.proof-strip article {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 3px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid #dfeeff;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.proof-strip svg {
+  grid-row: span 2;
+  margin-top: 2px;
+  color: var(--zhihu-blue);
+}
+
+.proof-strip strong {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.proof-strip span {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .text-button {
   display: inline-flex;
   align-items: center;
@@ -1970,6 +2009,7 @@ button {
   .comment-preview-grid,
   .report-grid,
   .advanced-grid,
+  .proof-strip,
   .workflow-strip,
   .promise-grid,
   .prep-grid,
@@ -2014,6 +2054,10 @@ button {
 
   .live-status-pill {
     width: fit-content;
+  }
+
+  .proof-strip {
+    max-width: 100%;
   }
 
   .workflow-strip {

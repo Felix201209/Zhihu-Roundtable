@@ -45,7 +45,7 @@
 | 风险 | 现场话术 |
 | --- | --- |
 | 真实知乎 OAuth 最终字段可能随官方文档调整 | 当前已提供 `/api/oauth/start`、`/api/oauth/callback`、`/api/oauth/status`；社区 OpenAPI 走 `ZHIHU_APP_KEY` + `ZHIHU_APP_SECRET` 官方 HMAC，发布仍必须人工确认 |
-| 正式刘看山素材未授权 | Demo 使用原创占位主持形象；如官方提供素材可直接替换视觉层 |
+| 刘看山素材合规边界 | 已使用参赛者提供的官方活动资源包裁切正面图；对外只表达主持/控场角色，不伪装成真人账号 |
 | mock-safe 被误解成假功能 | 现场强调 mock 是防限流/断网兜底；需要时可用 `/?modelMode=auto&defaultProvider=kimi&fallbackToMock=true` 临时切 live/auto 策略 |
 | 评委只看 6 分钟，可能看不到后端厚度 | 路演时在最后 20 秒展示 `npm run verify`、`backend-contract.md`、`modelUsages/nodeResults` |
 | 线上体验链接尚未填入提交包 | 当前生产部署需要同时托管 Vite 静态页和 Node API，不能只上传 `dist/` | 已补 `npm run start` 单进程静态/API 服务、`render.yaml`、`docs/deployment.md`、`docs/raspberry-pi-deployment.md` 和 `verify:production`；公开部署前必须确认不带 `.env.local` 和真实写权限 |

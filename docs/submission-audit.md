@@ -106,7 +106,7 @@ artifacts/zhihu-roundtable-mobile.png
 ## 4. 剩余风险
 
 - 真实知乎用户 OAuth 回调仍取决于官方最终文档；当前 live provider 已按正式 OpenAPI 文档支持 `ZHIHU_APP_KEY`（用户 token）、`ZHIHU_APP_SECRET`（官方密钥）、HMAC 签名、默认圈子和热榜时间窗。路演时可说明“开发者绑定接口已接入，用户级授权边界放在人工确认和 provider 层，避免自动发帖风险”。
-- 正式刘看山素材未接入；当前用合规占位形象，避免盗用未授权图片。
+- 刘看山 IP 素材已接入；当前前端使用参赛者提供的官方活动资源包裁切正面图，并保持“主持人/控场员”定位。
 - 备用录屏不是代码阻塞；已提供 `npm run capture:demo:auto` 固定截图兜底。如果提交平台允许，可最后录一段 2 分钟固定路径视频。
 
 ## 5. 当前判断

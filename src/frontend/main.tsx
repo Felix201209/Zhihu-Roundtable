@@ -558,6 +558,23 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
           测试一个脑洞 <Lightbulb size={16} />
         </button>
       </div>
+      <div className="proof-strip" aria-label="评委验收证据">
+        <article>
+          <CheckCircle2 size={16} />
+          <strong>真实知乎读链路</strong>
+          <span>热榜、站内搜索、圈子与评论 API 已接入</span>
+        </article>
+        <article>
+          <Sparkles size={16} />
+          <strong>DeepSeek V4 路由</strong>
+          <span>Flash/Pro 分工处理评分、证据、改写和发布稿</span>
+        </article>
+        <article>
+          <ShieldCheck size={16} />
+          <strong>缓存与写保护</strong>
+          <span>读接口和模型 JSON 缓存；真实发布必须用户确认</span>
+        </article>
+      </div>
       <div className="workflow-strip" aria-label="知辩圆桌能力">
         <article>
           <Search size={16} />
