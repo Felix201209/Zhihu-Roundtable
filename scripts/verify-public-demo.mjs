@@ -69,6 +69,22 @@ if (expectedProvider === "mock") {
 } else if (expectedProvider === "live") {
   assert(models.env?.deepseekConfigured === true, "live public demo should report DeepSeek configured");
   assert(models.env?.zhihuConfigured === true, "live public demo should report Zhihu configured");
+  const workflow = await fetchJson(`${origin}/api/workflow/run`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ publish: false }),
+  });
+  const modelUsages = workflow.snapshot?.modelUsages ?? workflow.modelUsages ?? [];
+  assert(workflow.providerMode === "live", `live public workflow should use live Zhihu provider mode, got ${workflow.providerMode}`);
+  assert(modelUsages.length > 0, "live public workflow should report model usage");
+  assert(
+    modelUsages.some((usage) => String(usage.provider).startsWith("deepseek-v4-")),
+    "live public workflow should show at least one real DeepSeek model call",
+  );
+  assert(
+    modelUsages.some((usage) => String(usage.provider).startsWith("deepseek-v4-") && usage.fallbackUsed !== true),
+    "live public workflow should not route every DeepSeek task through mock fallback",
+  );
 }
 
 const oauthStatus = await fetchJson(`${origin}/api/oauth/status`);
@@ -107,8 +123,8 @@ async function fetchText(url) {
   return response.text();
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { redirect: "manual" });
+async function fetchJson(url, options = {}) {
+  const response = await fetch(url, { redirect: "manual", ...options });
   assert(response.ok, `${url} returned ${response.status}`);
   const contentType = response.headers.get("content-type") ?? "";
   assert(contentType.includes("application/json"), `${url} did not return JSON`);

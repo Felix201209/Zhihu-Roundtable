@@ -237,6 +237,39 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.queryByText("正在拉取知乎热榜...")).not.toBeInTheDocument());
   });
 
+  it("keeps the primary demo actions explicit and keyboard-addressable", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/zhihu/status")) {
+        return Response.json({
+          mode: "live",
+          appCredentialsConfigured: true,
+          baseUrlConfigured: true,
+          cache: { zhihuReadsEnabled: true, llmJsonEnabled: true },
+          failures: [],
+          quotas: [],
+        });
+      }
+      if (url.includes("/api/topics")) {
+        return Response.json({ topics: workflow.topics });
+      }
+      return Response.json({});
+    });
+
+    render(<App />);
+
+    const mainAction = screen.getByRole("button", { name: /从热榜生成讨论方案/ });
+    const ideaAction = screen.getByRole("button", { name: /测试一个脑洞/ });
+    expect(mainAction).toBeEnabled();
+    expect(ideaAction).toBeEnabled();
+
+    fireEvent.click(mainAction);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    const topicActions = screen.getAllByRole("button", { name: /生成讨论方案/ });
+    expect(topicActions.length).toBeGreaterThan(0);
+    expect(topicActions[0]).toBeEnabled();
+  });
+
   it("runs the simplified idea experiment from input to report", async () => {
     const requests: Array<{ url: string; body?: Record<string, unknown> }> = [];
     const baseExperiment = {

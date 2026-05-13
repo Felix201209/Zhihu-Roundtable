@@ -1202,12 +1202,16 @@ button {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  max-width: 100%;
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid transparent;
   border-radius: 8px;
   font-weight: 750;
   font-size: 13px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
   transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 
@@ -1755,14 +1759,14 @@ button {
   .comment-preview-grid,
   .report-grid,
   .advanced-grid,
-    .workflow-strip,
-    .promise-grid,
-    .prep-grid,
-    .prep-board,
-    .evidence-grid,
-    .publish-grid,
-    .topic-row,
-    .context-grid {
+  .workflow-strip,
+  .promise-grid,
+  .prep-grid,
+  .prep-board,
+  .evidence-grid,
+  .publish-grid,
+  .topic-row,
+  .context-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1842,7 +1846,8 @@ button {
 
   .topic-row button {
     grid-column: 1 / -1;
-    justify-self: start;
+    justify-self: stretch;
+    width: 100%;
   }
 
   .evidence-row {
