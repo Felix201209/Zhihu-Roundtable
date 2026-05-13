@@ -213,7 +213,7 @@ async function runBrowserFlow() {
       throw new Error("production flow skipped away from discussion preparation after generating a plan");
     }
 
-    await clickButton(/让刘看山校验讨论方案/);
+    await clickButton(/刘看山质检/);
     await observe("debate", "刘看山主持校验");
     await clickButton(/生成发布策划/);
     await observe("publish", "发布策划与圈子帖预览");

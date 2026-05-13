@@ -547,7 +547,7 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
         <div className="hero-copy">
           <span className="eyebrow">刘看山主持的知乎讨论组织台</span>
           <h1>知辩圆桌</h1>
-          <p>不是让 AI 替你写观点，而是让刘看山把一个知乎热榜变成有证据、有反方、有站队、有评论回流的持续讨论。</p>
+          <p>AI 不替你写观点。刘看山把知乎热榜变成有证据、有反方、有站队、有评论回流的持续讨论。</p>
         </div>
       </div>
       <div className="hero-actions">
@@ -558,7 +558,7 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
           测试一个脑洞 <Lightbulb size={16} />
         </button>
       </div>
-      <div className="proof-strip" aria-label="评委验收证据">
+      <div className="proof-strip" aria-label="上线证据">
         <article>
           <CheckCircle2 size={16} />
           <strong>真实知乎读链路</strong>
@@ -575,32 +575,32 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
           <span>读接口和模型 JSON 缓存；真实发布必须用户确认</span>
         </article>
       </div>
-      <section className="signature-loop" aria-label="绝对亮点">
+      <section className="signature-loop" aria-label="核心闭环">
         <div className="signature-copy">
-          <span>绝对亮点</span>
-          <h2>把一个热榜，变成一场可持续讨论</h2>
-          <p>评委看到的不是“生成一段文案”，而是一条完整社区运营链路：找话题、压问题、找证据、请刘看山质检、再把评论变成下一轮内容。</p>
+          <span>核心闭环</span>
+          <h2>从热榜到下一轮话题</h2>
+          <p>筛话题、压问题、查证据、过主持质检，再把评论区的新反方变成下一轮选题。</p>
         </div>
         <div className="signature-track" aria-label="热榜到讨论闭环">
           <article>
             <b>01</b>
-            <strong>热榜不直接发</strong>
-            <span>先判断争议度、资料量和知乎讨论空间</span>
+            <strong>筛话题</strong>
+            <span>按争议、资料、讨论空间排序</span>
           </article>
           <article>
             <b>02</b>
-            <strong>刘看山三问质检</strong>
-            <span>有人站队吗？反方说得通吗？证据够支撑吗？</span>
+            <strong>过三问</strong>
+            <span>能站队？反方成立？证据够吗？</span>
           </article>
           <article>
             <b>03</b>
-            <strong>发布前有边界</strong>
-            <span>站队选项、引导评论、风险提醒、人工确认</span>
+            <strong>发圈子</strong>
+            <span>站队选项、引导评论、风险提醒</span>
           </article>
           <article>
             <b>04</b>
-            <strong>评论回流再创作</strong>
-            <span>高质量评论和新反方变成下一轮话题</span>
+            <strong>收评论</strong>
+            <span>新反方和真实经历进入下一轮</span>
           </article>
         </div>
       </section>
@@ -702,10 +702,10 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
         subtitle="把热榜压成一个可发起的开放问题，再给主持人准备最少但够用的立场和证据。"
       />
 
-      <section className="host-gate" aria-label="刘看山发布前质检">
+      <section className="host-gate" aria-label="发布前质检">
         <div>
-          <span>刘看山发布前质检</span>
-          <h2>这不是标题改写，是一次讨论可发布性审查</h2>
+          <span>发布前质检</span>
+          <h2>能发，再写</h2>
         </div>
         <div className="host-gate-grid">
           <article>
@@ -735,7 +735,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
           ) : null}
           <p>原始热榜：{topic?.title}</p>
           <div className="task-list">
-            <p><CheckCircle2 size={14} /> 让创作者、圈主、亲历者和反方围绕同一个问题给出立场、经验和反例。</p>
+            <p><CheckCircle2 size={14} /> 创作者、圈主、亲历者和反方围绕同一个问题站队。</p>
             <p><CheckCircle2 size={14} /> AI 会标注观点来源；无法核验的内容会被标为待验证。</p>
           </div>
         </section>
@@ -760,7 +760,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
 
       <div className="flow-actions single">
         <button className="primary-button" onClick={onNext} disabled={!snapshot.turns.length}>
-          {snapshot.turns.length ? "让刘看山校验讨论方案" : "正在生成主持校验..."} <ArrowRight size={16} />
+          {snapshot.turns.length ? "刘看山质检" : "生成质检中..."} <ArrowRight size={16} />
         </button>
       </div>
     </section>
@@ -1161,7 +1161,7 @@ function VariantSelection({
       <PageHeading
         icon={<Sparkles size={20} />}
         title="生成了 3 个可测试版本"
-        subtitle="每个版本只保留标题、一句话、亮点和风险，避免评委和参与讨论的人迷路。"
+        subtitle="每个版本只保留标题、一句话、优势和风险，方便直接发起圈子测试。"
       />
       <div className="variant-grid">
         {experiment.variants.map((variant) => (
@@ -1195,7 +1195,7 @@ function VariantCard({ variant, selected, onToggle }: { variant: IdeaVariant; se
       <h2>{variant.title}</h2>
       <p>{variant.oneLiner}</p>
       <div>
-        <strong>亮点</strong>
+        <strong>优势</strong>
         <span>{variant.highlight}</span>
       </div>
       <div className="risk">
@@ -1358,7 +1358,7 @@ function AdvancedDetails({
 
   return (
     <details className="advanced-details">
-      <summary>评委验证</summary>
+      <summary>技术证据</summary>
       <div className="advanced-grid">
         <section>
           <h2>调用接口</h2>

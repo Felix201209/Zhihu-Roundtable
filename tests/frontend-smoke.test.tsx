@@ -405,8 +405,8 @@ describe("frontend smoke", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "知辩圆桌" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "把一个热榜，变成一场可持续讨论" })).toBeInTheDocument();
-    expect(screen.getByText("刘看山三问质检")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "从热榜到下一轮话题" })).toBeInTheDocument();
+    expect(screen.getByText("过三问")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /从热榜生成讨论方案/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /测试一个脑洞/ })).toBeInTheDocument();
 
@@ -436,7 +436,7 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByText("推荐方向")).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "C 想法试验场" })).toBeInTheDocument();
     expect(screen.getByText("AI 不替用户判断什么是好想法，知乎真实用户来判断。")).toBeInTheDocument();
-    expect(screen.getByText("评委验证")).toBeInTheDocument();
+    expect(screen.getByText("技术证据")).toBeInTheDocument();
     expect(requests.some((request) => request.url.includes("/api/experiment/confirm-publish"))).toBe(true);
   });
 
@@ -499,7 +499,7 @@ describe("frontend smoke", () => {
     expect(screen.getAllByText("知乎站内").length).toBeGreaterThan(0);
     expect(screen.getByText(/AI 会标注观点来源/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /让刘看山校验讨论方案/ }));
+    fireEvent.click(screen.getByRole("button", { name: /刘看山质检/ }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "刘看山主持校验" })).toBeInTheDocument());
     expect(screen.getByText("站内观点席")).toBeInTheDocument();
     expect(screen.getByText("反方校验席")).toBeInTheDocument();
@@ -634,7 +634,7 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
     expect(screen.queryByRole("heading", { name: "发布策划与圈子帖预览" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /让刘看山校验讨论方案/ }));
+    fireEvent.click(screen.getByRole("button", { name: /刘看山质检/ }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "刘看山主持校验" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /生成发布策划/ }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "发布策划与圈子帖预览" })).toBeInTheDocument());
