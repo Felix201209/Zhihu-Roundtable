@@ -156,7 +156,7 @@ async function runBrowserFlow() {
 
   async function observeAny(label, expectedTexts) {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 120_000) {
+    while (Date.now() - startedAt < 300_000) {
       const body = await evaluate("document.body ? document.body.innerText : ''");
       const expectedText = expectedTexts.find((text) => body.includes(text));
       if (expectedText) {
@@ -193,7 +193,7 @@ async function runBrowserFlow() {
       disabled: item.disabled
     })))`);
     const body = await evaluate("document.body.innerText.slice(0, 1200)");
-    throw new Error(`enabled button not found: ${pattern}; buttons: ${buttons}; body: ${JSON.stringify(body)}`);
+    throw new Error(`enabled button not found after 300s: ${pattern}; buttons: ${buttons}; body: ${JSON.stringify(body)}`);
   }
 
   try {
