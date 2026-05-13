@@ -258,7 +258,7 @@ export class MockLlmProvider implements LlmProvider {
     this.lastPrompt = buildQuestionRewritePrompt(input);
     const evidenceIds = (input.evidence ?? []).slice(0, 3).map((item) => item.id);
     const value = parseQuestionRewrite({
-      rewrittenQuestion: `${input.topic.title}：企业和用户应该如何重新界定真实能力？`,
+      rewrittenQuestion: "AI 工具会改变新人评价吗？",
       rationale: "把热榜标题改成开放问题，保留事实层、价值层和规则层的讨论空间。",
       evidenceIds,
     });

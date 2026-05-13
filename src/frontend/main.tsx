@@ -646,6 +646,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
   const topic = snapshot.selectedTopic;
   const stance = snapshot.stancePreview;
   const evidencePreview = snapshot.evidence.slice(0, 3);
+  const question = discussionQuestion(snapshot);
 
   return (
     <section className="flow-card prepare-workbench">
@@ -658,7 +659,13 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
       <div className="prep-board">
         <section className="question-panel">
           <span>从热榜到讨论题</span>
-          <h2>{snapshot.rewrittenQuestion}</h2>
+          <h2>{question.short}</h2>
+          {question.short !== question.full ? (
+            <details className="question-original">
+              <summary>查看完整原题</summary>
+              <p>{question.full}</p>
+            </details>
+          ) : null}
           <p>原始热榜：{topic?.title}</p>
           <div className="task-list">
             <p><CheckCircle2 size={14} /> 让创作者、圈主、亲历者和反方围绕同一个问题给出立场、经验和反例。</p>
@@ -709,6 +716,7 @@ function EvidenceCard({ evidence }: { evidence: Evidence }) {
 function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnapshot; onBack: () => void; onNext: () => void }) {
   const activeSpeaker = snapshot.turns.at(-1)?.speaker ?? "liu";
   const latestTurn = snapshot.turns.at(-1);
+  const question = discussionQuestion(snapshot);
 
   return (
     <section className="flow-card debate-workbench">
@@ -721,7 +729,13 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
       <section className="debate-summary-panel">
         <div className="debate-question">
           <span>当前讨论题</span>
-          <h2>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</h2>
+          <h2>{question.short}</h2>
+          {question.short !== question.full ? (
+            <details className="question-original">
+              <summary>查看完整原题</summary>
+              <p>{question.full}</p>
+            </details>
+          ) : null}
         </div>
         <div className="debate-checks" aria-label="主持校验结果">
           <DebateCheck title="有人会站队" value={(snapshot.viewpointMap?.support ?? []).length > 0 ? "通过" : "待补"} />
@@ -788,6 +802,57 @@ function DebateCheck({ title, value }: { title: string; value: string }) {
       <strong>{value}</strong>
     </div>
   );
+}
+
+function discussionQuestion(snapshot: RoundtableSnapshot): { short: string; full: string } {
+  const full = (snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title ?? "这个话题值得继续讨论吗？").trim();
+  return { full, short: compactQuestion(full) };
+}
+
+function compactQuestion(question: string): string {
+  const normalized = question.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 52) {
+    return normalized;
+  }
+
+  if (/把它当作日常伙伴/.test(normalized) || /日常伙伴吗/.test(normalized)) {
+    return "你愿意把懂你的 AI 当日常伙伴吗？";
+  }
+
+  const idealFriendMatch = normalized.match(/理想型电子好友[^，。！？?]*应该[^，。！？?]*[？?]/);
+  if (idealFriendMatch?.[0]) {
+    return cleanQuestionCandidate(idealFriendMatch[0]);
+  }
+
+  const willingPartnerMatch = normalized.match(/(?:你会|是否|愿意)[^。！？?]*(?:日常伙伴|电子好友|AI 伙伴|AI伙伴)[^。！？?]*[？?]/);
+  if (willingPartnerMatch?.[0]) {
+    return cleanQuestionCandidate(willingPartnerMatch[0]);
+  }
+
+  const questionSentences = normalized.match(/[^。！？?]*[？?]/g) ?? [];
+  const usefulQuestion = questionSentences
+    .map(cleanQuestionCandidate)
+    .find((item) => item.length >= 12 && item.length <= 52);
+  if (usefulQuestion) {
+    return usefulQuestion;
+  }
+
+  const firstQuestion = questionSentences.at(-1);
+  if (firstQuestion) {
+    return `${cleanQuestionCandidate(firstQuestion).slice(0, 48)}？`;
+  }
+
+  return `${normalized.slice(0, 48)}…`;
+}
+
+function cleanQuestionCandidate(value: string): string {
+  return value
+    .replace(/^如果/, "")
+    .replace(/^当/, "")
+    .replace(/^你会觉得/, "")
+    .replace(/欢迎.*$/, "")
+    .replace(/[。！？?]+$/, "？")
+    .trim();
 }
 
 function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }) {

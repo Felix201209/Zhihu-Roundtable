@@ -43,7 +43,9 @@ if (process.env.ALLOW_LIVE_BACKEND_DEMO !== "1") {
 }
 
 export async function runBackendDemo(): Promise<void> {
-  const service = new RoundtableWorkflowService();
+  const service = new RoundtableWorkflowService({
+    modelPolicy: process.env.ALLOW_LIVE_BACKEND_DEMO === "1" ? undefined : { mode: "mock" },
+  });
   const result = await service.runFullWorkflow({ publish: true });
   const topic = result.snapshot.selectedTopic;
 

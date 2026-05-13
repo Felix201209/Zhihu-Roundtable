@@ -520,6 +520,44 @@ describe("frontend smoke", () => {
     expect(requests.some((request) => request.url.includes("/api/workflow/confirm-publish"))).toBe(true);
   });
 
+  it("compresses long discussion questions but keeps the full source available", async () => {
+    const longQuestion = "知乎黑客松2026推出了一系列AI工具，包括能当「电子好友」的看山、分析社交圈层的ZhihuCircle、蒸馏关注人知识的「知识蒸馏馆」等。如果AI能记住你的喜好、理解你的社交关系并和你自然对话，你会愿意把它当作日常伙伴吗？是期待它帮你发现新知、记录生活，还是担忧隐私越界、情感替代？欢迎用你的真实经历或想象来站队，并说说你心中的「理想型电子好友」应该长什么样。";
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/topics")) {
+        return Response.json({ topics: workflow.topics });
+      }
+      if (url.includes("/api/workflow/run")) {
+        return Response.json({
+          snapshot: {
+            ...workflow.snapshot,
+            rewrittenQuestion: longQuestion,
+          },
+          publishConfirmation: { token: "token", expiresAt: "2026-05-08T00:05:00.000Z" },
+        });
+      }
+      if (url.includes("/api/zhihu/status")) {
+        return Response.json({ mode: "mock", failures: [], quotas: [] });
+      }
+      if (url.includes("/api/readiness")) {
+        return Response.json({
+          report: { totalScore: 90, awardTargets: [], items: [], strongestProof: [], missingProof: [], demoChecklist: [] },
+        });
+      }
+      return Response.json({});
+    });
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
+
+    expect(screen.getByRole("heading", { name: "你愿意把懂你的 AI 当日常伙伴吗？" })).toBeInTheDocument();
+    expect(screen.getByText("查看完整原题")).toBeInTheDocument();
+  });
+
   it("uses workflow SSE in browsers that support EventSource", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);

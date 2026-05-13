@@ -92,7 +92,9 @@ export const buildQuestionRewritePrompt = (input: {
       content: [
         "请把候选知乎热点改写成一个适合圈子讨论的开放问题。",
         "输出 JSON 字段：rewrittenQuestion(string), rationale(string), evidenceIds(string[])。",
+        "rewrittenQuestion 必须压缩成一句短问题，建议 18-36 个中文字符，最多 48 个中文字符。",
         "rewrittenQuestion 要开放、可站队、可邀请真实经验，不能只是新闻标题或摘要。",
+        "不要把背景材料、项目名单、解释性长句塞进 rewrittenQuestion；背景放进 rationale。",
         "evidenceIds 只能来自输入 evidence；没有证据就输出空数组。",
         "",
         "topic:",
