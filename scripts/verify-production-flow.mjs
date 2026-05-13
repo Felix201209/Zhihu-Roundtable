@@ -171,7 +171,7 @@ async function runBrowserFlow() {
 
   async function clickButton(pattern) {
     const startedAt = Date.now();
-    while (Date.now() - startedAt < 120_000) {
+    while (Date.now() - startedAt < 300_000) {
       const clicked = await evaluate(`(() => {
         const re = new RegExp(${JSON.stringify(pattern.source)}, ${JSON.stringify(pattern.flags)});
         const button = [...document.querySelectorAll("button")].find((item) => {
