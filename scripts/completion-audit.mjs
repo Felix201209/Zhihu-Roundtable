@@ -13,7 +13,7 @@ check("产品定位清晰", "README/JUDGE/首页文案明确是知乎创作者�
   ]);
   assertIncludes("JUDGE_GUIDE.md", ["不是“AI 写知乎回答”", "AI 讨论组织台"]);
   assertIncludes("src/frontend/main.tsx", [
-    "创作者 / 圈主 / 官方号的讨论组织台",
+    "刘看山主持的知乎讨论组织台",
     "从热榜生成讨论方案",
   ]);
 });

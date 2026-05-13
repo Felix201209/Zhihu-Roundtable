@@ -202,7 +202,7 @@ async function runBrowserFlow() {
     await send("Page.enable");
     await send("Page.navigate", { url: `${origin}/` });
 
-    await observe("home", "创作者和圈主的 AI 讨论组织台");
+    await observe("home", "刘看山主持的知乎讨论组织台");
     await clickButton(/从热榜生成讨论方案/);
     await observe("radar", "选题雷达");
     await clickButton(/生成讨论方案/);

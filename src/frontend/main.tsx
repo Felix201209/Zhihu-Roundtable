@@ -44,7 +44,7 @@ import type {
   Topic,
   VariantFeedback,
 } from "../core/types.js";
-import liukanshanScarf from "./assets/liukanshan-scarf.png";
+import liukanshanFront from "./assets/liukanshan-front.png";
 import "./styles.css";
 
 type AppMode = "home" | "roundtable" | "idea";
@@ -441,7 +441,7 @@ export function App() {
     <main className="experiment-shell" aria-busy={Boolean(busy)}>
       <header className="experiment-topbar">
         <button className="brand-lockup brand-button" onClick={() => setMode("home")} aria-label="回到知辩圆桌首页">
-          <span>创作者和圈主的 AI 讨论组织台</span>
+          <span>刘看山主持的知乎讨论组织台</span>
           <strong>知辩圆桌</strong>
         </button>
         <div className="topbar-status">
@@ -592,7 +592,7 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
 function LiuKanshanPortrait({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`liukanshan-portrait ${compact ? "compact" : ""}`} aria-label="刘看山主持形象">
-      <img src={liukanshanScarf} alt="刘看山 IP 形象" />
+      <img src={liukanshanFront} alt="刘看山 IP 形象" />
     </div>
   );
 }

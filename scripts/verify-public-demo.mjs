@@ -17,7 +17,7 @@ const bundleText = await fetchPublicBundles(origin, home);
 for (const snippet of [
   "知辩圆桌",
   "从热榜生成讨论方案",
-  "创作者 / 圈主 / 官方号的讨论组织台",
+  "刘看山主持的知乎讨论组织台",
   "读接口失败可演示模式兜底",
 ]) {
   assert(bundleText.includes(snippet), `public demo bundle is missing product copy: ${snippet}`);

@@ -202,28 +202,27 @@ button {
 }
 
 .liukanshan-portrait {
-  width: 118px;
-  height: 118px;
+  width: 132px;
+  height: 148px;
   display: grid;
   place-items: center;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid rgba(15, 124, 255, 0.16);
-  border-radius: 18px;
+  border-radius: 20px;
   background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
   box-shadow: 0 10px 26px rgba(15, 124, 255, 0.1);
 }
 
 .liukanshan-portrait img {
-  width: 400%;
+  width: auto;
   max-width: none;
-  height: 100%;
-  object-fit: cover;
-  object-position: left center;
+  height: calc(100% - 14px);
+  object-fit: contain;
 }
 
 .liukanshan-portrait.compact {
-  width: 58px;
-  height: 58px;
+  width: 56px;
+  height: 64px;
   border-radius: 14px;
   box-shadow: none;
   flex: 0 0 auto;
