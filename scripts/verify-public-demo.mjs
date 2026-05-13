@@ -118,17 +118,36 @@ async function fetchPublicBundles(origin, homeHtml) {
 }
 
 async function fetchText(url) {
-  const response = await fetch(url, { redirect: "manual" });
+  const response = await fetchWithRetry(url, { redirect: "manual" });
   assert(response.ok, `${url} returned ${response.status}`);
   return response.text();
 }
 
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, { redirect: "manual", ...options });
+  const response = await fetchWithRetry(url, { redirect: "manual", ...options });
   assert(response.ok, `${url} returned ${response.status}`);
   const contentType = response.headers.get("content-type") ?? "";
   assert(contentType.includes("application/json"), `${url} did not return JSON`);
   return response.json();
+}
+
+async function fetchWithRetry(url, options = {}, attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts) {
+        await delay(500 * attempt);
+      }
+    }
+  }
+  throw lastError;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeOrigin(value) {
