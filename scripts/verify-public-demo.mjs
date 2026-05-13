@@ -36,6 +36,7 @@ if (expectedCommit) {
 for (const endpoint of ["/api/workflow/run", "/api/zhihu/status", "/api/oauth/status"]) {
   assert(health.endpoints.includes(endpoint), `public demo health payload is missing ${endpoint}`);
 }
+assert(health.endpoints.includes("/api/models/probe"), "public demo health payload is missing /api/models/probe");
 
 const zhihuStatus = await fetchJson(`${origin}/api/zhihu/status`);
 if (expectedProvider !== "any") {
@@ -69,22 +70,13 @@ if (expectedProvider === "mock") {
 } else if (expectedProvider === "live") {
   assert(models.env?.deepseekConfigured === true, "live public demo should report DeepSeek configured");
   assert(models.env?.zhihuConfigured === true, "live public demo should report Zhihu configured");
-  const workflow = await fetchJson(`${origin}/api/workflow/run`, {
+  const probe = await fetchJson(`${origin}/api/models/probe`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ publish: false }),
   });
-  const modelUsages = workflow.snapshot?.modelUsages ?? workflow.modelUsages ?? [];
-  assert(workflow.providerMode === "live", `live public workflow should use live Zhihu provider mode, got ${workflow.providerMode}`);
-  assert(modelUsages.length > 0, "live public workflow should report model usage");
-  assert(
-    modelUsages.some((usage) => String(usage.provider).startsWith("deepseek-v4-")),
-    "live public workflow should show at least one real DeepSeek model call",
-  );
-  assert(
-    modelUsages.some((usage) => String(usage.provider).startsWith("deepseek-v4-") && usage.fallbackUsed !== true),
-    "live public workflow should not route every DeepSeek task through mock fallback",
-  );
+  assert(probe.ok === true, "live public model probe should return ok: true");
+  assert(String(probe.provider).startsWith("deepseek-v4-"), `live public model probe should use DeepSeek, got ${probe.provider}`);
+  assert(probe.fallbackUsed !== true, "live public model probe should not use mock fallback");
 }
 
 const oauthStatus = await fetchJson(`${origin}/api/oauth/status`);

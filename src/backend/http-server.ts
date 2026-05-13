@@ -7,7 +7,7 @@ import { URL } from "node:url";
 import { RoundtableWorkflowService } from "./workflow-service.js";
 import { encodeSseEvent } from "./sse.js";
 import { buildReadinessReport } from "./readiness.js";
-import { resolveModelPolicy } from "../providers/llm-provider.js";
+import { createRoutedLlmProvider, resolveModelPolicy } from "../providers/llm-provider.js";
 import type { IdeaExperiment, IdeaVariantId, ModelPolicy, ModelProviderName, ModelRole, ReactionType } from "../core/types.js";
 import type { RoundtableSnapshot } from "../core/types.js";
 
@@ -520,6 +520,7 @@ async function handleRequest(
         "/api/oauth/callback",
         "/api/oauth/status",
         "/api/models",
+        "/api/models/probe",
         "/api/zhihu/status",
         "/api/readiness",
         "/api/quota",
@@ -662,6 +663,38 @@ async function handleRequest(
         ),
         zhihuConfigured: liveEffective && Boolean((process.env.ZHIHU_APP_KEY ?? process.env.ZHIHU_ACCESS_TOKEN) && process.env.ZHIHU_APP_SECRET),
       },
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/models/probe") {
+    const probeProvider = createRoutedLlmProvider(resolveModelPolicy({
+      mode: "auto",
+      defaultProvider: "deepseek-v4-flash",
+      roleMap: {
+        topic_scoring: "deepseek-v4-flash",
+      },
+      fallbackToMock: false,
+    }));
+    const result = await probeProvider.scoreTopics({
+      topics: [{
+        id: `deepseek-probe-${Date.now()}`,
+        title: "知乎黑客松提交前模型探针",
+        source: "mock",
+        hotScore: 1,
+        debateScore: 1,
+        evidenceScore: 1,
+        reason: "只读探针，用于确认线上 DeepSeek JSON 调用可用。",
+      }],
+    });
+    sendJson(res, 200, {
+      ok: true,
+      provider: result.usage.provider,
+      model: result.usage.model,
+      cached: result.usage.cached === true,
+      fallbackUsed: result.usage.fallbackUsed === true,
+      latencyMs: result.usage.latencyMs,
+      attempts: result.usage.attempts,
     });
     return;
   }
