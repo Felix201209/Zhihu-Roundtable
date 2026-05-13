@@ -219,6 +219,8 @@ async function runBrowserFlow() {
     await observe("publish", "发布策划与圈子帖预览");
     await observeAny("publish-safety", ["Mock-safe 演示模式", "Live 写入保护已开启"]);
     await clickButton(/确认发布到圈子/);
+    await observe("publish-confirm-modal", "发布到知乎圈子");
+    await clickButton(/^确认发布\s*$/);
     await observe("feedback", "评论复盘与下一轮创作");
     await observe("next-content", "下一篇内容方向");
 

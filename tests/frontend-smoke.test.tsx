@@ -427,7 +427,7 @@ describe("frontend smoke", () => {
     expect(screen.getByText(/主帖预览/)).toBeInTheDocument();
     expect(screen.getByText(/C 众测版/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /确认发布/ }));
+    fireEvent.click(screen.getByRole("button", { name: "确认发布" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "实验进行中" })).toBeInTheDocument());
     expect(screen.getByText("演示数据")).toBeInTheDocument();
     expect(screen.getByText("最有潜力")).toBeInTheDocument();
@@ -516,6 +516,9 @@ describe("frontend smoke", () => {
     expect(screen.getByRole("button", { name: /确认发布到圈子/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /确认发布到圈子/ }));
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "发布到知乎圈子" })).toBeInTheDocument());
+    expect(screen.getByText(/没有确认 token/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认发布" }));
     await waitFor(() => expect(screen.getByRole("heading", { name: "评论复盘与下一轮创作" })).toBeInTheDocument());
     expect(screen.getByText("下一轮创作/讨论建议")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /开启下一轮讨论策划/ })).toBeInTheDocument();

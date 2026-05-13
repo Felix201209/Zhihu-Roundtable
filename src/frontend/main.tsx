@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  X,
 } from "lucide-react";
 import {
   ApiError,
@@ -151,6 +152,7 @@ export function App() {
   const [busyStartedAt, setBusyStartedAt] = React.useState<number | null>(null);
   const [busyNow, setBusyNow] = React.useState(() => Date.now());
   const [error, setError] = React.useState<string | null>(null);
+  const [publishConfirmOpen, setPublishConfirmOpen] = React.useState(false);
 
   React.useEffect(() => {
     getZhihuStatus()
@@ -182,6 +184,21 @@ export function App() {
 
   const ideaStage: IdeaExperimentStage = experiment?.stage ?? "Draft";
   const busyElapsedSeconds = busyStartedAt ? Math.max(0, Math.floor((busyNow - busyStartedAt) / 1000)) : 0;
+
+  React.useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPublishConfirmOpen(false);
+        setError(null);
+      }
+      if (event.key === "Enter" && publishConfirmOpen) {
+        void confirmRoundtablePublish();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [publishConfirmOpen, snapshot, publishConfirmation]);
 
   async function loadTopics() {
     const result = await getTopics();
@@ -220,6 +237,7 @@ export function App() {
         setSnapshot(result.snapshot);
         setPublishConfirmation(result.publishConfirmation);
         setRoundtableStage("prepare");
+        setBusy(null);
         scrollToTop();
         return;
       }
@@ -323,6 +341,7 @@ export function App() {
   async function confirmRoundtablePublish() {
     if (!snapshot?.publishDraft) return;
 
+    setPublishConfirmOpen(false);
     setBusy("正在用户确认后发布，并回收圈子评论做复盘...");
     setError(null);
     try {
@@ -463,11 +482,18 @@ export function App() {
         </div>
       </header>
 
-      {error ? <div className="error-strip" role="alert">{error}</div> : null}
+      {error ? (
+        <div className="error-strip" role="alert">
+          <span>{error}</span>
+          <button className="strip-close" onClick={() => setError(null)} aria-label="关闭错误提示">
+            <X size={15} />
+          </button>
+        </div>
+      ) : null}
       {busy ? <BusyStrip label={busy} elapsedSeconds={busyElapsedSeconds} status={zhihuStatus} /> : null}
 
       {mode === "home" ? (
-        <HomeEntry onRoundtable={() => void openRoundtable()} onIdeaLab={openIdeaLab} />
+        <HomeEntry topics={topics} onRoundtable={() => void openRoundtable()} onSelectTopic={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "radar" ? (
@@ -487,7 +513,7 @@ export function App() {
           snapshot={snapshot}
           zhihuStatus={zhihuStatus}
           onBack={() => setRoundtableStage("debate")}
-          onConfirm={() => void confirmRoundtablePublish()}
+          onConfirm={() => setPublishConfirmOpen(true)}
         />
       ) : null}
 
@@ -548,46 +574,115 @@ export function App() {
           activeStage={mode === "idea" ? ideaStageLabels[ideaStage] : roundtableStageLabels[roundtableStage]}
         />
       ) : null}
+
+      {publishConfirmOpen && snapshot?.publishDraft ? (
+        <PublishConfirmModal
+          snapshot={snapshot}
+          zhihuStatus={zhihuStatus}
+          onCancel={() => setPublishConfirmOpen(false)}
+          onConfirm={() => void confirmRoundtablePublish()}
+        />
+      ) : null}
     </main>
   );
 }
 
-function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onIdeaLab: () => void }) {
+function HomeEntry({
+  topics,
+  onRoundtable,
+  onSelectTopic,
+  onIdeaLab,
+}: {
+  topics: Topic[];
+  onRoundtable: () => void;
+  onSelectTopic: (topicId: string) => void;
+  onIdeaLab: () => void;
+}) {
+  const hotTopics = topics.slice(0, 4);
+
   return (
-    <section className="hero-entry zhihu-hero">
-      <div className="hero-stage">
-        <LiuKanshanPortrait />
-        <div className="hero-copy">
-          <span className="eyebrow">刘看山主持的知乎讨论组织台</span>
+    <section className="hero-entry zhihu-hero workbench-entry">
+      <div className="mission-strip" aria-label="产品定位">
+        <div>
+          <span className="eyebrow">刘看山主持</span>
           <h1>知辩圆桌</h1>
-          <p>AI 不替你写观点。刘看山把知乎热榜变成有证据、有反方、有站队、有评论回流的持续讨论。</p>
+          <p>从知乎热榜到可发布讨论，再把评论区变成下一轮选题。</p>
+        </div>
+        <div className="hero-actions">
+          <button className="primary-button hero-main-action" onClick={onRoundtable}>
+            从热榜生成讨论方案 <ArrowRight size={18} />
+          </button>
+          <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
+            测试一个脑洞 <Lightbulb size={16} />
+          </button>
         </div>
       </div>
-      <div className="hero-actions">
-        <button className="primary-button hero-main-action" onClick={onRoundtable}>
-          从热榜生成讨论方案 <ArrowRight size={18} />
-        </button>
-        <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
-          测试一个脑洞 <Lightbulb size={16} />
-        </button>
+
+      <div className="home-cockpit" aria-label="知辩圆桌工作台">
+        <aside className="cockpit-panel hot-panel">
+          <PanelTitle kicker="LeftRail" title="知乎热榜" />
+          <div className="compact-topic-list">
+            {hotTopics.length > 0 ? hotTopics.map((topic, index) => (
+              <TopicCard key={topic.id} rank={index + 1} topic={topic} onSelect={() => onSelectTopic(topic.id)} compact />
+            )) : <SkeletonStack count={4} />}
+          </div>
+        </aside>
+
+        <section className="cockpit-panel host-panel" aria-label="刘看山主持舞台">
+          <div className="host-stage-main">
+            <LiuKanshanPortrait speaking />
+            <div className="host-bubble">
+              <span>刘看山正在看题</span>
+              <h2>先别急着表态，我先把证据、反方和追问摆上桌。</h2>
+              <p>好讨论不是一句结论，是一条能继续滚动的线索。</p>
+            </div>
+          </div>
+          <div className="signature-track home-track" aria-label="热榜到讨论闭环">
+            <article>
+              <b>01</b>
+              <strong>筛话题</strong>
+              <span>争议、证据、讨论空间一起看</span>
+            </article>
+            <article>
+              <b>02</b>
+              <strong>主持校验</strong>
+              <span>能站队？反方成立？证据够吗？</span>
+            </article>
+            <article>
+              <b>03</b>
+              <strong>发圈子</strong>
+              <span>只生成草稿，真实写入要确认</span>
+            </article>
+            <article>
+              <b>04</b>
+              <strong>收评论</strong>
+              <span>高质量评论进入下一轮选题</span>
+            </article>
+          </div>
+        </section>
+
+        <aside className="cockpit-panel proof-panel">
+          <PanelTitle kicker="RightInspector" title="技术证据" />
+          <div className="proof-stack" aria-label="上线证据">
+            <article>
+              <CheckCircle2 size={16} />
+              <strong>真实知乎读链路</strong>
+              <span>热榜、站内搜索、圈子与评论 API</span>
+            </article>
+            <article>
+              <Sparkles size={16} />
+              <strong>DeepSeek V4</strong>
+              <span>Flash 分类，Pro 改写与发布稿</span>
+            </article>
+            <article>
+              <ShieldCheck size={16} />
+              <strong>缓存与写保护</strong>
+              <span>读接口缓存；发布二次确认</span>
+            </article>
+          </div>
+        </aside>
       </div>
-      <div className="proof-strip" aria-label="上线证据">
-        <article>
-          <CheckCircle2 size={16} />
-          <strong>真实知乎读链路</strong>
-          <span>热榜、站内搜索、圈子与评论 API 已接入</span>
-        </article>
-        <article>
-          <Sparkles size={16} />
-          <strong>DeepSeek V4 路由</strong>
-          <span>Flash/Pro 分工处理评分、证据、改写和发布稿</span>
-        </article>
-        <article>
-          <ShieldCheck size={16} />
-          <strong>缓存与写保护</strong>
-          <span>读接口和模型 JSON 缓存；真实发布必须用户确认</span>
-        </article>
-      </div>
+
       <section className="signature-loop" aria-label="核心闭环">
         <div className="signature-copy">
           <span>核心闭环</span>
@@ -648,10 +743,29 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
   );
 }
 
-function LiuKanshanPortrait({ compact = false }: { compact?: boolean }) {
+function LiuKanshanPortrait({ compact = false, speaking = false }: { compact?: boolean; speaking?: boolean }) {
   return (
-    <div className={`liukanshan-portrait ${compact ? "compact" : ""}`} aria-label="刘看山主持形象">
+    <div className={`liukanshan-portrait ${compact ? "compact" : ""} ${speaking ? "speaking" : ""}`} aria-label="刘看山主持形象">
       <img src={liukanshanFront} alt="刘看山 IP 形象" />
+    </div>
+  );
+}
+
+function PanelTitle({ kicker, title }: { kicker: string; title: string }) {
+  return (
+    <div className="panel-title">
+      <span>{kicker}</span>
+      <h2>{title}</h2>
+    </div>
+  );
+}
+
+function SkeletonStack({ count }: { count: number }) {
+  return (
+    <div className="skeleton-stack" aria-label="正在加载内容">
+      {Array.from({ length: count }, (_, index) => (
+        <span key={index} />
+      ))}
     </div>
   );
 }
@@ -678,12 +792,12 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
   );
 }
 
-function TopicCard({ rank, topic, onSelect }: { rank: number; topic: Topic; onSelect: () => void }) {
+function TopicCard({ rank, topic, onSelect, compact = false }: { rank: number; topic: Topic; onSelect: () => void; compact?: boolean }) {
   const controversy = topic.controversyLevel === "high" || topic.debateScore >= 85 ? "高" : topic.debateScore >= 70 ? "中" : "低";
   const evidence = topic.evidenceScore >= 82 ? "高" : topic.evidenceScore >= 68 ? "中" : "低";
 
   return (
-    <article className="topic-row">
+    <article className={`topic-row ${compact ? "compact" : ""} ${rank === 1 ? "selected" : ""}`}>
       <div className={`topic-rank ${rank <= 3 ? "hot" : ""}`}>{rank}</div>
       <div className="topic-row-body">
         <h2>{topic.title}</h2>
@@ -693,11 +807,26 @@ function TopicCard({ rank, topic, onSelect }: { rank: number; topic: Topic; onSe
           <span>争议 {controversy}</span>
           <span>资料 {evidence}</span>
         </div>
+        <div className="topic-score-bars" aria-label={`热度 ${topic.hotScore}，争议 ${topic.debateScore}，证据 ${topic.evidenceScore}`}>
+          <ScoreBar label="热度" value={topic.hotScore} />
+          <ScoreBar label="争议" value={topic.debateScore} />
+          <ScoreBar label="证据" value={topic.evidenceScore} />
+        </div>
       </div>
       <button className="primary-button" onClick={onSelect}>
         生成讨论方案 <ArrowRight size={14} />
       </button>
     </article>
+  );
+}
+
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const safeValue = Math.max(0, Math.min(100, value));
+  return (
+    <span className="score-bar" aria-label={`${label} ${safeValue}`}>
+      <b>{label}</b>
+      <i><em style={{ width: `${safeValue}%` }} /></i>
+    </span>
   );
 }
 
@@ -767,7 +896,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
           <small>{snapshot.evidence.length} 条，优先展示质量最高的 3 条</small>
         </div>
         {evidencePreview.map((item) => (
-          <EvidenceCard key={item.id} evidence={item} />
+          <EvidenceCard key={item.id} evidence={item} turns={snapshot.turns} />
         ))}
       </section>
 
@@ -780,7 +909,8 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
   );
 }
 
-function EvidenceCard({ evidence }: { evidence: Evidence }) {
+function EvidenceCard({ evidence, turns = [] }: { evidence: Evidence; turns?: DebateTurn[] }) {
+  const citationCount = turns.filter((turn) => turn.evidenceIds.includes(evidence.id)).length;
   return (
     <article className="evidence-row">
       <div>
@@ -788,7 +918,11 @@ function EvidenceCard({ evidence }: { evidence: Evidence }) {
         <strong>{evidence.title}</strong>
       </div>
       <p>{evidence.summary}</p>
-      <small>质量 {evidence.qualityScore} · {stanceLabel(evidence.stance)}</small>
+      <div className="evidence-quality" aria-label={`质量分 ${evidence.qualityScore}，引用 ${citationCount} 次`}>
+        <small>质量 {evidence.qualityScore} · 引用 {citationCount} 次</small>
+        <i><em style={{ width: `${Math.max(0, Math.min(100, evidence.qualityScore))}%` }} /></i>
+        <span>{stanceLabel(evidence.stance)}</span>
+      </div>
     </article>
   );
 }
@@ -845,20 +979,21 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
         </section>
 
         <section className="debate-stance-card">
-          <MiniList title="支持观点" items={(snapshot.viewpointMap?.support ?? []).slice(0, 2)} />
-          <MiniList title="反方/风险" items={(snapshot.viewpointMap?.oppose ?? []).slice(0, 2)} />
-          <MiniList title="背景限制" items={(snapshot.viewpointMap?.disputes ?? snapshot.viewpointMap?.facts ?? []).slice(0, 2)} />
+          <ViewpointMapPanel snapshot={snapshot} compact />
         </section>
       </div>
 
-      <details className="turn-transcript" open>
-        <summary>4 个席位的校验记录</summary>
+      <section className="turn-transcript live-transcript" aria-label="4 个席位的校验记录">
+        <div className="transcript-header">
+          <span>4 个席位的校验记录</span>
+          <small>最近 {Math.min(snapshot.turns.length, 7)} 条</small>
+        </div>
         <div className="chat-feed">
-          {snapshot.turns.map((turn) => (
+          {snapshot.turns.slice(-7).map((turn) => (
             <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
           ))}
         </div>
-      </details>
+      </section>
 
       <div className="safety-note">
         所有发言都服务于"讨论是否能被组织起来"：缺少证据的判断会被标记为待验证，容易引战的表达会被改成开放追问。
@@ -872,6 +1007,31 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
         </button>
       </div>
     </section>
+  );
+}
+
+function ViewpointMapPanel({ snapshot, compact = false }: { snapshot: RoundtableSnapshot; compact?: boolean }) {
+  const map = snapshot.viewpointMap;
+  const groups = [
+    { key: "support", title: "支持", items: map?.support ?? [], source: "来自站内观点席" },
+    { key: "oppose", title: "反方", items: map?.oppose ?? [], source: "来自反方校验席" },
+    { key: "facts", title: "事实", items: map?.facts ?? map?.neutral ?? [], source: "来自证据池" },
+    { key: "disputes", title: "争议", items: map?.disputes ?? [], source: "来自主持校验" },
+    { key: "followups", title: "追问", items: map?.followups ?? [], source: "来自刘看山" },
+  ].filter((group) => group.items.length > 0);
+
+  return (
+    <div className={`viewpoint-map ${compact ? "compact" : ""}`} aria-label="观点地图">
+      {groups.map((group) => (
+        <article key={group.key} className={`viewpoint-group ${group.key}`}>
+          <strong>{group.title}</strong>
+          {group.items.slice(0, compact ? 2 : 4).map((item, index) => (
+            <p key={index}>{item}</p>
+          ))}
+          <small>{group.source}</small>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -948,6 +1108,7 @@ function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }
       <p>{turn.content}</p>
       <SourceLine evidence={usedEvidence} fallback={turn.evidenceIds.length === 0 ? "来源：AI 逻辑校验，待真人补充" : undefined} />
       {turn.nextQuestion ? <small>追问：{turn.nextQuestion}</small> : null}
+      <time dateTime="2026-05-14T20:00:00+08:00">刚刚生成</time>
     </article>
   );
 }
@@ -1055,6 +1216,52 @@ function RoundtablePublishView({
         </button>
       </div>
     </section>
+  );
+}
+
+function PublishConfirmModal({
+  snapshot,
+  zhihuStatus,
+  onCancel,
+  onConfirm,
+}: {
+  snapshot: RoundtableSnapshot;
+  zhihuStatus: ZhihuStatusResponse | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const draft = snapshot.publishDraft;
+  const liveMode = zhihuStatus?.mode === "live";
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onCancel}>
+      <section className="publish-modal" role="dialog" aria-modal="true" aria-labelledby="publish-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="modal-close" onClick={onCancel} aria-label="关闭发布确认">
+          <X size={17} />
+        </button>
+        <span className={liveMode ? "mode-chip live" : "mode-chip mock"}>{liveMode ? "Live 写保护" : "缓存案例"}</span>
+        <h2 id="publish-modal-title">发布到知乎圈子</h2>
+        <p>标题、AI 标注和评论回流任务会一起提交。没有确认 token，后端不会写入。</p>
+        <div className="modal-summary">
+          <article>
+            <strong>圈子</strong>
+            <span>{liveMode ? "配置中的知乎圈子" : "AI 与职场讨论圈"}</span>
+          </article>
+          <article>
+            <strong>标题</strong>
+            <span>{draft?.title}</span>
+          </article>
+          <article>
+            <strong>发布后</strong>
+            <span>拉取评论，生成情绪、反方和下一轮建议</span>
+          </article>
+        </div>
+        <div className="flow-actions">
+          <button className="ghost-button" onClick={onCancel}>再检查一下</button>
+          <button className="primary-button" onClick={onConfirm}>确认发布 <Send size={16} /></button>
+        </div>
+      </section>
+    </div>
   );
 }
 
