@@ -696,41 +696,59 @@ function EvidenceCard({ evidence }: { evidence: Evidence }) {
 
 function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnapshot; onBack: () => void; onNext: () => void }) {
   const activeSpeaker = snapshot.turns.at(-1)?.speaker ?? "liu";
+  const latestTurn = snapshot.turns.at(-1);
 
   return (
-    <section className="flow-card">
+    <section className="flow-card debate-workbench">
       <PageHeading
         icon={<Users size={20} />}
         title="刘看山主持校验"
-        subtitle="刘看山不是陪聊 Bot，而是讨论主持人：检查标题是否可讨论、证据是否够用、反方是否成立、普通用户是否愿意回复。站内观点席不模拟具体知乎用户。"
+        subtitle="这一步只回答一个问题：这个讨论能不能发出去，并且让真实用户愿意接话。"
       />
-      <div className="role-bar">
-        {(Object.keys(speakerMeta) as DebateTurn["speaker"][]).map((speaker) => (
-          <span key={speaker} className={`role-pill ${activeSpeaker === speaker ? "active" : ""}`}>
-            <i className="dot" />
-            {speakerMeta[speaker].name}
-          </span>
-        ))}
-      </div>
-      <div className="context-grid">
-        <div className="context-card context-card-full">
-          <strong>当前议题</strong>
-          <p>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</p>
+
+      <section className="debate-summary-panel">
+        <div className="debate-question">
+          <span>当前讨论题</span>
+          <h2>{snapshot.rewrittenQuestion ?? snapshot.selectedTopic?.title}</h2>
         </div>
-        <div className="context-card">
-          <strong>支持观点</strong>
-          <p>{(snapshot.viewpointMap?.support ?? []).slice(0, 2).join("；") || "等待更多证据回流"}</p>
+        <div className="debate-checks" aria-label="主持校验结果">
+          <DebateCheck title="有人会站队" value={(snapshot.viewpointMap?.support ?? []).length > 0 ? "通过" : "待补"} />
+          <DebateCheck title="反方说得通" value={(snapshot.viewpointMap?.oppose ?? []).length > 0 ? "通过" : "待补"} />
+          <DebateCheck title="证据够支撑" value={snapshot.evidence.length >= 3 ? "通过" : "偏少"} />
         </div>
-        <div className="context-card">
-          <strong>反对观点</strong>
-          <p>{(snapshot.viewpointMap?.oppose ?? []).slice(0, 2).join("；") || "等待更多证据回流"}</p>
+      </section>
+
+      <div className="debate-layout">
+        <section className="debate-decision">
+          <span>刘看山结论</span>
+          <h3>{latestTurn?.nextQuestion ?? "可以进入发布策划，但需要保留待验证标注。"}</h3>
+          <p>{latestTurn?.content ?? "主持校验会把标题、证据、反方空间和普通用户回复意愿压成发布前判断。"}</p>
+          <div className="role-bar compact">
+            {(Object.keys(speakerMeta) as DebateTurn["speaker"][]).map((speaker) => (
+              <span key={speaker} className={`role-pill ${activeSpeaker === speaker ? "active" : ""}`}>
+                <i className="dot" />
+                {speakerMeta[speaker].name}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="debate-stance-card">
+          <MiniList title="支持观点" items={(snapshot.viewpointMap?.support ?? []).slice(0, 2)} />
+          <MiniList title="反方/风险" items={(snapshot.viewpointMap?.oppose ?? []).slice(0, 2)} />
+          <MiniList title="背景限制" items={(snapshot.viewpointMap?.disputes ?? snapshot.viewpointMap?.facts ?? []).slice(0, 2)} />
+        </section>
+      </div>
+
+      <details className="turn-transcript" open>
+        <summary>4 个席位的校验记录</summary>
+        <div className="chat-feed">
+          {snapshot.turns.map((turn) => (
+            <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
+          ))}
         </div>
-      </div>
-      <div className="chat-feed">
-        {snapshot.turns.map((turn) => (
-          <TurnCard key={turn.id} turn={turn} evidence={snapshot.evidence} />
-        ))}
-      </div>
+      </details>
+
       <div className="safety-note">
         所有发言都服务于"讨论是否能被组织起来"：缺少证据的判断会被标记为待验证，容易引战的表达会被改成开放追问。
       </div>
@@ -743,6 +761,15 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
         </button>
       </div>
     </section>
+  );
+}
+
+function DebateCheck({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="debate-check">
+      <span>{title}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
@@ -1182,7 +1209,7 @@ function AdvancedDetails({
 
   return (
     <details className="advanced-details">
-      <summary>技术细节 / 评委验证</summary>
+      <summary>评委验证</summary>
       <div className="advanced-grid">
         <section>
           <h2>调用接口</h2>
@@ -1239,14 +1266,12 @@ function AdvancedDetails({
 function RoundtableStageStepper({ stage }: { stage: RoundtableUiStage }) {
   const steps: RoundtableUiStage[] = ["radar", "prepare", "debate", "publish", "feedback"];
   const activeIndex = Math.max(0, steps.indexOf(stage));
+  const nextStage = steps[activeIndex + 1];
 
   return (
     <nav className="stage-stepper" aria-label="讨论组织流程">
-      {steps.map((step, index) => (
-        <span key={step} className={index <= activeIndex ? "active" : ""}>
-          {roundtableStageLabels[step]}
-        </span>
-      ))}
+      <span className="active">当前：{roundtableStageLabels[stage]}</span>
+      {nextStage ? <span>下一步：{roundtableStageLabels[nextStage]}</span> : null}
     </nav>
   );
 }
@@ -1254,14 +1279,12 @@ function RoundtableStageStepper({ stage }: { stage: RoundtableUiStage }) {
 function IdeaStageStepper({ stage }: { stage: IdeaExperimentStage }) {
   const steps: IdeaExperimentStage[] = ["Draft", "Generated", "PublishConfirm", "Collecting", "ReportReady"];
   const activeIndex = Math.max(0, steps.indexOf(stage));
+  const nextStage = steps[activeIndex + 1];
 
   return (
     <nav className="stage-stepper" aria-label="试验流程">
-      {steps.map((step, index) => (
-        <span key={step} className={index <= activeIndex ? "active" : ""}>
-          {ideaStageLabels[step]}
-        </span>
-      ))}
+      <span className="active">当前：{ideaStageLabels[stage]}</span>
+      {nextStage ? <span>下一步：{ideaStageLabels[nextStage]}</span> : null}
     </nav>
   );
 }
@@ -1301,26 +1324,12 @@ function BusyStrip({
   const elapsedLabel = elapsedSeconds < 60
     ? `${elapsedSeconds}s`
     : `${Math.floor(elapsedSeconds / 60)}m ${String(elapsedSeconds % 60).padStart(2, "0")}s`;
-  const stages = ["拉取", "重构", "证据", "校验", "生成", "发布", "反馈", "报告"];
-  const matchedStage = stages.findIndex((stage) => label.includes(stage));
-  const progress = matchedStage >= 0 ? Math.min(92, Math.round(((matchedStage + 1) / stages.length) * 100)) : 18;
-
   return (
     <div className="busy-strip" role="status" aria-live="polite" aria-label={`${label}，已等待 ${elapsedLabel}`}>
       <div className="busy-main">
         <Loader2 size={16} className="spin" />
         <strong>{label}</strong>
         <span>{elapsedLabel}</span>
-      </div>
-      <div
-        className="busy-progress-track"
-        role="progressbar"
-        aria-label="当前处理进度"
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={progress}
-      >
-        <div className="busy-progress-fill" style={{ width: `${progress}%` }} />
       </div>
       <div className="busy-meta">
         <span>{status ? (live ? "真实知乎/DeepSeek 链路" : "演示兜底链路") : "接口状态检测中"}</span>

@@ -227,7 +227,7 @@ describe("frontend smoke", () => {
     fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
     await waitFor(() => expect(screen.getByText("正在拉取知乎热榜...")).toBeInTheDocument());
     expect(screen.getByRole("status", { name: /正在拉取知乎热榜/ })).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "当前处理进度" })).toHaveAttribute("aria-valuenow");
+    expect(screen.queryByRole("progressbar", { name: "当前处理进度" })).not.toBeInTheDocument();
     expect(screen.getByText("真实知乎/DeepSeek 链路")).toBeInTheDocument();
     expect(screen.getByText("读接口与模型结果会缓存")).toBeInTheDocument();
     expect(screen.getByText(/\d+s/)).toBeInTheDocument();
@@ -434,7 +434,7 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByText("推荐方向")).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "C 想法试验场" })).toBeInTheDocument();
     expect(screen.getByText("AI 不替用户判断什么是好想法，知乎真实用户来判断。")).toBeInTheDocument();
-    expect(screen.getByText("技术细节 / 评委验证")).toBeInTheDocument();
+    expect(screen.getByText("评委验证")).toBeInTheDocument();
     expect(requests.some((request) => request.url.includes("/api/experiment/confirm-publish"))).toBe(true);
   });
 
