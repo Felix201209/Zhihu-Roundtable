@@ -48,8 +48,15 @@ async function jsonFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function runWorkflow(publish = false, topicId?: string): Promise<WorkflowRunResponse> {
-  const modelPolicy = getFrontendModelPolicy();
+export async function runWorkflow(
+  publish = false,
+  topicId?: string,
+  modelPolicyOverride: Record<string, unknown> = {},
+): Promise<WorkflowRunResponse> {
+  const modelPolicy = {
+    ...getFrontendModelPolicy(),
+    ...modelPolicyOverride,
+  };
   return jsonFetch<WorkflowRunResponse>("/api/workflow/run", {
     method: "POST",
     body: JSON.stringify({

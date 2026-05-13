@@ -739,4 +739,23 @@ describe("frontend smoke", () => {
       },
     });
   });
+
+  it("lets workflow calls override the model policy for demo fallback", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      requestBody = typeof init?.body === "string" ? JSON.parse(init.body) as Record<string, unknown> : undefined;
+      return Response.json(workflow);
+    });
+
+    await runWorkflow(false, "topic-2", { mode: "mock", defaultProvider: "mock", fallbackToMock: true });
+
+    expect(requestBody).toMatchObject({
+      topicId: "topic-2",
+      modelPolicy: {
+        mode: "mock",
+        defaultProvider: "mock",
+        fallbackToMock: true,
+      },
+    });
+  });
 });

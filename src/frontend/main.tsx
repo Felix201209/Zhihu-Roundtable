@@ -215,7 +215,7 @@ export function App() {
     try {
       if (typeof window === "undefined" || !("EventSource" in window)) {
         setBusy("当前环境不支持 SSE，正在使用一次性兜底流程...");
-        const result = await runWorkflow(false, topicId);
+        const result = await runWorkflowWithDemoFallback(topicId);
         setTopics(result.topics);
         setSnapshot(result.snapshot);
         setPublishConfirmation(result.publishConfirmation);
@@ -293,7 +293,7 @@ export function App() {
     setBusy("正在查站内证据、全网背景并生成讨论方案...");
     setError(null);
     try {
-      const result = await runWorkflow(false, topicId);
+      const result = await runWorkflowWithDemoFallback(topicId);
       setTopics(result.topics);
       setSnapshot(result.snapshot);
       setPublishConfirmation(result.publishConfirmation);
@@ -304,6 +304,19 @@ export function App() {
       setError(friendlyError(err, "讨论方案生成失败"));
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function runWorkflowWithDemoFallback(topicId: string) {
+    try {
+      return await runWorkflow(false, topicId);
+    } catch (err) {
+      setBusy("真实生成超时，正在切换演示兜底...");
+      return runWorkflow(false, topicId, {
+        mode: "mock",
+        defaultProvider: "mock",
+        fallbackToMock: true,
+      });
     }
   }
 
