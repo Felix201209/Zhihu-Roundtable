@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
@@ -24,6 +24,17 @@ type OAuthStateRecord = {
   state: string;
   redirectUri: string;
   expiresAt: number;
+};
+
+type OAuthTokenRecord = {
+  accessToken: string;
+  refreshToken?: string;
+  tokenType?: string;
+  scope?: string;
+  expiresAt?: number;
+  userInfo?: JsonRecord;
+  followers?: unknown;
+  createdAt: number;
 };
 
 type ConfirmationRecord = {
@@ -127,6 +138,33 @@ class OAuthStateRegistry {
   }
 }
 
+class OAuthSessionRegistry {
+  private readonly records = new Map<string, OAuthTokenRecord>();
+
+  create(record: OAuthTokenRecord, ttlMs = 24 * 60 * 60_000): { sessionId: string; expiresAt: number } {
+    this.prune();
+    const sessionId = randomUUID();
+    const expiresAt = record.expiresAt ?? Date.now() + ttlMs;
+    this.records.set(sessionId, { ...record, expiresAt });
+    return { sessionId, expiresAt };
+  }
+
+  get(sessionId: string | undefined): OAuthTokenRecord | undefined {
+    this.prune();
+    if (!sessionId) return undefined;
+    return this.records.get(sessionId);
+  }
+
+  private prune(): void {
+    const nowMs = Date.now();
+    for (const [sessionId, record] of this.records.entries()) {
+      if (record.expiresAt && record.expiresAt < nowMs) {
+        this.records.delete(sessionId);
+      }
+    }
+  }
+}
+
 class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -176,15 +214,16 @@ function sendJson(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload, null, 2));
 }
 
-function sendHtml(res: ServerResponse, status: number, html: string): void {
+function sendHtml(res: ServerResponse, status: number, html: string, headers: OutgoingHttpHeaders = {}): void {
   res.writeHead(status, {
     "content-type": "text/html; charset=utf-8",
     "cache-control": "no-store",
+    ...headers,
   });
   res.end(html);
 }
 
-function redirect(res: ServerResponse, location: string, headers: Record<string, string> = {}): void {
+function redirect(res: ServerResponse, location: string, headers: OutgoingHttpHeaders = {}): void {
   res.writeHead(302, {
     location,
     "cache-control": "no-store",
@@ -286,6 +325,18 @@ function oauthConfigured(): boolean {
   return Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID && process.env.ZHIHU_OAUTH_CLIENT_SECRET);
 }
 
+function oauthTokenEndpointConfigured(): boolean {
+  return Boolean(process.env.ZHIHU_OAUTH_TOKEN_URL);
+}
+
+function oauthUserInfoEndpointConfigured(): boolean {
+  return Boolean(process.env.ZHIHU_OAUTH_USER_INFO_URL);
+}
+
+function oauthFollowersEndpointConfigured(): boolean {
+  return Boolean(process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL);
+}
+
 function headerValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -305,6 +356,20 @@ function oauthCookie(state: string, maxAgeSeconds = 600): string {
   ].join("; ");
 }
 
+function oauthSessionCookie(sessionId: string, maxAgeSeconds: number): string {
+  return [
+    `zhihu_oauth_session=${encodeURIComponent(sessionId)}`,
+    "Path=/api/oauth",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${maxAgeSeconds}`,
+  ].join("; ");
+}
+
+function clearOauthStateCookie(): string {
+  return "zhihu_oauth_state=; Path=/api/oauth; HttpOnly; SameSite=Lax; Max-Age=0";
+}
+
 function cookieValue(req: IncomingMessage, key: string): string | undefined {
   const cookie = req.headers.cookie;
   if (!cookie) return undefined;
@@ -315,6 +380,94 @@ function cookieValue(req: IncomingMessage, key: string): string | undefined {
     }
   }
   return undefined;
+}
+
+function tokenFromResponse(value: unknown): OAuthTokenRecord | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const accessToken = typeof record.access_token === "string" ? record.access_token : undefined;
+  if (!accessToken) return undefined;
+
+  const expiresIn = typeof record.expires_in === "number"
+    ? record.expires_in
+    : typeof record.expires_in === "string"
+      ? Number.parseInt(record.expires_in, 10)
+      : undefined;
+
+  return {
+    accessToken,
+    refreshToken: typeof record.refresh_token === "string" ? record.refresh_token : undefined,
+    tokenType: typeof record.token_type === "string" ? record.token_type : undefined,
+    scope: typeof record.scope === "string" ? record.scope : undefined,
+    expiresAt: Number.isFinite(expiresIn) && expiresIn ? Date.now() + expiresIn * 1000 : undefined,
+    createdAt: Date.now(),
+  };
+}
+
+async function exchangeOAuthToken(input: {
+  tokenUrl: string;
+  payload: JsonRecord;
+}): Promise<{ ok: boolean; status: number; body?: unknown; token?: OAuthTokenRecord }> {
+  const bodyMode = process.env.ZHIHU_OAUTH_TOKEN_BODY_MODE ?? "json";
+  const headers: Record<string, string> = {
+    accept: "application/json",
+  };
+  const body = bodyMode === "form"
+    ? new URLSearchParams(Object.entries(input.payload).flatMap(([key, value]) => value === undefined ? [] : [[key, String(value)]]))
+    : JSON.stringify(input.payload);
+
+  if (bodyMode === "form") {
+    headers["content-type"] = "application/x-www-form-urlencoded";
+  } else {
+    headers["content-type"] = "application/json";
+  }
+
+  const response = await fetch(input.tokenUrl, {
+    method: "POST",
+    headers,
+    body,
+  });
+  const text = await response.text();
+  let parsed: unknown;
+  try {
+    parsed = text ? JSON.parse(text) : undefined;
+  } catch {
+    parsed = { raw: text };
+  }
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    body: parsed,
+    token: tokenFromResponse(parsed),
+  };
+}
+
+async function fetchOAuthResource(endpoint: string | undefined, accessToken: string): Promise<unknown | undefined> {
+  if (!endpoint) return undefined;
+  const response = await fetch(endpoint, {
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) return undefined;
+  return response.json() as Promise<unknown>;
+}
+
+function publicOAuthSession(record: OAuthTokenRecord | undefined): JsonRecord {
+  if (!record) {
+    return { authenticated: false };
+  }
+
+  return {
+    authenticated: true,
+    tokenType: record.tokenType,
+    scope: record.scope,
+    expiresAt: record.expiresAt ? new Date(record.expiresAt).toISOString() : undefined,
+    userInfo: record.userInfo,
+    followersReady: record.followers !== undefined,
+  };
 }
 
 async function deploymentCommit(): Promise<string | undefined> {
@@ -497,6 +650,7 @@ async function handleRequest(
   service: RoundtableWorkflowService,
   confirmations: ConfirmationRegistry,
   oauthStates: OAuthStateRegistry,
+  oauthSessions: OAuthSessionRegistry,
   staticDir: string | undefined,
   req: IncomingMessage,
   res: ServerResponse,
@@ -554,10 +708,18 @@ async function handleRequest(
       openApiAppKeyConfigured: Boolean(process.env.ZHIHU_APP_KEY),
       openApiAppSecretConfigured: Boolean(process.env.ZHIHU_APP_SECRET),
       authorizeUrlConfigured: Boolean(process.env.ZHIHU_OAUTH_AUTHORIZE_URL),
-      tokenUrlConfigured: Boolean(process.env.ZHIHU_OAUTH_TOKEN_URL),
+      tokenUrlConfigured: oauthTokenEndpointConfigured(),
+      userInfoUrlConfigured: oauthUserInfoEndpointConfigured(),
+      followersUrlConfigured: oauthFollowersEndpointConfigured(),
       callbackUrl: oauthRedirectUri(req),
       mode: oauthConfigured() ? "live-ready" : "mock-safe",
+      session: publicOAuthSession(oauthSessions.get(cookieValue(req, "zhihu_oauth_session"))),
     });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/oauth/session") {
+    sendJson(res, 200, publicOAuthSession(oauthSessions.get(cookieValue(req, "zhihu_oauth_session"))));
     return;
   }
 
@@ -614,18 +776,30 @@ async function handleRequest(
       client_id: process.env.ZHIHU_OAUTH_CLIENT_ID,
       client_secret: clientSecret,
     };
-    let tokenExchange: { ok: boolean; status?: number; configured: boolean } = { ok: false, configured: false };
+    let tokenExchange: { ok: boolean; status?: number; configured: boolean; tokenStored?: boolean; userInfoFetched?: boolean; followersFetched?: boolean } = { ok: false, configured: false };
+    const headers: OutgoingHttpHeaders = {};
 
     if (tokenUrl && process.env.ZHIHU_OAUTH_CLIENT_ID && clientSecret) {
-      const response = await fetch(tokenUrl, {
-        method: "POST",
-        headers: {
-          accept: "application/json",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(tokenPayload),
-      });
-      tokenExchange = { ok: response.ok, status: response.status, configured: true };
+      const exchanged = await exchangeOAuthToken({ tokenUrl, payload: tokenPayload });
+      tokenExchange = { ok: exchanged.ok, status: exchanged.status, configured: true, tokenStored: false };
+      if (exchanged.ok && exchanged.token) {
+        const userInfo = await fetchOAuthResource(process.env.ZHIHU_OAUTH_USER_INFO_URL, exchanged.token.accessToken);
+        const followers = await fetchOAuthResource(process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL, exchanged.token.accessToken);
+        const storedToken = {
+          ...exchanged.token,
+          userInfo: userInfo && typeof userInfo === "object" && !Array.isArray(userInfo) ? userInfo as JsonRecord : undefined,
+          followers,
+        };
+        const session = oauthSessions.create(storedToken);
+        const maxAgeSeconds = Math.max(60, Math.floor((session.expiresAt - Date.now()) / 1000));
+        headers["set-cookie"] = [
+          oauthSessionCookie(session.sessionId, maxAgeSeconds),
+          clearOauthStateCookie(),
+        ];
+        tokenExchange.tokenStored = true;
+        tokenExchange.userInfoFetched = userInfo !== undefined;
+        tokenExchange.followersFetched = followers !== undefined;
+      }
     }
 
     sendHtml(res, tokenExchange.ok ? 200 : 202, [
@@ -636,8 +810,11 @@ async function handleRequest(
       tokenExchange.configured
         ? `<p>授权码已提交到官方 token endpoint，返回状态：${tokenExchange.status}。</p>`
         : "<p>当前未配置 token endpoint；系统已验证 state/code，等待填入官方 OAuth token URL 后即可完成换 token。</p>",
+      tokenExchange.tokenStored ? "<p>access_token 已保存在 HttpOnly 会话中，可继续读取用户信息。</p>" : "",
+      tokenExchange.userInfoFetched ? "<p>已读取授权用户信息。</p>" : "",
+      tokenExchange.followersFetched ? "<p>已读取关注者/粉丝信息。</p>" : "",
       "<p>你可以关闭此页，回到知辩圆桌继续体验。</p>",
-    ].join(""));
+    ].join(""), headers);
     return;
   }
 
@@ -1021,10 +1198,11 @@ export function createBackendServer(options: BackendServerOptions = {}) {
   const service = options.service ?? new RoundtableWorkflowService();
   const confirmations = new ConfirmationRegistry();
   const oauthStates = new OAuthStateRegistry();
+  const oauthSessions = new OAuthSessionRegistry();
   const staticDir = options.staticDir;
 
   return createServer((req, res) => {
-    handleRequest(service, confirmations, oauthStates, staticDir, req, res).catch((error) => {
+    handleRequest(service, confirmations, oauthStates, oauthSessions, staticDir, req, res).catch((error) => {
       const status = error instanceof HttpError ? error.status : 500;
       sendJson(res, status, {
         error: error instanceof HttpError ? error.code : "backend_error",

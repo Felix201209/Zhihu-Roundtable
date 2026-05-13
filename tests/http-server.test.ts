@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { createServer } from "node:http";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startBackendServer } from "../src/backend/http-server.js";
@@ -209,6 +210,93 @@ describe("backend HTTP server", () => {
     const body = await badCallback.json();
     expect(badCallback.status).toBe(400);
     expect(body.error).toBe("oauth_invalid_state");
+  });
+
+  it("exchanges OAuth code, stores a safe session, and fetches user info when endpoints are configured", async () => {
+    const previousEnv = {
+      ZHIHU_OAUTH_CLIENT_ID: process.env.ZHIHU_OAUTH_CLIENT_ID,
+      ZHIHU_OAUTH_CLIENT_SECRET: process.env.ZHIHU_OAUTH_CLIENT_SECRET,
+      ZHIHU_OAUTH_AUTHORIZE_URL: process.env.ZHIHU_OAUTH_AUTHORIZE_URL,
+      ZHIHU_OAUTH_TOKEN_URL: process.env.ZHIHU_OAUTH_TOKEN_URL,
+      ZHIHU_OAUTH_USER_INFO_URL: process.env.ZHIHU_OAUTH_USER_INFO_URL,
+      ZHIHU_OAUTH_USER_FOLLOWERS_URL: process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL,
+    };
+    const oauthApi = createServer(async (req, res) => {
+      if (req.url === "/token" && req.method === "POST") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({
+          access_token: "user-token",
+          token_type: "Bearer",
+          expires_in: 3600,
+          refresh_token: "refresh-token",
+          scope: "user_info user_followers",
+        }));
+        return;
+      }
+      if (req.url === "/user_info" && req.headers.authorization === "Bearer user-token") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ id: "zhihu-user-1", name: "Felix" }));
+        return;
+      }
+      if (req.url === "/user_followers" && req.headers.authorization === "Bearer user-token") {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ count: 12 }));
+        return;
+      }
+      res.writeHead(404).end();
+    });
+    await new Promise<void>((resolve) => oauthApi.listen(0, resolve));
+    const oauthPort = (oauthApi.address() as { port: number }).port;
+
+    try {
+      process.env.ZHIHU_OAUTH_CLIENT_ID = "client-id";
+      process.env.ZHIHU_OAUTH_CLIENT_SECRET = "client-secret";
+      process.env.ZHIHU_OAUTH_AUTHORIZE_URL = `http://127.0.0.1:${oauthPort}/authorize`;
+      process.env.ZHIHU_OAUTH_TOKEN_URL = `http://127.0.0.1:${oauthPort}/token`;
+      process.env.ZHIHU_OAUTH_USER_INFO_URL = `http://127.0.0.1:${oauthPort}/user_info`;
+      process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL = `http://127.0.0.1:${oauthPort}/user_followers`;
+
+      started = await startBackendServer({ port: 0 });
+      const baseUrl = `http://127.0.0.1:${started.port}`;
+      const start = await fetch(`${baseUrl}/api/oauth/start`, { redirect: "manual" });
+      const location = start.headers.get("location");
+      const state = location ? new URL(location).searchParams.get("state") : undefined;
+      const stateCookie = start.headers.get("set-cookie") ?? "";
+      expect(start.status).toBe(302);
+      expect(state).toBeTruthy();
+
+      const callback = await fetch(`${baseUrl}/api/oauth/callback?code=test-code&state=${state}`, {
+        headers: { cookie: stateCookie },
+      });
+      const html = await callback.text();
+      expect(callback.status).toBe(200);
+      expect(html).toContain("知乎登录已完成");
+      expect(html).toContain("已读取授权用户信息");
+
+      const sessionCookie = callback.headers.get("set-cookie")?.match(/zhihu_oauth_session=[^;,]+/)?.[0];
+      expect(sessionCookie).toBeTruthy();
+      const session = await fetch(`${baseUrl}/api/oauth/session`, {
+        headers: { cookie: sessionCookie ?? "" },
+      }).then((res) => res.json());
+      expect(session).toMatchObject({
+        authenticated: true,
+        tokenType: "Bearer",
+        scope: "user_info user_followers",
+        followersReady: true,
+        userInfo: { id: "zhihu-user-1", name: "Felix" },
+      });
+      expect(JSON.stringify(session)).not.toContain("user-token");
+      expect(JSON.stringify(session)).not.toContain("refresh-token");
+    } finally {
+      await new Promise<void>((resolve) => oauthApi.close(() => resolve()));
+      for (const [key, value] of Object.entries(previousEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
   });
 
   it("serves the idea experiment endpoints end to end", async () => {
