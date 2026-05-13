@@ -501,6 +501,8 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "刘看山主持校验" })).toBeInTheDocument());
     expect(screen.getByText("站内观点席")).toBeInTheDocument();
     expect(screen.getByText("反方校验席")).toBeInTheDocument();
+    expect(screen.getByText("刘看山追问席")).toBeInTheDocument();
+    expect(screen.queryByText("普通用户席")).not.toBeInTheDocument();
     expect(screen.queryByText("知乎大 V")).not.toBeInTheDocument();
     expect(screen.queryByText("反方刺客")).not.toBeInTheDocument();
     expect(screen.getByText(/来源：知乎站内/)).toBeInTheDocument();

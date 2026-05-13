@@ -44,6 +44,7 @@ import type {
   Topic,
   VariantFeedback,
 } from "../core/types.js";
+import liukanshanScarf from "./assets/liukanshan-scarf.png";
 import "./styles.css";
 
 type AppMode = "home" | "roundtable" | "idea";
@@ -89,9 +90,9 @@ const speakerMeta: Record<DebateTurn["speaker"], { name: string; role: string; s
     source: "AI 逻辑校验 + 待验证问题",
   },
   public: {
-    name: "普通用户席",
-    role: "提出真实用户会关心的问题",
-    source: "用户视角 + 评论回流",
+    name: "刘看山追问席",
+    role: "用知乎主持人的口吻追问、降温、引导补充",
+    source: "刘看山主持规则 + 评论回流",
   },
 };
 
@@ -541,10 +542,13 @@ export function App() {
 function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onIdeaLab: () => void }) {
   return (
     <section className="hero-entry zhihu-hero">
-      <div className="hero-copy">
-        <span className="eyebrow">创作者 / 圈主 / 官方号的讨论组织台</span>
-        <h1>知辩圆桌</h1>
-        <p>把知乎热榜自动转化成高质量圈子讨论，并从评论区回收新观点，生成下一轮创作方向。</p>
+      <div className="hero-stage">
+        <LiuKanshanPortrait />
+        <div className="hero-copy">
+          <span className="eyebrow">刘看山主持的知乎讨论组织台</span>
+          <h1>知辩圆桌</h1>
+          <p>把知乎热榜交给刘看山控场：先定开放问题，再校验证据、反方空间和追问节奏，最后沉淀成可发布的圈子讨论。</p>
+        </div>
       </div>
       <div className="hero-actions">
         <button className="primary-button hero-main-action" onClick={onRoundtable}>
@@ -585,13 +589,21 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
   );
 }
 
+function LiuKanshanPortrait({ compact = false }: { compact?: boolean }) {
+  return (
+    <div className={`liukanshan-portrait ${compact ? "compact" : ""}`} aria-label="刘看山主持形象">
+      <img src={liukanshanScarf} alt="刘看山 IP 形象" />
+    </div>
+  );
+}
+
 function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: (topicId: string) => void; onIdeaLab: () => void }) {
   return (
     <section className="flow-card">
       <PageHeading
         icon={<BarChart3 size={20} />}
         title="选题雷达"
-        subtitle="先从知乎热榜里挑一个值得组织讨论的话题。系统关注争议度、资料丰富度、普通用户参与空间和能否产生下一轮内容。"
+        subtitle="先从知乎热榜里挑一个值得组织讨论的话题。系统关注争议度、资料丰富度、知乎讨论空间和能否产生下一轮内容。"
       />
       <div className="topic-feed">
         {topics.slice(0, 5).map((topic, index) => (
@@ -649,7 +661,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
           <h2>{snapshot.rewrittenQuestion}</h2>
           <p>原始热榜：{topic?.title}</p>
           <div className="task-list">
-            <p><CheckCircle2 size={14} /> 让创作者、普通用户和圈子成员围绕同一个问题给出立场、经验和反例。</p>
+            <p><CheckCircle2 size={14} /> 让创作者、圈主、亲历者和反方围绕同一个问题给出立场、经验和反例。</p>
             <p><CheckCircle2 size={14} /> AI 会标注观点来源；无法核验的内容会被标为待验证。</p>
           </div>
         </section>
@@ -703,7 +715,7 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
       <PageHeading
         icon={<Users size={20} />}
         title="刘看山主持校验"
-        subtitle="这一步只回答一个问题：这个讨论能不能发出去，并且让真实用户愿意接话。"
+        subtitle="这一步只回答一个问题：刘看山能不能把这条热榜主持成一场有证据、有反方、有追问的知乎讨论。"
       />
 
       <section className="debate-summary-panel">
@@ -720,9 +732,14 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
 
       <div className="debate-layout">
         <section className="debate-decision">
-          <span>刘看山结论</span>
-          <h3>{latestTurn?.nextQuestion ?? "可以进入发布策划，但需要保留待验证标注。"}</h3>
-          <p>{latestTurn?.content ?? "主持校验会把标题、证据、反方空间和普通用户回复意愿压成发布前判断。"}</p>
+          <div className="debate-host-line">
+            <LiuKanshanPortrait compact />
+            <div>
+              <span>刘看山结论</span>
+              <h3>{latestTurn?.nextQuestion ?? "可以进入发布策划，但需要保留待验证标注。"}</h3>
+            </div>
+          </div>
+          <p>{latestTurn?.content ?? "主持校验会把标题、证据、反方空间和知乎社区追问价值压成发布前判断。"}</p>
           <div className="role-bar compact">
             {(Object.keys(speakerMeta) as DebateTurn["speaker"][]).map((speaker) => (
               <span key={speaker} className={`role-pill ${activeSpeaker === speaker ? "active" : ""}`}>
@@ -807,7 +824,7 @@ function PostContent({ draft }: { draft: RoundtableSnapshot["publishDraft"] }) {
       </div>
       <div className="post-section">
         <h3>开放问题</h3>
-        <p>{draft.questions[0] ?? "如果你站在创作者 / 普通用户 / 平台生态的角度，会如何判断这个问题？"}</p>
+        <p>{draft.questions[0] ?? "如果你站在创作者 / 圈主 / 亲历者的角度，会如何判断这个问题？"}</p>
       </div>
       {draft.consensus.length > 0 || draft.disputes.length > 0 ? (
         <div className="post-section">
@@ -910,7 +927,7 @@ function RoundtableFeedbackView({ snapshot, onNextRound }: { snapshot: Roundtabl
       <div className="feedback-hero">
         <span>下一轮创作/讨论建议</span>
         <h1>{insight?.nextRoundSuggestions[0] ?? `围绕「${snapshot.selectedTopic?.title}」继续讨论。`}</h1>
-        <p>因为评论区出现了新的反方视角、补充证据、真实经验和用户最关心的问题。</p>
+        <p>因为评论区出现了新的反方视角、补充证据、真实经验和刘看山值得继续追问的问题。</p>
       </div>
       <CombinedSentimentBar sentiment={sentiment} />
       <div className="report-grid">
@@ -1012,7 +1029,7 @@ function VariantSelection({
       <PageHeading
         icon={<Sparkles size={20} />}
         title="生成了 3 个可测试版本"
-        subtitle="每个版本只保留标题、一句话、亮点和风险，避免评委和用户迷路。"
+        subtitle="每个版本只保留标题、一句话、亮点和风险，避免评委和参与讨论的人迷路。"
       />
       <div className="variant-grid">
         {experiment.variants.map((variant) => (
@@ -1173,7 +1190,7 @@ function ExperimentReportView({
       </div>
       <div className="report-grid">
         <ReportBlock title="为什么它赢" items={report?.whyWinner ?? []} />
-        <ReportBlock title="用户真正关心什么" items={report?.userConcerns ?? []} />
+        <ReportBlock title="讨论参与者真正关心什么" items={report?.userConcerns ?? []} />
         <section className="report-block wide">
           <h2>最终产品定位</h2>
           <p>{report?.finalPositioning}</p>
@@ -1386,7 +1403,7 @@ function buildStandOptions(snapshot: RoundtableSnapshot): string[] {
   return [
     `A. ${support[0] ?? draft?.consensus[0] ?? "这个话题值得发起讨论，重点应看真实经验和过程证据。"}`,
     `B. ${disputes[0] ?? "现在证据还不够，应该先把反方疑问摆出来。"}`,
-    `C. ${questions[0] ?? "普通用户更关心这个问题和自己有什么关系。"}`,
+    `C. ${questions[0] ?? "刘看山继续追问：这个问题和具体场景、真实经历有什么关系？"}`,
     "D. 关键不在站队，而在具体场景、证据和参与者经验。",
   ];
 }
@@ -1467,7 +1484,7 @@ function formatPublishDraft(draft: RoundtableSnapshot["publishDraft"]) {
     draft.opening,
     "",
     "【开放问题】",
-    draft.questions[0] ?? "如果你站在创作者 / 普通用户 / 平台生态的角度，会如何判断这个问题？",
+    draft.questions[0] ?? "如果你站在创作者 / 圈主 / 亲历者的角度，会如何判断这个问题？",
     "",
     "【可以直接站队】",
     ...draft.consensus.slice(0, 2).map((item, index) => `${String.fromCharCode(65 + index)}. ${item}`),

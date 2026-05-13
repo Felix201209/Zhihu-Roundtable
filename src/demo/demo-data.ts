@@ -145,7 +145,7 @@ export const demoDebateTurns: Record<string, DebateTurn[]> = {
     {
       id: "turn-public-1",
       speaker: "public",
-      content: "我想知道公司是否应该公开 AI 使用规则，否则新人可能不知道什么算合理辅助。",
+      content: "刘看山会把追问落到规则上：公司是否应该公开 AI 使用边界，否则这场讨论很容易只停在态度表态。",
       evidenceIds: [],
       nextQuestion: "评价标准变化后，公司需要同步更新新人手册吗？",
     },
@@ -191,7 +191,7 @@ export const demoDebateTurns: Record<string, DebateTurn[]> = {
     {
       id: "turn-public-mentor",
       speaker: "public",
-      content: "新人可能更敢先问 AI，再把整理好的问题带给导师，这对内向同学反而友好。",
+      content: "刘看山可以继续追问：AI 降低求助门槛后，导师应该检查的是答案本身，还是新人带来的问题质量？",
       evidenceIds: ["ev-mentor-scale"],
       claim: "AI 降低了求助门槛。",
     },

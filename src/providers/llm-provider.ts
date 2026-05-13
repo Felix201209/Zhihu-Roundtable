@@ -309,10 +309,10 @@ export class MockLlmProvider implements LlmProvider {
       },
       {
         speaker: "public",
-        mission: "作为普通用户席，判断普通读者是否看得懂、愿不愿意回复，并提出更具体的评论引导问题。",
-        tone: "直接、具体、有人味。",
+        mission: "作为刘看山追问席，用知乎主持人的口吻判断讨论是否有继续追问的空间，并把参与者可能补充的经验转成开放追问。",
+        tone: "清楚、友善、会控场，像刘看山在主持讨论而不是替普通用户发言。",
         mustUseEvidenceIds: [],
-        avoid: ["不要装专家", "不要跑题", "不要把体验说成事实"],
+        avoid: ["不要装专家", "不要跑题", "不要假装代表具体用户", "不要把体验说成事实"],
       },
     ]);
 
@@ -333,7 +333,7 @@ export class MockLlmProvider implements LlmProvider {
       liu: "先别急着下结论，我会把这条热榜整理成一个能让大家参与站队的讨论。",
       expert: "从站内内容看，这个话题至少能拆出支持、反方和经验补充三类评论入口。",
       opponent: "这个讨论帖需要提前留出反方空间，否则容易变成单向输出或情绪站队。",
-      public: "普通用户最关心的是自己能不能看懂、有没有具体场景可以回应。",
+      public: "刘看山会继续追问：这个讨论有没有具体场景、真实经历和可补充的反例。",
     };
     const value = parseDebateTurn({
       id: `mock-turn-${input.priorTurns.length + 1}-${input.speaker}`,
@@ -380,7 +380,7 @@ export class MockLlmProvider implements LlmProvider {
     const value = parsePublishPackage({
       draft: {
         title: `围绕「${input.topic.title}」开个讨论：你站哪一边？`,
-        opening: `最近这个热榜很适合发起一场圈子讨论。与其只看结论，不如请创作者、普通用户和有经验的人一起补充：这个问题在真实场景里到底怎么判断？`,
+        opening: `最近这个热榜很适合发起一场圈子讨论。与其只看结论，不如由刘看山把问题抛给创作者、圈主、亲历者和反方一起补充：这个问题在真实场景里到底怎么判断？`,
         consensus: input.viewpointMap.support.slice(0, 2).concat(input.viewpointMap.neutral.slice(0, 1)),
         disputes: input.viewpointMap.disputes.slice(0, 3),
         questions: [

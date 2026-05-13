@@ -37,7 +37,7 @@
 | 讨论组织台 UI | `src/frontend/main.tsx` 主流程 5 页 | Done |
 | 证据池 | `EvidencePrep`、`EvidenceCard` + `Evidence` types | Done |
 | 观点地图 | `RoundtableView` 里的支持/反对/事实/追问结构 + `ViewpointMap` | Done |
-| 主持任务卡 | `agentBriefs` + 刘看山主持校验、站内观点席、反方校验席、普通用户席 | Done |
+| 主持任务卡 | `agentBriefs` + 刘看山主持校验、站内观点席、反方校验席、刘看山追问席 | Done |
 | 发布策划 | `RoundtablePublishView` + `PublishDraft` | Done |
 | 人工确认发布 | `confirmRoundtablePublish` + live confirmation token | Done |
 | 评论回流 | `RoundtableFeedbackView` + `CommentInsight` | Done |

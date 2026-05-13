@@ -115,7 +115,7 @@ export const buildTopicScoringPrompt = (input: { topics: Topic[] }): LlmPrompt =
       content: [
         "请为知乎热榜候选话题做讨论组织潜力评分。",
         "输出必须是 JSON 数组，每项符合 TopicScore：topicId, debateScore, evidenceScore, discussionPotential, controversyLevel, reason。",
-        "评分标准：事实复杂度、争议程度、普通用户参与空间、知乎圈子讨论适配度、资料丰富度、能否产生下一轮内容。",
+        "评分标准：事实复杂度、争议程度、知乎讨论参与空间、圈子讨论适配度、资料丰富度、刘看山能否继续追问出下一轮内容。",
         "过滤纯娱乐、纯广告、信息不足、强敏感风险话题；但不要删除输入，只通过低分和 reason 表达。",
         "",
         "topics:",
@@ -166,7 +166,7 @@ export const buildAgentBriefingPrompt = (input: {
       content: [
         "请为知乎讨论组织台生成四个前台席位的任务卡。",
         "输出必须是 AgentBrief 数组，speaker 必须且仅包含 liu、expert、opponent、public。",
-        "刘看山是讨论主持人和圈子控场员；expert 是站内观点席，只能基于站内公开内容和证据池提炼已有观点结构；opponent 是反方校验席；public 是普通用户席。",
+        "刘看山是讨论主持人和圈子控场员；expert 是站内观点席，只能基于站内公开内容和证据池提炼已有观点结构；opponent 是反方校验席；public 是刘看山追问席，用知乎主持人的口吻提出开放追问，不代表具体普通用户发言。",
         "每个 brief 必须包含 mission、tone、mustUseEvidenceIds、avoid。",
         "avoid 必须强调不人身攻击、不伪造证据、不伪造具体知乎用户或大 V、不自动替用户发布。",
         "",
@@ -272,7 +272,7 @@ export const buildPublishDraftPrompt = (input: {
         "draft 必须符合 PublishDraft：title, opening, consensus, disputes, questions, disclosure。",
         "title 要像一个能引发圈子回复的开放问题；opening 是讨论背景，不要写成结论文章。",
         "consensus 用作站队选项或可讨论立场，不要包装成最终结论；disputes 写反方和风险；questions 写引导评论和下一轮追问。",
-        "必须邀请不同人群参与，例如创作者、普通用户、圈主/运营者、亲历者；不能预设唯一答案。",
+        "必须邀请不同人群参与，例如创作者、圈主/运营者、亲历者、反方和补充资料的人；不能预设唯一答案。",
         "disclosure 必须说明这是 AI 辅助讨论策划，并说明不伪造来源、发布前需用户确认。",
         "titleOptions 给 3 个标题候选；quality 判断这条讨论帖是否值得发布到圈子，以及有哪些跑偏/引战风险。",
         "",
