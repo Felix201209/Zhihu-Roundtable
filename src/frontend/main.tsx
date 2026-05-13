@@ -547,7 +547,7 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
         <div className="hero-copy">
           <span className="eyebrow">刘看山主持的知乎讨论组织台</span>
           <h1>知辩圆桌</h1>
-          <p>把知乎热榜交给刘看山控场：先定开放问题，再校验证据、反方空间和追问节奏，最后沉淀成可发布的圈子讨论。</p>
+          <p>不是让 AI 替你写观点，而是让刘看山把一个知乎热榜变成有证据、有反方、有站队、有评论回流的持续讨论。</p>
         </div>
       </div>
       <div className="hero-actions">
@@ -575,6 +575,35 @@ function HomeEntry({ onRoundtable, onIdeaLab }: { onRoundtable: () => void; onId
           <span>读接口和模型 JSON 缓存；真实发布必须用户确认</span>
         </article>
       </div>
+      <section className="signature-loop" aria-label="绝对亮点">
+        <div className="signature-copy">
+          <span>绝对亮点</span>
+          <h2>把一个热榜，变成一场可持续讨论</h2>
+          <p>评委看到的不是“生成一段文案”，而是一条完整社区运营链路：找话题、压问题、找证据、请刘看山质检、再把评论变成下一轮内容。</p>
+        </div>
+        <div className="signature-track" aria-label="热榜到讨论闭环">
+          <article>
+            <b>01</b>
+            <strong>热榜不直接发</strong>
+            <span>先判断争议度、资料量和知乎讨论空间</span>
+          </article>
+          <article>
+            <b>02</b>
+            <strong>刘看山三问质检</strong>
+            <span>有人站队吗？反方说得通吗？证据够支撑吗？</span>
+          </article>
+          <article>
+            <b>03</b>
+            <strong>发布前有边界</strong>
+            <span>站队选项、引导评论、风险提醒、人工确认</span>
+          </article>
+          <article>
+            <b>04</b>
+            <strong>评论回流再创作</strong>
+            <span>高质量评论和新反方变成下一轮话题</span>
+          </article>
+        </div>
+      </section>
       <div className="workflow-strip" aria-label="知辩圆桌能力">
         <article>
           <Search size={16} />
@@ -672,6 +701,27 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
         title="讨论方案"
         subtitle="把热榜压成一个可发起的开放问题，再给主持人准备最少但够用的立场和证据。"
       />
+
+      <section className="host-gate" aria-label="刘看山发布前质检">
+        <div>
+          <span>刘看山发布前质检</span>
+          <h2>这不是标题改写，是一次讨论可发布性审查</h2>
+        </div>
+        <div className="host-gate-grid">
+          <article>
+            <strong>能站队</strong>
+            <span>{(stance?.support ?? []).length + (stance?.oppose ?? []).length > 0 ? "已找到支持/反对入口" : "等待更多立场"}</span>
+          </article>
+          <article>
+            <strong>有证据</strong>
+            <span>{snapshot.evidence.length} 条知乎/全网证据进入缓存</span>
+          </article>
+          <article>
+            <strong>可追问</strong>
+            <span>{snapshot.turns.at(-1)?.nextQuestion ?? "刘看山会把结论改成开放追问"}</span>
+          </article>
+        </div>
+      </section>
 
       <div className="prep-board">
         <section className="question-panel">

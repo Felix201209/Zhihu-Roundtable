@@ -303,6 +303,86 @@ button {
   line-height: 1.45;
 }
 
+.signature-loop {
+  width: min(100%, 860px);
+  display: grid;
+  grid-template-columns: minmax(220px, 0.55fr) minmax(0, 1fr);
+  gap: 14px;
+  margin: 0 auto;
+  padding: 14px;
+  border: 1px solid #dcecff;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(15, 124, 255, 0.08), rgba(255, 255, 255, 0) 42%),
+    #ffffff;
+  text-align: left;
+}
+
+.signature-copy {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.signature-copy span,
+.host-gate span {
+  color: var(--zhihu-blue-deep);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.signature-copy h2,
+.host-gate h2 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 820;
+}
+
+.signature-copy p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.signature-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.signature-track article {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.signature-track b {
+  color: var(--zhihu-blue);
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 850;
+}
+
+.signature-track strong {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.signature-track span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .text-button {
   display: inline-flex;
   align-items: center;
@@ -549,6 +629,50 @@ button {
 
 .prepare-workbench .page-heading {
   margin-bottom: 2px;
+}
+
+.host-gate {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.55fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+  padding: 14px;
+  border: 1px solid #dcecff;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+}
+
+.host-gate > div:first-child {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
+.host-gate-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.host-gate-grid article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.host-gate-grid strong {
+  font-size: 13px;
+}
+
+.host-gate-grid span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 650;
 }
 
 .prep-board {
@@ -2010,6 +2134,10 @@ button {
   .report-grid,
   .advanced-grid,
   .proof-strip,
+  .signature-loop,
+  .signature-track,
+  .host-gate,
+  .host-gate-grid,
   .workflow-strip,
   .promise-grid,
   .prep-grid,

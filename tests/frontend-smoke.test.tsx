@@ -405,6 +405,8 @@ describe("frontend smoke", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "知辩圆桌" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "把一个热榜，变成一场可持续讨论" })).toBeInTheDocument();
+    expect(screen.getByText("刘看山三问质检")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /从热榜生成讨论方案/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /测试一个脑洞/ })).toBeInTheDocument();
 
