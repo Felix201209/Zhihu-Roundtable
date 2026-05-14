@@ -148,10 +148,7 @@ function scrollToTop() {
 
 export function App() {
   const [mode, setMode] = React.useState<AppMode>(() => {
-    if (typeof window !== "undefined" && window.localStorage.getItem("zhihu-roundtable-auth-choice") === "seen") {
-      return "home";
-    }
-    return "auth";
+    return "home";
   });
   const [roundtableStage, setRoundtableStage] = React.useState<RoundtableUiStage>("radar");
   const [topics, setTopics] = React.useState<Topic[]>([]);
@@ -534,10 +531,7 @@ export function App() {
       {busy ? <BusyStrip label={busy} elapsedSeconds={busyElapsedSeconds} status={zhihuStatus} /> : null}
 
       {mode === "auth" ? (
-        <AuthGate oauthStatus={oauthStatus} usageStatus={usageStatus} onContinue={continueWithoutOAuth} onRoundtable={() => {
-          continueWithoutOAuth();
-          void openRoundtable();
-        }} />
+        <AuthGate oauthStatus={oauthStatus} usageStatus={usageStatus} onContinue={continueWithoutOAuth} />
       ) : null}
 
       {mode === "home" ? (
@@ -643,13 +637,12 @@ function AuthGate({
   oauthStatus,
   usageStatus,
   onContinue,
-  onRoundtable,
 }: {
   oauthStatus: OAuthStatusResponse | null;
   usageStatus: UsageStatusResponse | null;
   onContinue: () => void;
-  onRoundtable: () => void;
 }) {
+  const [usageSlow, setUsageSlow] = React.useState(false);
   const oauthReady = oauthStatus?.configured === true;
   const loginReady = oauthReady && oauthStatus?.authorizeUrlConfigured === true && oauthStatus?.tokenUrlConfigured === true;
   const authenticated = oauthStatus?.session.authenticated === true;
@@ -663,6 +656,15 @@ function AuthGate({
       : oauthReady
         ? "App ID/Key 已配置；官方授权地址未开放，当前按 IP 限额保护成本。"
         : "OAuth 未配置，当前按 IP 限额保护成本。";
+  const quotaCopy = usageStatus === null
+    ? usageSlow ? "额度服务暂不可用，可先体验" : "正在同步额度"
+    : guardMode === "off" ? "未启用额度闸门" : `剩余额度 ${remaining}/${limit}`;
+
+  React.useEffect(() => {
+    if (usageStatus !== null) return;
+    const id = window.setTimeout(() => setUsageSlow(true), 3000);
+    return () => window.clearTimeout(id);
+  }, [usageStatus]);
 
   return (
     <section className="auth-gate">
@@ -674,21 +676,24 @@ function AuthGate({
           <div className="auth-meter" aria-label={`AI 使用额度，剩余 ${remaining}，每日 ${limit}`}>
             <div>
               <strong>{authenticated ? "已登录" : "未登录"}</strong>
-              <span>{usageStatus === null ? "正在同步额度" : guardMode === "off" ? "未启用额度闸门" : `剩余额度 ${remaining}/${limit}`}</span>
+              <span>{quotaCopy}</span>
             </div>
             <i><em style={{ width: `${limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 100}%` }} /></i>
           </div>
         </div>
         <div className="auth-actions-panel">
-          <a className={`primary-button auth-link ${loginReady ? "" : "disabled"}`} href={loginReady ? "/api/oauth/start" : undefined} aria-disabled={!loginReady}>
-            知乎授权登录 <ArrowRight size={16} />
-          </a>
-          <button className="ghost-button" onClick={onContinue}>
+          <button className="primary-button" onClick={onContinue}>
             先继续体验
           </button>
-          <button className="ghost-button" onClick={onRoundtable}>
-            跳过授权，进入热榜台
-          </button>
+          {loginReady ? (
+            <a className="ghost-button auth-link" href="/api/oauth/start">
+              知乎授权登录 <ArrowRight size={16} />
+            </a>
+          ) : (
+            <button className="ghost-button" disabled>
+              知乎授权待配置
+            </button>
+          )}
           <p>{statusCopy}</p>
         </div>
       </div>
@@ -733,7 +738,7 @@ function HomeEntry({
         <section className="home-topic-preview" aria-label="热榜预览">
           <div className="home-topic-preview-head">
             <strong>当前热榜</strong>
-            <button className="ghost-button" onClick={onRoundtable}>查看全部</button>
+            <button className="ghost-button" onClick={onRoundtable} aria-label="查看全部热榜">进入热榜台 <ArrowRight size={14} /></button>
           </div>
           {previewTopics.length ? previewTopics.map((topic, index) => (
             <button key={topic.id} className="home-topic-button" onClick={() => onSelectTopic(topic.id)}>
@@ -744,9 +749,9 @@ function HomeEntry({
           )) : <SkeletonStack count={4} />}
         </section>
         <div className="home-proof-line" aria-label="产品边界">
-          <span>真实读知乎</span>
-          <span>刘看山主持</span>
-          <span>发布前确认</span>
+          <span><CheckCircle2 size={14} />真实读知乎</span>
+          <span><Users size={14} />刘看山主持</span>
+          <span><ShieldCheck size={14} />发布前确认</span>
         </div>
       </div>
     </section>
@@ -762,10 +767,19 @@ function LiuKanshanPortrait({
   speaking?: boolean;
   state?: "idle" | "thinking" | "speaking" | "hosting";
 }) {
+  const [spriteReady, setSpriteReady] = React.useState(false);
   const frameStyle = { backgroundImage: `url(${liukanshanHostStrip})` } as React.CSSProperties;
   const motionState = speaking && state === "idle" ? "speaking" : state;
   return (
-    <div className={`liukanshan-portrait ${compact ? "compact" : ""} ${motionState}`} aria-label="刘看山主持形象">
+    <div className={`liukanshan-portrait ${compact ? "compact" : ""} ${motionState} ${spriteReady ? "sprite-ready" : "sprite-fallback"}`} aria-label="刘看山主持形象">
+      <img
+        className="liukanshan-sprite-preload"
+        src={liukanshanHostStrip}
+        alt=""
+        aria-hidden="true"
+        onLoad={() => setSpriteReady(true)}
+        onError={() => setSpriteReady(false)}
+      />
       <img className="liukanshan-fallback" src={liukanshanFront} alt="刘看山 IP 形象" />
       <span className="liukanshan-sprite" style={frameStyle} aria-hidden="true" />
       <span className="host-thinking-dots" aria-hidden="true"><i /><i /><i /></span>

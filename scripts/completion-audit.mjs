@@ -14,7 +14,7 @@ check("产品定位清晰", "README/JUDGE/首页文案明确是知乎创作者�
   assertIncludes("JUDGE_GUIDE.md", ["不是“AI 写知乎回答”", "AI 讨论组织台"]);
   assertIncludes("src/frontend/main.tsx", [
     "先保护额度，再开圆桌",
-    "跳过授权，进入热榜台",
+    "先继续体验",
   ]);
 });
 

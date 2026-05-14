@@ -223,19 +223,36 @@ button {
   object-fit: contain;
 }
 
+.liukanshan-sprite-preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .liukanshan-fallback {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.liukanshan-portrait.sprite-ready .liukanshan-fallback {
   opacity: 0;
 }
 
 .liukanshan-sprite {
   position: absolute;
   inset: 4px;
-  display: block;
+  display: none;
   background-repeat: no-repeat;
   background-size: 400% 100%;
   background-position: 0% 50%;
   filter: drop-shadow(0 8px 12px rgba(23, 114, 246, 0.1));
   transform-origin: 50% 86%;
+}
+
+.liukanshan-portrait.sprite-ready .liukanshan-sprite {
+  display: block;
 }
 
 .liukanshan-portrait.thinking .liukanshan-sprite {
@@ -244,7 +261,7 @@ button {
 }
 
 .liukanshan-portrait.speaking .liukanshan-sprite {
-  animation: hostSpriteTalk 1.35s steps(1, end) infinite, hostBob 1.35s ease-in-out infinite;
+  animation: hostSpriteTalk 2.4s steps(1, end) infinite, hostBob 2.4s ease-in-out infinite;
 }
 
 .liukanshan-portrait.hosting .liukanshan-sprite {
@@ -299,7 +316,7 @@ button {
   flex: 0 0 auto;
 }
 
-.liukanshan-portrait.compact img {
+.liukanshan-portrait.compact img:not(.liukanshan-sprite-preload) {
   width: 100%;
   max-width: 100%;
   height: 100%;
@@ -309,6 +326,10 @@ button {
 .liukanshan-portrait.compact .liukanshan-sprite {
   inset: 2px;
   filter: none;
+}
+
+.liukanshan-portrait.compact .host-thinking-dots {
+  display: none;
 }
 
 .eyebrow {
@@ -431,6 +452,7 @@ button {
   height: 100%;
   border-radius: inherit;
   background: var(--zhihu-blue);
+  transition: width 0.6s ease;
 }
 
 .auth-actions-panel {
@@ -438,9 +460,9 @@ button {
   align-content: center;
   gap: 10px;
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(23, 114, 246, 0.14);
   border-radius: 10px;
-  background: #fafbfc;
+  background: #f6f9ff;
 }
 
 .auth-link {
@@ -450,6 +472,11 @@ button {
 .auth-link.disabled {
   opacity: 0.52;
   pointer-events: none;
+}
+
+.auth-actions-panel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 
@@ -2236,6 +2263,12 @@ button {
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
   }
+
+  .liukanshan-portrait.speaking .liukanshan-sprite,
+  .liukanshan-portrait.thinking .liukanshan-sprite,
+  .host-thinking-dots i {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -2266,8 +2299,7 @@ button {
   .comment-preview-grid,
   .report-grid,
   .advanced-grid,
-  .debate-summary-panel,
-  .debate-layout {
+  .debate-summary-panel {
     grid-template-columns: 1fr;
   }
 
@@ -2376,10 +2408,16 @@ button {
     white-space: normal;
   }
 
-.evidence-rail-header {
+  .evidence-rail-header {
     display: grid;
     align-content: center;
     min-height: 54px;
+  }
+}
+
+@media (max-width: 720px) {
+  .debate-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -2473,6 +2511,11 @@ button {
   background: #f7fbff;
 }
 
+.home-topic-button:focus-visible {
+  outline: 2px solid var(--zhihu-blue);
+  outline-offset: 2px;
+}
+
 .home-topic-button span {
   grid-row: span 2;
   display: grid;
@@ -2488,9 +2531,11 @@ button {
 .home-topic-button strong {
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 14px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .home-topic-button small {
@@ -2509,6 +2554,7 @@ button {
   display: inline-flex;
   min-height: 28px;
   align-items: center;
+  gap: 5px;
   padding: 0 10px;
   border-radius: 999px;
   background: #eef6ff;
@@ -2544,7 +2590,7 @@ button {
 
 .progress-host-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
   border: 1px solid rgba(23, 114, 246, 0.16);

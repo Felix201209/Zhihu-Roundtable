@@ -212,6 +212,12 @@ describe("backend HTTP server", () => {
     expect(start.status).toBe(200);
     expect(html).toContain("/api/oauth/callback");
 
+    const directCallback = await fetch(`${baseUrl}/api/oauth/callback`);
+    const directHtml = await directCallback.text();
+    expect(directCallback.status).toBe(200);
+    expect(directCallback.headers.get("content-type")).toContain("text/html");
+    expect(directHtml).toContain("回到知辩圆桌继续体验");
+
     const badCallback = await fetch(`${baseUrl}/api/oauth/callback?code=test-code&state=missing-state`);
     const body = await badCallback.json();
     expect(badCallback.status).toBe(400);

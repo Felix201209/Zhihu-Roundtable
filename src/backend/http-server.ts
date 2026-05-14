@@ -315,6 +315,19 @@ function sendHtml(res: ServerResponse, status: number, html: string, headers: Ou
   res.end(html);
 }
 
+function sendOAuthCallbackHint(res: ServerResponse, title: string, detail: string): void {
+  sendHtml(res, 200, [
+    "<!doctype html><meta charset=\"utf-8\">",
+    `<title>${title}</title>`,
+    "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:720px;margin:48px auto;padding:0 24px;line-height:1.7;color:#1f2329}.card{border:1px solid #dcecff;border-radius:12px;padding:22px;background:#f7fbff}a{color:#1772f6;font-weight:700}</style>",
+    "<main class=\"card\">",
+    `<h1>${title}</h1>`,
+    `<p>${detail}</p>`,
+    "<p><a href=\"/\">回到知辩圆桌继续体验</a></p>",
+    "</main>",
+  ].join(""));
+}
+
 function redirect(res: ServerResponse, location: string, headers: OutgoingHttpHeaders = {}): void {
   res.writeHead(302, {
     location,
@@ -984,16 +997,23 @@ async function handleRequest(
     const state = url.searchParams.get("state") ?? undefined;
     const code = url.searchParams.get("authorization_code") ?? url.searchParams.get("code") ?? undefined;
     const cookieState = cookieValue(req, "zhihu_oauth_state");
+    const effectiveState = state ?? cookieState;
 
     if (cookieState && state && cookieState !== state) {
       throw new HttpError(400, "oauth_state_mismatch", "OAuth state 与本地 cookie 不匹配。");
     }
 
-    const record = oauthStates.consume(state);
     if (!code) {
-      throw new HttpError(400, "oauth_missing_code", "OAuth 回调缺少 code。");
+      sendOAuthCallbackHint(res, "OAuth 回调缺少授权码", "请从知辩圆桌里的“知乎授权登录”按钮重新进入授权流程，不要直接打开回调地址。");
+      return;
     }
 
+    if (!effectiveState) {
+      sendOAuthCallbackHint(res, "OAuth 回调缺少 state", "这通常是直接打开回调地址、浏览器拦截 cookie，或授权页没有从本站入口进入导致的。可以先关闭此页，回到作品继续体验。");
+      return;
+    }
+
+    const record = oauthStates.consume(effectiveState);
     const tokenUrl = process.env.ZHIHU_OAUTH_TOKEN_URL;
     const clientId = oauthClientId();
     const clientSecret = oauthClientSecret();

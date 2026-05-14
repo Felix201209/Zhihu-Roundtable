@@ -217,8 +217,8 @@ async function runBrowserFlow() {
     await send("Page.enable");
     await navigate(startUrl);
 
-    await observe("auth", "先保护额度，再开圆桌");
-    await clickButton(/跳过授权，进入热榜台/);
+    await observe("home", "把一个热榜，开成一场有人站队");
+    await clickButton(/进入热榜台/);
     await observe("radar", "热榜台");
     await clickButton(/生成讨论方案/);
     await observe("prepare", "讨论方案");

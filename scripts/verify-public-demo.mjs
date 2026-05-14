@@ -17,7 +17,7 @@ const bundleText = await fetchPublicBundles(origin, home);
 for (const snippet of [
   "知辩圆桌",
   "先保护额度，再开圆桌",
-  "跳过授权，进入热榜台",
+  "先继续体验",
   "真实读知乎",
   "发布前确认",
 ]) {
