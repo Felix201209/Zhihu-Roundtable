@@ -73,7 +73,13 @@ export async function getTopics(): Promise<TopicsResponse> {
   const params = new URLSearchParams();
   applyFrontendModelQuery(params);
   const query = params.toString();
-  return jsonFetch<TopicsResponse>(`/api/topics${query ? `?${query}` : ""}`);
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), 8000);
+  try {
+    return await jsonFetch<TopicsResponse>(`/api/topics${query ? `?${query}` : ""}`, { signal: controller.signal });
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
 export async function getQuota(): Promise<QuotaResponse> {

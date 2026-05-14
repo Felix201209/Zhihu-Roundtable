@@ -161,6 +161,7 @@ export function App() {
   const [zhihuStatus, setZhihuStatus] = React.useState<ZhihuStatusResponse | null>(null);
   const [oauthStatus, setOauthStatus] = React.useState<OAuthStatusResponse | null>(null);
   const [usageStatus, setUsageStatus] = React.useState<UsageStatusResponse | null>(null);
+  const [topicsError, setTopicsError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [busyStartedAt, setBusyStartedAt] = React.useState<number | null>(null);
   const [busyNow, setBusyNow] = React.useState(() => Date.now());
@@ -230,8 +231,14 @@ export function App() {
   }, [publishConfirmOpen, snapshot, publishConfirmation]);
 
   async function loadTopics() {
-    const result = await getTopics();
-    setTopics(result.topics);
+    try {
+      setTopicsError(null);
+      const result = await getTopics();
+      setTopics(result.topics);
+    } catch (err) {
+      setTopicsError(friendlyError(err, "热榜加载较慢，可以手动重试。"));
+      throw err;
+    }
   }
 
   async function openRoundtable() {
@@ -551,7 +558,7 @@ export function App() {
       ) : null}
 
       {mode === "home" ? (
-        <HomeEntry topics={topics} onRoundtable={() => void openRoundtable()} onSelectTopic={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
+        <HomeEntry topics={topics} topicsError={topicsError} onRefreshTopics={() => void loadTopics().catch(() => undefined)} onRoundtable={() => void openRoundtable()} onSelectTopic={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "radar" ? (
@@ -719,11 +726,15 @@ function AuthGate({
 
 function HomeEntry({
   topics,
+  topicsError,
+  onRefreshTopics,
   onRoundtable,
   onSelectTopic,
   onIdeaLab,
 }: {
   topics: Topic[];
+  topicsError: string | null;
+  onRefreshTopics: () => void;
   onRoundtable: () => void;
   onSelectTopic: (topicId: string) => void;
   onIdeaLab: () => void;
@@ -765,7 +776,13 @@ function HomeEntry({
                 <em style={{ width: `${Math.max(18, topic.hotScore)}%` }} />
               </span>
             </button>
-          )) : <SkeletonStack count={4} />}
+          )) : topicsError ? (
+            <div className="topic-load-fallback">
+              <strong>热榜接口还在路上</strong>
+              <span>{topicsError}</span>
+              <button className="ghost-button" onClick={onRefreshTopics}>重新加载热榜</button>
+            </div>
+          ) : <SkeletonStack count={4} />}
         </section>
         <div className="home-proof-line" aria-label="产品边界">
           <span><CheckCircle2 size={14} />真实读知乎</span>

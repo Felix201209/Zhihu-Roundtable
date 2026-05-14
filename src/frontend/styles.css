@@ -2795,6 +2795,29 @@ button {
   background: linear-gradient(90deg, #ff9f1c 0%, var(--zhihu-blue) 100%);
 }
 
+.topic-load-fallback {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border-top: 1px solid var(--line);
+  background: #fff;
+}
+
+.topic-load-fallback strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.topic-load-fallback span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: var(--lh-body);
+}
+
+.topic-load-fallback .ghost-button {
+  width: fit-content;
+}
+
 .home-proof-line {
   grid-column: 1 / -1;
   display: flex;
