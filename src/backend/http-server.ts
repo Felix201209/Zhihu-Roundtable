@@ -966,11 +966,14 @@ async function handleRequest(
     }
 
     const auth = new URL(authorizeUrl);
+    auth.searchParams.set("app_id", oauthClientId() ?? "");
     auth.searchParams.set("client_id", oauthClientId() ?? "");
     auth.searchParams.set("redirect_uri", redirectUri);
     auth.searchParams.set("response_type", "code");
     auth.searchParams.set("state", stateRecord.state);
-    auth.searchParams.set("scope", process.env.ZHIHU_OAUTH_SCOPE ?? "read");
+    if (process.env.ZHIHU_OAUTH_SCOPE) {
+      auth.searchParams.set("scope", process.env.ZHIHU_OAUTH_SCOPE);
+    }
     redirect(res, auth.toString(), {
       "set-cookie": oauthCookie(stateRecord.state),
     });
@@ -979,7 +982,7 @@ async function handleRequest(
 
   if (req.method === "GET" && url.pathname === "/api/oauth/callback") {
     const state = url.searchParams.get("state") ?? undefined;
-    const code = url.searchParams.get("code") ?? undefined;
+    const code = url.searchParams.get("authorization_code") ?? url.searchParams.get("code") ?? undefined;
     const cookieState = cookieValue(req, "zhihu_oauth_state");
 
     if (cookieState && state && cookieState !== state) {
@@ -996,10 +999,10 @@ async function handleRequest(
     const clientSecret = oauthClientSecret();
     const tokenPayload = {
       grant_type: "authorization_code",
-      code,
+      authorization_code: code,
       redirect_uri: record.redirectUri,
-      client_id: clientId,
-      client_secret: clientSecret,
+      app_id: clientId,
+      app_key: clientSecret,
     };
     let tokenExchange: { ok: boolean; status?: number; configured: boolean; tokenStored?: boolean; userInfoFetched?: boolean; followersFetched?: boolean } = { ok: false, configured: false };
     const headers: OutgoingHttpHeaders = {};
