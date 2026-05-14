@@ -13,14 +13,14 @@ check("产品定位清晰", "README/JUDGE/首页文案明确是知乎创作者�
   ]);
   assertIncludes("JUDGE_GUIDE.md", ["不是“AI 写知乎回答”", "AI 讨论组织台"]);
   assertIncludes("src/frontend/main.tsx", [
-    "刘看山主持的知乎讨论组织台",
-    "从热榜生成讨论方案",
+    "先保护额度，再开圆桌",
+    "跳过授权，进入热榜台",
   ]);
 });
 
 check("主流程完整", "前端 5 步和后端闭环覆盖选题、准备、主持校验、发布策划、评论回流", () => {
   assertIncludes("src/frontend/main.tsx", [
-    "选题雷达",
+    "热榜台",
     "讨论方案",
     "刘看山主持校验",
     "发布策划与圈子帖预览",
