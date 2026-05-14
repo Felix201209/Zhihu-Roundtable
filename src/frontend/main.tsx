@@ -2020,7 +2020,7 @@ function uniqueBriefItems(items: string[]): string[] {
 function briefFallback(snapshot: RoundtableSnapshot, type: "support" | "oppose" | "background"): string {
   const topic = snapshot.selectedTopic?.title ?? "这个热榜";
   if (type === "support") {
-    return `支持入口：如果参与者能给出真实经历，${topic} 就可以从“好不好”聊到“在哪些场景真的有用”。`;
+    return `支持入口：如果参与者能给出真实经历，${topic}，就可以从“好不好”聊到“在哪些场景真的有用”。`;
   }
   if (type === "oppose") {
     return `反方入口：先追问边界、责任和证据来源，避免讨论变成单向安利或情绪站队。`;
