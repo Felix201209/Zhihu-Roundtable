@@ -738,7 +738,7 @@ function HomeEntry({
             <LiuKanshanPortrait speaking state="hosting" />
           </div>
           <div>
-            <span className="eyebrow">知乎黑客松 2026</span>
+            <span className="eyebrow">知乎黑客松 2026 · 热榜工作台</span>
             <h1>知辩圆桌</h1>
             <p>把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。</p>
             <div className="hero-actions">
@@ -758,9 +758,12 @@ function HomeEntry({
           </div>
           {previewTopics.length ? previewTopics.map((topic, index) => (
             <button key={topic.id} className="home-topic-button" onClick={() => onSelectTopic(topic.id)}>
-              <span>{index + 1}</span>
-              <strong>{topic.title}</strong>
-              <small>热度 {topic.hotScore} · 争议 {topic.debateScore} · 证据 {topic.evidenceScore}</small>
+              <span className={`home-topic-rank rank-${index + 1}`}>{index + 1}</span>
+              <span className="home-topic-main">
+                <strong>{topic.title}</strong>
+                <small><i>热</i>{topic.hotScore} · {topicCategory(topic)} · 争议 {topic.debateScore}</small>
+                <em style={{ width: `${Math.max(18, topic.hotScore)}%` }} />
+              </span>
             </button>
           )) : <SkeletonStack count={4} />}
         </section>
@@ -798,6 +801,7 @@ function LiuKanshanPortrait({
       />
       <img className="liukanshan-fallback" src={liukanshanFront} alt="刘看山 IP 形象" />
       <span className="liukanshan-sprite" style={frameStyle} aria-hidden="true" />
+      {motionState === "hosting" ? <span className="host-state-badge" aria-hidden="true">主持</span> : null}
       <span className="host-thinking-dots" aria-hidden="true"><i /><i /><i /></span>
     </div>
   );
@@ -896,6 +900,7 @@ function TopicCard({ rank, topic, onSelect, compact = false, selected = false }:
         <h2>{topic.title}</h2>
         <p>{topic.reason}</p>
         <div className="topic-row-meta">
+          <span className="topic-tag">{topicCategory(topic)}</span>
           <span>热度 {topic.hotScore}</span>
           <span>争议 {controversy}</span>
           <span>资料 {evidence}</span>
@@ -1135,7 +1140,7 @@ function formatViewpointItem(item: unknown): string {
 
   const trimmed = item.trim();
   if (!trimmed.startsWith("{")) {
-    return cleanDisplayText(trimmed);
+    return cleanViewpointText(trimmed);
   }
 
   try {
@@ -1144,10 +1149,19 @@ function formatViewpointItem(item: unknown): string {
     const body = stringField(parsed, "reasoning") ?? stringField(parsed, "detail") ?? stringField(parsed, "statement") ?? stringField(parsed, "summary");
     const evidenceId = stringField(parsed, "evidenceId");
     const content = [heading, body].filter(Boolean).join("：");
-    return cleanDisplayText(evidenceId && content ? `${content}（${evidenceId}）` : content || trimmed);
+    return cleanViewpointText(evidenceId && content ? `${content}（${evidenceId}）` : content || trimmed);
   } catch {
-    return cleanDisplayText(trimmed.replace(/[{}"]/g, "").replace(/,/g, "，").replace(/:/g, "："));
+    return cleanViewpointText(trimmed.replace(/[{}"]/g, "").replace(/,/g, "，").replace(/:/g, "："));
   }
+}
+
+function cleanViewpointText(value: string): string {
+  return cleanDisplayText(value)
+    .replace(/\b(?:viewpoint|fact|issue|claim|statement|reasoning|detail)\s*[：:]\s*/gi, "")
+    .replace(/；?\s*evidenceIds?\s*[：:]\s*[\w\-_,\s]+/gi, "")
+    .replace(/；?\s*evidenceId\s*[：:]\s*[\w\-_,\s]+/gi, "")
+    .replace(/^["“”]+|["“”]+$/g, "")
+    .trim();
 }
 
 function stringField(record: Record<string, unknown>, key: string): string | undefined {
@@ -1217,17 +1231,31 @@ function cleanQuestionCandidate(value: string): string {
 
 function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }) {
   const usedEvidence = evidence.filter((item) => turn.evidenceIds.includes(item.id));
+  const agreeCount = pseudoAgreeCount(turn);
 
   return (
     <article className={`chat-message ${turn.speaker}`}>
-      <div className="chat-header">
-        <div className="chat-avatar">{seatInitial(turn.speaker)}</div>
-        <strong>{speakerMeta[turn.speaker].name}</strong>
-        <span>{turn.claim}</span>
+      <div className="zhihu-vote-rail" aria-hidden="true">
+        <span className="vote-arrow">▲</span>
+        <span>{agreeCount}</span>
       </div>
-      <p>{turn.content}</p>
-      <SourceLine evidence={usedEvidence} fallback={turn.evidenceIds.length === 0 ? "来源：AI 逻辑校验，待真人补充" : undefined} />
-      {turn.nextQuestion ? <small>追问：{turn.nextQuestion}</small> : null}
+      <div className="chat-body">
+        <div className="chat-header">
+          <div className="chat-avatar">{seatInitial(turn.speaker)}</div>
+          <strong>{speakerMeta[turn.speaker].name}</strong>
+          <time>刚刚</time>
+        </div>
+        <h3>{turn.claim}</h3>
+        <p>{turn.content}</p>
+        <SourceLine evidence={usedEvidence} fallback={turn.evidenceIds.length === 0 ? "来源：AI 逻辑校验，待真人补充" : undefined} />
+        {turn.nextQuestion ? <small>追问：{turn.nextQuestion}</small> : null}
+        <div className="answer-action-bar" aria-label="知乎讨论操作预览">
+          <span>赞同 {agreeCount}</span>
+          <span>评论</span>
+          <span>收藏</span>
+          <span>分享</span>
+        </div>
+      </div>
     </article>
   );
 }
@@ -1237,6 +1265,21 @@ function seatInitial(speaker: DebateTurn["speaker"]) {
   if (speaker === "expert") return "观";
   if (speaker === "opponent") return "校";
   return "问";
+}
+
+function topicCategory(topic: Topic): string {
+  const text = `${topic.title} ${topic.reason}`.toLowerCase();
+  if (/ai|人工智能|模型|agent|工具|编程|科技/.test(text)) return "科技";
+  if (/职场|工作|公司|职业|新人/.test(text)) return "职场";
+  if (/学习|学校|教育|成长/.test(text)) return "学习";
+  if (/创作|内容|文章|回答|圈子/.test(text)) return "创作";
+  return "讨论";
+}
+
+function pseudoAgreeCount(turn: DebateTurn): string {
+  const seed = Array.from(turn.id + turn.claim).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const value = 36 + (seed % 420);
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(value);
 }
 
 function PostContent({ draft }: { draft: RoundtableSnapshot["publishDraft"] }) {
