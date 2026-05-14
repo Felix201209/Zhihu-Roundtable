@@ -157,6 +157,7 @@ export function App() {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [busyStartedAt, setBusyStartedAt] = React.useState<number | null>(null);
   const [busyNow, setBusyNow] = React.useState(() => Date.now());
+  const [progressStep, setProgressStep] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [publishConfirmOpen, setPublishConfirmOpen] = React.useState(false);
 
@@ -232,6 +233,7 @@ export function App() {
     setBusy("正在读取热榜详情、站内证据和讨论上下文...");
     setError(null);
     setSnapshot(null);
+    setProgressStep(0);
     setRoundtableStage("progress");
     setMode("roundtable");
 
@@ -256,11 +258,13 @@ export function App() {
           if (event.type === "radar") {
             setTopics(event.topics);
             setSnapshot(event.snapshot);
+            setProgressStep(1);
             setBusy("热榜已锁定，正在读取详情并重构议题...");
             return;
           }
           if (event.type === "prepare") {
             setSnapshot(event.snapshot);
+            setProgressStep(4);
             setRoundtableStage("prepare");
             setBusy("证据池已完成，正在生成可发起的讨论方案...");
             scrollToTop();
@@ -268,6 +272,7 @@ export function App() {
           }
           if (event.type === "agent_briefing") {
             setSnapshot(event.snapshot);
+            setProgressStep(5);
             setBusy("主持任务卡已生成，正在校验讨论是否有张力、证据和参与空间...");
             return;
           }
@@ -316,11 +321,13 @@ export function App() {
   async function startRoundtableFallback(topicId: string) {
     setBusy("正在查站内证据、全网背景并生成讨论方案...");
     setError(null);
+    setProgressStep(0);
     try {
       const result = await runWorkflowWithDemoFallback(topicId);
       setTopics(result.topics);
       setSnapshot(result.snapshot);
       setPublishConfirmation(result.publishConfirmation);
+      setProgressStep(5);
       setRoundtableStage("prepare");
       setMode("roundtable");
       scrollToTop();
@@ -508,11 +515,11 @@ export function App() {
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "radar" ? (
-        <HotRadar topics={topics} onSelect={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
+        <HotRadar topics={topics} selectedTopicId={snapshot?.selectedTopic?.id} onSelect={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "progress" ? (
-        <RoundtableProgress topic={topics.find((topic) => topic.id === snapshot?.selectedTopic?.id) ?? snapshot?.selectedTopic} elapsedSeconds={busyElapsedSeconds} />
+        <RoundtableProgress topic={topics.find((topic) => topic.id === snapshot?.selectedTopic?.id) ?? snapshot?.selectedTopic} activeStep={progressStep} />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "prepare" && snapshot ? (
@@ -603,7 +610,9 @@ export function App() {
 }
 
 function HomeEntry({
+  topics,
   onRoundtable,
+  onSelectTopic,
   onIdeaLab,
 }: {
   topics: Topic[];
@@ -611,23 +620,42 @@ function HomeEntry({
   onSelectTopic: (topicId: string) => void;
   onIdeaLab: () => void;
 }) {
+  const previewTopics = topics.slice(0, 4);
+
   return (
     <section className="home-clean">
       <div className="home-hero-card">
-        <div className="home-mark" aria-hidden="true">
-          <LiuKanshanPortrait speaking />
+        <div className="home-intro">
+          <div className="home-mark" aria-hidden="true">
+            <LiuKanshanPortrait speaking />
+          </div>
+          <div>
+            <span className="eyebrow">知乎黑客松 2026</span>
+            <h1>知辩圆桌</h1>
+            <p>把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。</p>
+            <div className="hero-actions">
+              <button className="primary-button hero-main-action" onClick={onRoundtable}>
+                进入热榜台 <ArrowRight size={18} />
+              </button>
+              <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
+                测一个脑洞 <Lightbulb size={16} />
+              </button>
+            </div>
+          </div>
         </div>
-        <span className="eyebrow">知乎黑客松 2026</span>
-        <h1>知辩圆桌</h1>
-        <p>把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。</p>
-        <div className="hero-actions">
-          <button className="primary-button hero-main-action" onClick={onRoundtable}>
-            进入热榜台 <ArrowRight size={18} />
-          </button>
-          <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
-            测一个脑洞 <Lightbulb size={16} />
-          </button>
-        </div>
+        <section className="home-topic-preview" aria-label="热榜预览">
+          <div className="home-topic-preview-head">
+            <strong>当前热榜</strong>
+            <button className="ghost-button" onClick={onRoundtable}>查看全部</button>
+          </div>
+          {previewTopics.length ? previewTopics.map((topic, index) => (
+            <button key={topic.id} className="home-topic-button" onClick={() => onSelectTopic(topic.id)}>
+              <span>{index + 1}</span>
+              <strong>{topic.title}</strong>
+              <small>热度 {topic.hotScore} · 争议 {topic.debateScore} · 证据 {topic.evidenceScore}</small>
+            </button>
+          )) : <SkeletonStack count={4} />}
+        </section>
         <div className="home-proof-line" aria-label="产品边界">
           <span>真实读知乎</span>
           <span>DeepSeek 生成</span>
@@ -665,7 +693,7 @@ function SkeletonStack({ count }: { count: number }) {
   );
 }
 
-function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: (topicId: string) => void; onIdeaLab: () => void }) {
+function HotRadar({ topics, selectedTopicId, onSelect, onIdeaLab }: { topics: Topic[]; selectedTopicId?: string; onSelect: (topicId: string) => void; onIdeaLab: () => void }) {
   return (
     <section className="flow-card">
       <PageHeading
@@ -675,7 +703,7 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
       />
       <div className="topic-feed">
         {topics.map((topic, index) => (
-          <TopicCard key={topic.id} rank={index + 1} topic={topic} onSelect={() => onSelect(topic.id)} />
+          <TopicCard key={topic.id} rank={index + 1} topic={topic} selected={topic.id === selectedTopicId} onSelect={() => onSelect(topic.id)} />
         ))}
       </div>
       <div className="flow-actions split">
@@ -687,7 +715,7 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
   );
 }
 
-function RoundtableProgress({ topic, elapsedSeconds }: { topic?: Topic; elapsedSeconds: number }) {
+function RoundtableProgress({ topic, activeStep }: { topic?: Topic; activeStep: number }) {
   const steps = [
     "读取热榜详情",
     "检索知乎站内观点",
@@ -710,7 +738,7 @@ function RoundtableProgress({ topic, elapsedSeconds }: { topic?: Topic; elapsedS
       </div>
       <div className="progress-step-list">
         {steps.map((step, index) => (
-          <article key={step} className={index <= Math.min(steps.length - 1, Math.floor(elapsedSeconds / 5)) ? "active" : ""}>
+          <article key={step} className={index < activeStep ? "active" : ""}>
             <b>{String(index + 1).padStart(2, "0")}</b>
             <span>{step}</span>
           </article>
@@ -721,12 +749,12 @@ function RoundtableProgress({ topic, elapsedSeconds }: { topic?: Topic; elapsedS
   );
 }
 
-function TopicCard({ rank, topic, onSelect, compact = false }: { rank: number; topic: Topic; onSelect: () => void; compact?: boolean }) {
+function TopicCard({ rank, topic, onSelect, compact = false, selected = false }: { rank: number; topic: Topic; onSelect: () => void; compact?: boolean; selected?: boolean }) {
   const controversy = topic.controversyLevel === "high" || topic.debateScore >= 85 ? "高" : topic.debateScore >= 70 ? "中" : "低";
   const evidence = topic.evidenceScore >= 82 ? "高" : topic.evidenceScore >= 68 ? "中" : "低";
 
   return (
-    <article className={`topic-row ${compact ? "compact" : ""} ${rank === 1 ? "selected" : ""}`}>
+    <article className={`topic-row ${compact ? "compact" : ""} ${selected ? "selected" : ""}`}>
       <div className={`topic-rank ${rank <= 3 ? "hot" : ""}`}>{rank}</div>
       <div className="topic-row-body">
         <h2>{topic.title}</h2>
@@ -1064,7 +1092,6 @@ function TurnCard({ turn, evidence }: { turn: DebateTurn; evidence: Evidence[] }
       <p>{turn.content}</p>
       <SourceLine evidence={usedEvidence} fallback={turn.evidenceIds.length === 0 ? "来源：AI 逻辑校验，待真人补充" : undefined} />
       {turn.nextQuestion ? <small>追问：{turn.nextQuestion}</small> : null}
-      <time dateTime="2026-05-14T20:00:00+08:00">刚刚生成</time>
     </article>
   );
 }
