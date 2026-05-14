@@ -195,7 +195,7 @@ assertFileIncludes("render.yaml", [
 
 assertFileIncludes("scripts/verify-public-demo.mjs", [
   "fetchPublicBundles",
-  "从热榜生成讨论方案",
+  "跳过授权，进入热榜台",
   "models.env?.zhihuConfigured",
   "mock-safe public demo should not report Zhihu live credentials configured",
 ]);
