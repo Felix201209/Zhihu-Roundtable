@@ -703,6 +703,40 @@ describe("frontend smoke", () => {
     expect(requests.some((url) => url.includes("/api/workflow/run"))).toBe(true);
   });
 
+  it("does not show empty host brief placeholder when stance preview is missing", async () => {
+    Object.defineProperty(window, "EventSource", { value: undefined, configurable: true });
+    delete (window as Window & { EventSource?: typeof EventSource }).EventSource;
+    const workflowWithoutStance = {
+      ...workflow,
+      snapshot: {
+        ...workflow.snapshot,
+        stancePreview: undefined,
+        viewpointMap: undefined,
+      },
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/topics")) {
+        return Response.json({ topics: workflow.topics });
+      }
+      if (url.includes("/api/workflow/run")) {
+        return Response.json(workflowWithoutStance);
+      }
+      return Response.json({});
+    });
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /进入热榜台/ }));
+    const topicActions = await screen.findAllByRole("button", { name: /生成讨论方案/ });
+    fireEvent.click(topicActions[0]);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
+    expect(screen.getByText("主持提纲")).toBeInTheDocument();
+    expect(screen.queryByText("等待更多证据回流。")).not.toBeInTheDocument();
+    expect(screen.getByText(/支持入口/)).toBeInTheDocument();
+    expect(screen.getAllByText(/需要追问过程与复盘证据/).length).toBeGreaterThan(0);
+  });
+
   it("normalizes comment sentiment counts into display percentages", () => {
     expect(normalizeSentiment({ support: 2, oppose: 1, neutral: 1 })).toEqual({
       support: 50,

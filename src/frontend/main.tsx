@@ -947,7 +947,7 @@ function ScoreBar({ label, value }: { label: string; value: number }) {
 
 function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNext: () => void }) {
   const topic = snapshot.selectedTopic;
-  const stance = snapshot.stancePreview;
+  const brief = buildHostBrief(snapshot);
   const evidencePreview = snapshot.evidence.slice(0, 3);
   const question = discussionQuestion(snapshot);
 
@@ -967,7 +967,7 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
         <div className="host-gate-grid">
           <article>
             <strong>能站队</strong>
-            <span>{(stance?.support ?? []).length + (stance?.oppose ?? []).length > 0 ? "已找到支持/反对入口" : "等待更多立场"}</span>
+            <span>{brief.support.length + brief.oppose.length > 0 ? "已找到支持/反对入口" : "已生成保底站队提纲"}</span>
           </article>
           <article>
             <strong>有证据</strong>
@@ -999,9 +999,9 @@ function EvidencePrep({ snapshot, onNext }: { snapshot: RoundtableSnapshot; onNe
 
         <aside className="discussion-brief">
           <span>主持提纲</span>
-          <MiniList title="支持" items={(stance?.support ?? []).slice(0, 2)} />
-          <MiniList title="反对" items={(stance?.oppose ?? []).slice(0, 2)} />
-          <MiniList title="背景" items={(stance?.background ?? []).slice(0, 1)} />
+          <MiniList title="支持" items={brief.support.slice(0, 2)} fallback={briefFallback(snapshot, "support")} />
+          <MiniList title="反对" items={brief.oppose.slice(0, 2)} fallback={briefFallback(snapshot, "oppose")} />
+          <MiniList title="背景" items={brief.background.slice(0, 1)} fallback={briefFallback(snapshot, "background")} />
         </aside>
       </div>
 
@@ -1977,14 +1977,65 @@ function buildRiskReminders(snapshot: RoundtableSnapshot): string[] {
   return warnings;
 }
 
-function MiniList({ title, items }: { title: string; items: string[] }) {
+function buildHostBrief(snapshot: RoundtableSnapshot): { support: string[]; oppose: string[]; background: string[] } {
+  const stance = snapshot.stancePreview;
+  const supportEvidence = snapshot.evidence.filter((item) => item.stance === "support").map((item) => item.summary);
+  const opposeEvidence = snapshot.evidence.filter((item) => item.stance === "oppose").map((item) => item.summary);
+  const backgroundEvidence = snapshot.evidence
+    .filter((item) => item.stance === "neutral" || item.stance === "background")
+    .map((item) => item.summary);
+
+  return {
+    support: uniqueBriefItems([
+      ...(stance?.support ?? []),
+      ...(snapshot.viewpointMap?.support ?? []),
+      ...supportEvidence,
+    ]),
+    oppose: uniqueBriefItems([
+      ...(stance?.oppose ?? []),
+      ...(snapshot.viewpointMap?.oppose ?? []),
+      ...(snapshot.viewpointMap?.disputes ?? []),
+      ...opposeEvidence,
+    ]),
+    background: uniqueBriefItems([
+      ...(stance?.background ?? []),
+      ...(stance?.neutral ?? []),
+      ...(snapshot.viewpointMap?.facts ?? []),
+      ...backgroundEvidence,
+    ]),
+  };
+}
+
+function uniqueBriefItems(items: string[]): string[] {
+  const seen = new Set<string>();
+  return items
+    .map((item) => cleanViewpointText(item))
+    .filter((item) => {
+      if (!item || seen.has(item)) return false;
+      seen.add(item);
+      return true;
+    });
+}
+
+function briefFallback(snapshot: RoundtableSnapshot, type: "support" | "oppose" | "background"): string {
+  const topic = snapshot.selectedTopic?.title ?? "这个热榜";
+  if (type === "support") {
+    return `支持入口：如果参与者能给出真实经历，${topic} 就可以从“好不好”聊到“在哪些场景真的有用”。`;
+  }
+  if (type === "oppose") {
+    return `反方入口：先追问边界、责任和证据来源，避免讨论变成单向安利或情绪站队。`;
+  }
+  return `背景入口：先说明这是基于热榜详情、站内证据和模型整理的讨论提纲，不把 AI 输出当成最终事实。`;
+}
+
+function MiniList({ title, items, fallback }: { title: string; items: string[]; fallback: string }) {
+  const visibleItems = items.length ? items : [fallback];
   return (
     <div className="mini-list">
       <strong>{title}</strong>
-      {items.slice(0, 3).map((item) => (
+      {visibleItems.slice(0, 3).map((item) => (
         <span key={item}>{item}</span>
       ))}
-      {!items.length ? <span>等待更多证据回流。</span> : null}
     </div>
   );
 }
