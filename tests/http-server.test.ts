@@ -235,15 +235,27 @@ describe("backend HTTP server", () => {
       ZHIHU_OAUTH_USER_INFO_URL: process.env.ZHIHU_OAUTH_USER_INFO_URL,
       ZHIHU_OAUTH_USER_FOLLOWERS_URL: process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL,
     };
+    let tokenRequest: { contentType?: string; body: string } | undefined;
     const oauthApi = createServer(async (req, res) => {
       if (req.url === "/token" && req.method === "POST") {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        }
+        tokenRequest = {
+          contentType: req.headers["content-type"],
+          body: Buffer.concat(chunks).toString("utf8"),
+        };
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({
-          access_token: "user-token",
-          token_type: "Bearer",
-          expires_in: 3600,
-          refresh_token: "refresh-token",
-          scope: "user_info user_followers",
+          code: 0,
+          data: {
+            access_token: "user-token",
+            token_type: "Bearer",
+            expires_in: 3600,
+            refresh_token: "refresh-token",
+            scope: "user_info user_followers",
+          },
         }));
         return;
       }
@@ -286,6 +298,12 @@ describe("backend HTTP server", () => {
       expect(callback.status).toBe(200);
       expect(html).toContain("知乎登录已完成");
       expect(html).toContain("已读取授权用户信息");
+      expect(tokenRequest?.contentType).toBe("application/x-www-form-urlencoded");
+      const tokenParams = new URLSearchParams(tokenRequest?.body);
+      expect(tokenParams.get("code")).toBe("test-code");
+      expect(tokenParams.get("authorization_code")).toBe("test-code");
+      expect(tokenParams.get("app_id")).toBe("client-id");
+      expect(tokenParams.get("app_key")).toBe("client-secret");
 
       const sessionCookie = callback.headers.get("set-cookie")?.match(/zhihu_oauth_session=[^;,]+/)?.[0];
       expect(sessionCookie).toBeTruthy();

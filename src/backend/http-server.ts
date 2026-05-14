@@ -524,6 +524,9 @@ function cookieValue(req: IncomingMessage, key: string): string | undefined {
 function tokenFromResponse(value: unknown): OAuthTokenRecord | undefined {
   if (!value || typeof value !== "object") return undefined;
   const record = value as Record<string, unknown>;
+  if (record.data && typeof record.data === "object" && !Array.isArray(record.data)) {
+    return tokenFromResponse(record.data);
+  }
   const accessToken = typeof record.access_token === "string" ? record.access_token : undefined;
   if (!accessToken) return undefined;
 
@@ -547,7 +550,7 @@ async function exchangeOAuthToken(input: {
   tokenUrl: string;
   payload: JsonRecord;
 }): Promise<{ ok: boolean; status: number; body?: unknown; token?: OAuthTokenRecord }> {
-  const bodyMode = process.env.ZHIHU_OAUTH_TOKEN_BODY_MODE ?? "json";
+  const bodyMode = process.env.ZHIHU_OAUTH_TOKEN_BODY_MODE ?? "form";
   const headers: Record<string, string> = {
     accept: "application/json",
   };
@@ -1019,6 +1022,7 @@ async function handleRequest(
     const clientSecret = oauthClientSecret();
     const tokenPayload = {
       grant_type: "authorization_code",
+      code,
       authorization_code: code,
       redirect_uri: record.redirectUri,
       app_id: clientId,
