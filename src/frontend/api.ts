@@ -4,7 +4,9 @@ import type {
   ConfirmationPayload,
   ExperimentReportResponse,
   ExperimentResponse,
+  OAuthStatusResponse,
   TopicsResponse,
+  UsageStatusResponse,
   WorkflowRunResponse,
   WorkflowStreamEvent,
   ZhihuStatusResponse,
@@ -76,6 +78,14 @@ export async function getTopics(): Promise<TopicsResponse> {
 
 export async function getQuota(): Promise<QuotaResponse> {
   return jsonFetch<QuotaResponse>("/api/quota");
+}
+
+export async function getOAuthStatus(): Promise<OAuthStatusResponse> {
+  return jsonFetch<OAuthStatusResponse>("/api/oauth/status");
+}
+
+export async function getUsageStatus(): Promise<UsageStatusResponse> {
+  return jsonFetch<UsageStatusResponse>("/api/usage/status");
 }
 
 export async function getZhihuStatus(): Promise<ZhihuStatusResponse> {

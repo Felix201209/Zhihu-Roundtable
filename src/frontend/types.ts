@@ -81,6 +81,35 @@ export type ReadinessResponse = {
   report: HackathonReadinessReport;
 };
 
+export type OAuthStatusResponse = {
+  configured: boolean;
+  clientIdConfigured: boolean;
+  clientSecretConfigured: boolean;
+  authorizeUrlConfigured: boolean;
+  tokenUrlConfigured: boolean;
+  callbackUrl: string;
+  mode: "mock-safe" | "live-ready";
+  session: {
+    authenticated: boolean;
+    user?: {
+      name?: string;
+      url?: string;
+    };
+  };
+  aiUsageGuardMode: "off" | "ip" | "oauth" | "oauth_or_ip";
+};
+
+export type UsageStatusResponse = {
+  guardMode: "off" | "ip" | "oauth" | "oauth_or_ip";
+  identity: string;
+  authenticated: boolean;
+  limit: number;
+  bonus: number;
+  used: number;
+  remaining: number;
+  resetAt: string;
+};
+
 export type WorkflowStreamEvent =
   | { type: "radar"; snapshot: RoundtableSnapshot; topics: Topic[]; node: WorkflowNodeResult }
   | { type: "prepare"; snapshot: RoundtableSnapshot; node: WorkflowNodeResult }

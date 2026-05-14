@@ -26,13 +26,15 @@ import {
   generateExperiment,
   generateExperimentReport,
   getReadiness,
+  getOAuthStatus,
   getTopics,
+  getUsageStatus,
   getZhihuStatus,
   previewExperimentPublish,
   runWorkflow,
   streamWorkflow,
 } from "./api.js";
-import type { ConfirmationPayload, ReadinessResponse, ZhihuStatusResponse } from "./types.js";
+import type { ConfirmationPayload, OAuthStatusResponse, ReadinessResponse, UsageStatusResponse, ZhihuStatusResponse } from "./types.js";
 import type {
   DebateTurn,
   Evidence,
@@ -47,7 +49,7 @@ import type {
 import liukanshanFront from "./assets/liukanshan-front.png";
 import "./styles.css";
 
-type AppMode = "home" | "roundtable" | "idea" | "tech";
+type AppMode = "auth" | "home" | "roundtable" | "idea" | "tech";
 type RoundtableUiStage = "radar" | "progress" | "prepare" | "debate" | "publish" | "feedback";
 
 const exampleIdeas = [
@@ -144,7 +146,12 @@ function scrollToTop() {
 }
 
 export function App() {
-  const [mode, setMode] = React.useState<AppMode>("home");
+  const [mode, setMode] = React.useState<AppMode>(() => {
+    if (typeof window !== "undefined" && window.localStorage.getItem("zhihu-roundtable-auth-choice") === "seen") {
+      return "home";
+    }
+    return "auth";
+  });
   const [roundtableStage, setRoundtableStage] = React.useState<RoundtableUiStage>("radar");
   const [topics, setTopics] = React.useState<Topic[]>([]);
   const [snapshot, setSnapshot] = React.useState<RoundtableSnapshot | null>(null);
@@ -154,6 +161,8 @@ export function App() {
   const [publishConfirmation, setPublishConfirmation] = React.useState<ConfirmationPayload | undefined>();
   const [readiness, setReadiness] = React.useState<ReadinessResponse | null>(null);
   const [zhihuStatus, setZhihuStatus] = React.useState<ZhihuStatusResponse | null>(null);
+  const [oauthStatus, setOauthStatus] = React.useState<OAuthStatusResponse | null>(null);
+  const [usageStatus, setUsageStatus] = React.useState<UsageStatusResponse | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [busyStartedAt, setBusyStartedAt] = React.useState<number | null>(null);
   const [busyNow, setBusyNow] = React.useState(() => Date.now());
@@ -164,6 +173,12 @@ export function App() {
   React.useEffect(() => {
     getZhihuStatus()
       .then(setZhihuStatus)
+      .catch(() => undefined);
+    getOAuthStatus()
+      .then(setOauthStatus)
+      .catch(() => undefined);
+    getUsageStatus()
+      .then(setUsageStatus)
       .catch(() => undefined);
     loadTopics().catch(() => undefined);
   }, []);
@@ -191,6 +206,13 @@ export function App() {
 
   const ideaStage: IdeaExperimentStage = experiment?.stage ?? "Draft";
   const busyElapsedSeconds = busyStartedAt ? Math.max(0, Math.floor((busyNow - busyStartedAt) / 1000)) : 0;
+
+  function continueWithoutOAuth() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("zhihu-roundtable-auth-choice", "seen");
+    }
+    setMode("home");
+  }
 
   React.useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -489,7 +511,7 @@ export function App() {
           <span>刘看山圆桌</span>
           <strong>知辩圆桌</strong>
         </button>
-        {mode === "home" ? null : (
+        {mode === "home" || mode === "auth" ? null : (
           <div className="topbar-status">
             {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : mode === "tech" ? <span className="tech-status-pill">技术页</span> : <RoundtableStageStepper stage={roundtableStage} />}
             <LiveStatusPill status={zhihuStatus} />
@@ -509,6 +531,13 @@ export function App() {
         </div>
       ) : null}
       {busy ? <BusyStrip label={busy} elapsedSeconds={busyElapsedSeconds} status={zhihuStatus} /> : null}
+
+      {mode === "auth" ? (
+        <AuthGate oauthStatus={oauthStatus} usageStatus={usageStatus} onContinue={continueWithoutOAuth} onRoundtable={() => {
+          continueWithoutOAuth();
+          void openRoundtable();
+        }} />
+      ) : null}
 
       {mode === "home" ? (
         <HomeEntry topics={topics} onRoundtable={() => void openRoundtable()} onSelectTopic={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
@@ -606,6 +635,62 @@ export function App() {
         />
       ) : null}
     </main>
+  );
+}
+
+function AuthGate({
+  oauthStatus,
+  usageStatus,
+  onContinue,
+  onRoundtable,
+}: {
+  oauthStatus: OAuthStatusResponse | null;
+  usageStatus: UsageStatusResponse | null;
+  onContinue: () => void;
+  onRoundtable: () => void;
+}) {
+  const oauthReady = oauthStatus?.configured === true;
+  const loginReady = oauthReady && oauthStatus?.authorizeUrlConfigured === true && oauthStatus?.tokenUrlConfigured === true;
+  const authenticated = oauthStatus?.session.authenticated === true;
+  const remaining = usageStatus?.remaining ?? 0;
+  const limit = usageStatus?.limit ?? 0;
+  const guardMode = usageStatus?.guardMode ?? oauthStatus?.aiUsageGuardMode ?? "off";
+
+  return (
+    <section className="auth-gate">
+      <div className="auth-card">
+        <div className="auth-copy">
+          <span className="eyebrow">知乎账号授权</span>
+          <h1>先保护额度，再开圆桌</h1>
+          <p>后端会调用 DeepSeek 和知乎 API。登录知乎后按账号计额度；暂时不登录也能继续体验，但匿名额度会更紧。</p>
+          <div className="auth-meter" aria-label={`AI 使用额度，剩余 ${remaining}，每日 ${limit}`}>
+            <div>
+              <strong>{authenticated ? "已登录" : "未登录"}</strong>
+              <span>{guardMode === "off" ? "未启用额度闸门" : `剩余额度 ${remaining}/${limit}`}</span>
+            </div>
+            <i><em style={{ width: `${limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 100}%` }} /></i>
+          </div>
+        </div>
+        <div className="auth-actions-panel">
+          <a className={`primary-button auth-link ${loginReady ? "" : "disabled"}`} href={loginReady ? "/api/oauth/start" : undefined} aria-disabled={!loginReady}>
+            知乎授权登录 <ArrowRight size={16} />
+          </a>
+          <button className="ghost-button" onClick={onContinue}>
+            先继续体验
+          </button>
+          <button className="ghost-button" onClick={onRoundtable}>
+            跳过授权，进入热榜台
+          </button>
+          <p>
+            {loginReady
+              ? "授权后会获得更高每日额度，适合连续演示。"
+              : oauthReady
+                ? "App ID/Key 已配置；官方授权地址未开放，当前按 IP 限额保护成本。"
+                : "OAuth 未配置，当前按 IP 限额保护成本。"}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -162,6 +162,7 @@ button {
 .hero-entry,
 .flow-card,
 .advanced-details,
+.auth-gate,
 .busy-strip,
 .error-strip {
   width: 100%;
@@ -171,7 +172,8 @@ button {
 
 .hero-entry,
 .flow-card,
-.advanced-details {
+.advanced-details,
+.auth-card {
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--surface);
@@ -287,6 +289,97 @@ button {
   background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 48%, #eef2f7 100%);
   background-size: 200% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.auth-gate {
+  min-height: calc(100vh - 92px);
+  display: grid;
+  place-items: center;
+}
+
+.auth-card {
+  width: min(100%, 860px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+  gap: 18px;
+  padding: 22px;
+}
+
+.auth-copy {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.auth-copy h1 {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.08;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.auth-copy p,
+.auth-actions-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.auth-meter {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dcecff;
+  border-radius: 10px;
+  background: #f7fbff;
+}
+
+.auth-meter div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-meter strong {
+  color: var(--ink);
+}
+
+.auth-meter i {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #dfe9f8;
+}
+
+.auth-meter em {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--zhihu-blue);
+}
+
+.auth-actions-panel {
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.auth-link {
+  text-decoration: none;
+}
+
+.auth-link.disabled {
+  opacity: 0.52;
+  pointer-events: none;
 }
 
 
@@ -2403,15 +2496,18 @@ button {
 
 @media (max-width: 860px) {
   .home-hero-card,
-  .home-intro {
+  .home-intro,
+  .auth-card {
     padding: 14px;
   }
 
-  .home-intro {
+  .home-intro,
+  .auth-card {
     grid-template-columns: 1fr;
   }
 
-  .home-intro h1 {
+  .home-intro h1,
+  .auth-copy h1 {
     font-size: 34px;
   }
 
