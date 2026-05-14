@@ -277,6 +277,8 @@ describe("provider integrations", () => {
     expect(comment).toMatchObject({ id: "c1", mode: "live" });
     expect(reaction).toMatchObject({ targetId: publish.id, type: "support", mode: "live" });
     expect(provider.getQuotaStatus().find((quota) => quota.key === "comment_create")?.used).toBe(1);
+    const publishBody = requested.find((item) => item === "POST /openapi/publish/pin");
+    expect(publishBody).toBeTruthy();
     expect(requested).toEqual(
       expect.arrayContaining([
         "GET /api/v1/content/hot_list",
@@ -351,7 +353,11 @@ describe("provider integrations", () => {
     const first = seen[0];
     const signString = `app_key:user-token|ts:${first.headers.get("X-Timestamp")}|logid:${first.headers.get("X-Log-Id")}|extra_info:`;
     expect(first.headers.get("X-Sign")).toBe(createHmac("sha256", "official-secret").update(signString).digest("base64"));
-    expect(seen.find((item) => item.path.includes("/openapi/publish/pin"))?.body).toContain("\"ring_id\":\"ring-official\"");
+    const publishRequest = seen.find((item) => item.path.includes("/openapi/publish/pin"));
+    expect(publishRequest?.body).toContain("\"ring_id\":\"ring-official\"");
+    expect(publishRequest?.body).toContain("你可以直接站队");
+    expect(publishRequest?.body).toContain("刘看山想追问");
+    expect(publishRequest?.body).not.toContain("系统不会伪造来源");
   });
 
   it("caches successful live read requests before consuming quota again", async () => {

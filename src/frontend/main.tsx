@@ -1849,7 +1849,7 @@ function formatPublishDraft(draft: RoundtableSnapshot["publishDraft"]) {
     ...draft.disputes.slice(0, 2).map((item, index) => `${String.fromCharCode(67 + index)}. ${item}`),
     "",
     "【想邀请大家补充】",
-    ...draft.questions.slice(0, 3).map((item, index) => `${index + 1}. ${item}`),
+    ...draft.questions.slice(1, 4).map((item, index) => `${index + 1}. ${item}`),
     "",
     draft.disclosure,
   ].join("\n");

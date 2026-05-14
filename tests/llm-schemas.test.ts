@@ -133,11 +133,11 @@ describe("LLM JSON schemas", () => {
     expectValid(validatePublishPackage, {
       draft: {
         title: "围绕 AI 工具开个圈子讨论：你站哪一边？",
-        opening: "今天刘看山围绕热榜做了一次发布前主持校验。",
+        opening: "刘看山把这条热榜拆成一个更适合开聊的问题：AI 工具到底改变了什么？",
         consensus: ["站 A：创作效率提高", "站 B：证据链仍然重要"],
         disputes: ["风险提醒：同质化风险是否会加剧"],
         questions: ["真实创作者如何判断工具边界？"],
-        disclosure: "本文由 AI 讨论组织台辅助整理，发布前经过用户确认。",
+        disclosure: "刘看山协助整理，发布前已由用户确认。",
       },
       titleOptions: ["标题 A", "标题 B", "标题 C"],
       quality: {

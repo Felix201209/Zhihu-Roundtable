@@ -380,15 +380,17 @@ export class MockLlmProvider implements LlmProvider {
     const value = parsePublishPackage({
       draft: {
         title: `围绕「${input.topic.title}」开个讨论：你站哪一边？`,
-        opening: `最近这个热榜很适合发起一场圈子讨论。与其只看结论，不如由刘看山把问题抛给创作者、圈主、亲历者和反方一起补充：这个问题在真实场景里到底怎么判断？`,
-        consensus: input.viewpointMap.support.slice(0, 2).concat(input.viewpointMap.neutral.slice(0, 1)),
+        opening: `刘看山把今天这个热榜拆成了一个更适合开聊的问题：${input.rewrittenQuestion} 我不想把它写成一篇定论，更想听听不同经历的人怎么站队。`,
+        consensus: input.viewpointMap.support.slice(0, 2).concat(input.viewpointMap.neutral.slice(0, 1)).map((item, index) =>
+          `${String.fromCharCode(65 + index)} 站：${item.replace(/^站\s*[A-ZＡ-Ｚ]?[：:]\s*/u, "")}`,
+        ),
         disputes: input.viewpointMap.disputes.slice(0, 3),
         questions: [
           input.rewrittenQuestion,
           ...input.viewpointMap.followups,
           "如果你有亲历经验，最想补充哪一个反例或判断标准？",
         ].slice(0, 3),
-        disclosure: "本文由 AI 讨论组织台辅助策划，发布前需要用户确认；系统不会伪造来源、伪造真人观点或自动发布。",
+        disclosure: "刘看山协助整理，发布前已由用户确认。",
       },
       titleOptions: [
         `围绕「${input.topic.title}」开个讨论：你站哪一边？`,

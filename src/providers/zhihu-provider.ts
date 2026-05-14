@@ -11,6 +11,25 @@ import {
 
 export const HACKATHON_DEFAULT_RING_ID = "2029619126742656657";
 
+function publishDraftContent(draft: PublishDraft): string {
+  const lines = [
+    draft.opening,
+    "",
+    "你可以直接站队：",
+    ...draft.consensus.slice(0, 3).map((item, index) => `${String.fromCharCode(65 + index)}. ${item}`),
+    "",
+    "也欢迎反着讲：",
+    ...draft.disputes.slice(0, 3).map((item, index) => `${index + 1}. ${item}`),
+    "",
+    "刘看山想追问：",
+    ...draft.questions.slice(0, 3).map((item, index) => `${index + 1}. ${item}`),
+    "",
+    draft.disclosure,
+  ].filter((line) => line !== undefined && line !== "");
+
+  return lines.join("\n");
+}
+
 export type RingDetail = {
   id: string;
   name: string;
@@ -455,20 +474,7 @@ export class LiveZhihuProvider implements ZhihuProvider {
         body: JSON.stringify({
           ring_id: ringId,
           title: input.draft.title,
-          content: [
-            input.draft.opening,
-            "",
-            "共识：",
-            ...input.draft.consensus.map((item, index) => `${index + 1}. ${item}`),
-            "",
-            "争议：",
-            ...input.draft.disputes.map((item, index) => `${index + 1}. ${item}`),
-            "",
-            "继续讨论：",
-            ...input.draft.questions.map((item, index) => `${index + 1}. ${item}`),
-            "",
-            input.draft.disclosure,
-          ].join("\n"),
+          content: publishDraftContent(input.draft),
         }),
       }),
     );

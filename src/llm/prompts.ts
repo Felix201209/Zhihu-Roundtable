@@ -269,13 +269,13 @@ export const buildPublishDraftPrompt = (input: {
     {
       role: "user",
       content: [
-        "请生成可发布到知乎圈子的讨论策划草稿和发布质量判断。",
+        "请生成可发布到知乎圈子的讨论帖草稿和发布质量判断。",
         "输出必须符合 PublishPackage JSON：draft, titleOptions, quality。",
         "draft 必须符合 PublishDraft：title, opening, consensus, disputes, questions, disclosure。",
-        "title 要像一个能引发圈子回复的开放问题；opening 是讨论背景，不要写成结论文章。",
-        "consensus 用作站队选项或可讨论立场，不要包装成最终结论；disputes 写反方和风险；questions 写引导评论和下一轮追问。",
+        "title 要像一个能引发圈子回复的开放问题；opening 必须像知乎主持人的发帖开场：有真实语气、可站队、可追问，不要写成结论文章或产品说明。",
+        "consensus 用作站队选项或可讨论立场，格式尽量写成「A 站：...」「B 站：...」；disputes 写反方和风险；questions 写引导评论和下一轮追问。",
         "必须邀请不同人群参与，例如创作者、圈主/运营者、亲历者、反方和补充资料的人；不能预设唯一答案。",
-        "disclosure 必须说明这是 AI 辅助讨论策划，并说明不伪造来源、发布前需用户确认。",
+        "disclosure 只能是一句很短的末尾标注，不能抢正文戏份；不要写成安全公告或产品说明。",
         "titleOptions 给 3 个标题候选；quality 判断这条讨论帖是否值得发布到圈子，以及有哪些跑偏/引战风险。",
         "",
         "topic:",
