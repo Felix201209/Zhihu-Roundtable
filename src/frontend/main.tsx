@@ -655,6 +655,13 @@ function AuthGate({
   const remaining = usageStatus?.remaining ?? 0;
   const limit = usageStatus?.limit ?? 0;
   const guardMode = usageStatus?.guardMode ?? oauthStatus?.aiUsageGuardMode ?? "off";
+  const statusCopy = oauthStatus === null
+    ? "正在检查知乎授权配置。"
+    : loginReady
+      ? "授权后会获得更高每日额度，适合连续演示。"
+      : oauthReady
+        ? "App ID/Key 已配置；官方授权地址未开放，当前按 IP 限额保护成本。"
+        : "OAuth 未配置，当前按 IP 限额保护成本。";
 
   return (
     <section className="auth-gate">
@@ -666,7 +673,7 @@ function AuthGate({
           <div className="auth-meter" aria-label={`AI 使用额度，剩余 ${remaining}，每日 ${limit}`}>
             <div>
               <strong>{authenticated ? "已登录" : "未登录"}</strong>
-              <span>{guardMode === "off" ? "未启用额度闸门" : `剩余额度 ${remaining}/${limit}`}</span>
+              <span>{usageStatus === null ? "正在同步额度" : guardMode === "off" ? "未启用额度闸门" : `剩余额度 ${remaining}/${limit}`}</span>
             </div>
             <i><em style={{ width: `${limit > 0 ? Math.max(0, Math.min(100, (remaining / limit) * 100)) : 100}%` }} /></i>
           </div>
@@ -681,13 +688,7 @@ function AuthGate({
           <button className="ghost-button" onClick={onRoundtable}>
             跳过授权，进入热榜台
           </button>
-          <p>
-            {loginReady
-              ? "授权后会获得更高每日额度，适合连续演示。"
-              : oauthReady
-                ? "App ID/Key 已配置；官方授权地址未开放，当前按 IP 限额保护成本。"
-                : "OAuth 未配置，当前按 IP 限额保护成本。"}
-          </p>
+          <p>{statusCopy}</p>
         </div>
       </div>
     </section>
