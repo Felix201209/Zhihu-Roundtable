@@ -6,6 +6,8 @@ const appPort = process.env.PRODUCTION_FLOW_PORT ?? "8900";
 const chromePort = process.env.PRODUCTION_FLOW_CHROME_PORT ?? String(await findFreePort());
 const externalOrigin = process.env.PRODUCTION_FLOW_URL ?? process.env.PUBLIC_DEMO_URL;
 const origin = externalOrigin ? normalizeOrigin(externalOrigin) : `http://127.0.0.1:${appPort}`;
+const flowQuery = process.env.PRODUCTION_FLOW_QUERY ?? (externalOrigin ? "modelMode=mock&defaultProvider=mock&fallbackToMock=true" : "");
+const startUrl = withQuery(`${origin}/`, flowQuery);
 const chromePath = findChrome();
 const requireBrowser = process.env.PRODUCTION_FLOW_REQUIRE_BROWSER === "true";
 const devtoolsCommandTimeoutMs = Number(process.env.PRODUCTION_FLOW_DEVTOOLS_TIMEOUT_MS ?? "30000");
@@ -128,6 +130,16 @@ async function runBrowserFlow() {
     );
   }
 
+  function sendNoWait(method, params = {}) {
+    const requestId = ++id;
+    socket.send(JSON.stringify({ id: requestId, method, params }));
+  }
+
+  async function navigate(url) {
+    sendNoWait("Page.navigate", { url });
+    await delay(500);
+  }
+
   async function evaluate(expression) {
     const result = await send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
     if (result.exceptionDetails) {
@@ -149,12 +161,14 @@ async function runBrowserFlow() {
   }
 
   async function observe(label, expectedText) {
+    console.log(`production browser flow observing: ${label}`);
     await waitForText(expectedText);
     const body = await evaluate("document.body.innerText");
     observations.push({ label, expectedText, found: body.includes(expectedText) });
   }
 
   async function observeAny(label, expectedTexts) {
+    console.log(`production browser flow observing: ${label}`);
     const startedAt = Date.now();
     while (Date.now() - startedAt < 300_000) {
       const body = await evaluate("document.body ? document.body.innerText : ''");
@@ -170,6 +184,7 @@ async function runBrowserFlow() {
   }
 
   async function clickButton(pattern) {
+    console.log(`production browser flow clicking: ${pattern}`);
     const startedAt = Date.now();
     while (Date.now() - startedAt < 300_000) {
       const clicked = await evaluate(`(() => {
@@ -200,11 +215,11 @@ async function runBrowserFlow() {
     await send("Runtime.enable");
     await send("Log.enable");
     await send("Page.enable");
-    await send("Page.navigate", { url: `${origin}/` });
+    await navigate(startUrl);
 
-    await observe("home", "刘看山主持的知乎讨论组织台");
-    await clickButton(/从热榜生成讨论方案/);
-    await observe("radar", "选题雷达");
+    await observe("auth", "先保护额度，再开圆桌");
+    await clickButton(/跳过授权，进入热榜台/);
+    await observe("radar", "热榜台");
     await clickButton(/生成讨论方案/);
     await observe("prepare", "讨论方案");
     await delay(2_500);
@@ -311,6 +326,16 @@ function normalizeOrigin(value) {
   parsed.search = "";
   parsed.hash = "";
   return parsed.toString().replace(/\/$/, "");
+}
+
+function withQuery(value, query) {
+  if (!query) return value;
+  const parsed = new URL(value);
+  const params = new URLSearchParams(query);
+  for (const [key, paramValue] of params.entries()) {
+    parsed.searchParams.set(key, paramValue);
+  }
+  return parsed.toString();
 }
 
 function findFreePort() {

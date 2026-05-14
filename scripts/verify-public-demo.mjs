@@ -16,9 +16,10 @@ if (!home.includes("<!doctype html>") || !home.includes("/assets/")) {
 const bundleText = await fetchPublicBundles(origin, home);
 for (const snippet of [
   "知辩圆桌",
-  "从热榜生成讨论方案",
-  "刘看山主持的知乎讨论组织台",
-  "读接口失败可演示模式兜底",
+  "先保护额度，再开圆桌",
+  "跳过授权，进入热榜台",
+  "真实读知乎",
+  "发布前确认",
 ]) {
   assert(bundleText.includes(snippet), `public demo bundle is missing product copy: ${snippet}`);
 }
