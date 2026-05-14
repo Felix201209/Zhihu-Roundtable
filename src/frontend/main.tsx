@@ -204,6 +204,8 @@ export function App() {
 
   const ideaStage: IdeaExperimentStage = experiment?.stage ?? "Draft";
   const busyElapsedSeconds = busyStartedAt ? Math.max(0, Math.floor((busyNow - busyStartedAt) / 1000)) : 0;
+  const loginReady = oauthStatus?.configured === true && oauthStatus.authorizeUrlConfigured === true && oauthStatus.tokenUrlConfigured === true;
+  const authenticated = oauthStatus?.session?.authenticated === true;
 
   function continueWithoutOAuth() {
     if (typeof window !== "undefined") {
@@ -509,7 +511,21 @@ export function App() {
           <span>刘看山圆桌</span>
           <strong>知辩圆桌</strong>
         </button>
-        {mode === "home" || mode === "auth" ? null : (
+        {mode === "home" ? (
+          <div className="topbar-status home-login-actions">
+            {authenticated ? (
+              <span className="live-status-pill live">知乎已登录</span>
+            ) : loginReady ? (
+              <a className="ghost-button topbar-login-link" href="/api/oauth/start">
+                知乎登录 <ArrowRight size={14} />
+              </a>
+            ) : (
+              <button className="ghost-button topbar-login-link" onClick={() => setMode("auth")}>
+                查看额度
+              </button>
+            )}
+          </div>
+        ) : mode === "auth" ? null : (
           <div className="topbar-status">
             {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : mode === "tech" ? <span className="tech-status-pill">技术页</span> : <RoundtableStageStepper stage={roundtableStage} />}
             <LiveStatusPill status={zhihuStatus} />
@@ -645,7 +661,7 @@ function AuthGate({
   const [usageSlow, setUsageSlow] = React.useState(false);
   const oauthReady = oauthStatus?.configured === true;
   const loginReady = oauthReady && oauthStatus?.authorizeUrlConfigured === true && oauthStatus?.tokenUrlConfigured === true;
-  const authenticated = oauthStatus?.session.authenticated === true;
+  const authenticated = oauthStatus?.session?.authenticated === true;
   const remaining = usageStatus?.remaining ?? 0;
   const limit = usageStatus?.limit ?? 0;
   const guardMode = usageStatus?.guardMode ?? oauthStatus?.aiUsageGuardMode ?? "off";
