@@ -170,6 +170,38 @@ https://你的线上-demo域名/api/oauth/callback
 
 OAuth 不改变主线的开发者绑定接口：热榜、搜索、圈子发布、评论回流仍通过 `ZhihuProvider` 调用，写操作继续需要用户确认 token。
 
+## AI Usage Guard
+
+后端支持按身份限制 DeepSeek/模型调用，避免公网 demo 被无限刷：
+
+- `AI_USAGE_GUARD_MODE=off|ip|oauth|oauth_or_ip`
+  - `off`：默认关闭，适合本地开发和自动化测试。
+  - `ip`：按访问 IP 计每日额度，适合 OAuth endpoint 还没配齐的公网演示。
+  - `oauth`：强制 `zhihu_oauth_session` 登录后才能调用模型接口。
+  - `oauth_or_ip`：已登录用户按 OAuth 会话计；未登录用户按 IP 计。
+- `AI_USAGE_DAILY_CREDITS`：默认每日额度。
+- `AI_USAGE_ANON_DAILY_CREDITS` / `AI_USAGE_AUTH_DAILY_CREDITS`：分别覆盖未登录和已登录额度。
+- `AI_USAGE_PROJECT_SHARE_REWARD_CREDITS`：提交知乎站内项目介绍链接后增加的一次性额度。
+
+接口：
+
+- `GET /api/usage/status`
+  - 返回 `{ guardMode, identity, authenticated, limit, bonus, used, remaining, resetAt }`。
+- `POST /api/usage/reward/project-share`
+  - body: `{ "proofUrl": "https://www.zhihu.com/..." }`
+  - 只接受知乎站内 `pin/question/answer/zvideo/p/ring` 链接；同一身份同一链接不会重复加额度。
+
+计费接口：
+
+- `POST /api/models/probe`：1 credit
+- `POST /api/experiment/generate`：3 credits
+- `POST /api/experiment/report`：3 credits
+- `POST /api/workflow/run` / `GET /api/workflow/stream`：12 credits
+- `POST /api/workflow/prepare`：3 credits
+- `POST /api/workflow/debate`：4 credits
+- `POST /api/workflow/publish-draft`：2 credits
+- `POST /api/workflow/feedback`：2 credits
+
 ## HTTP API
 
 - `GET /api/health`

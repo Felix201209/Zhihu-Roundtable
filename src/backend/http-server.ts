@@ -19,6 +19,7 @@ export type BackendServerOptions = {
 
 type JsonRecord = Record<string, unknown>;
 type ConfirmationAction = "publish" | "comment" | "reaction";
+type AiUsageGuardMode = "off" | "ip" | "oauth" | "oauth_or_ip";
 
 type OAuthStateRecord = {
   state: string;
@@ -48,6 +49,19 @@ type ConfirmationPayload = {
   action: ConfirmationAction;
   token: string;
   expiresAt: string;
+};
+
+type AiUsageIdentity = {
+  key: string;
+  authenticated: boolean;
+  label: string;
+};
+
+type AiUsageCounter = {
+  used: number;
+  bonus: number;
+  resetAt: number;
+  rewardedProofUrls: Set<string>;
 };
 
 class ConfirmationRegistry {
@@ -160,6 +174,84 @@ class OAuthSessionRegistry {
     for (const [sessionId, record] of this.records.entries()) {
       if (record.expiresAt && record.expiresAt < nowMs) {
         this.records.delete(sessionId);
+      }
+    }
+  }
+}
+
+class AiUsageRegistry {
+  private readonly counters = new Map<string, AiUsageCounter>();
+
+  consume(identity: AiUsageIdentity, credits: number): JsonRecord {
+    this.prune();
+    if (credits <= 0) {
+      return this.status(identity);
+    }
+
+    const counter = this.ensureCounter(identity.key);
+    const limit = aiDailyCredits(identity.authenticated);
+    const remaining = limit + counter.bonus - counter.used;
+    if (remaining < credits) {
+      throw new HttpError(
+        429,
+        "ai_quota_exceeded",
+        `今日 AI 使用额度不足。剩余额度 ${Math.max(0, remaining)}，本次需要 ${credits}。请明天再试，或完成项目介绍任务获取额外额度。`,
+      );
+    }
+
+    counter.used += credits;
+    return this.status(identity);
+  }
+
+  rewardProjectShare(identity: AiUsageIdentity, proofUrl: string): JsonRecord {
+    this.prune();
+    const counter = this.ensureCounter(identity.key);
+    if (counter.rewardedProofUrls.has(proofUrl)) {
+      return { ...this.status(identity), rewarded: false, reason: "already_rewarded" };
+    }
+
+    const reward = integerEnv("AI_USAGE_PROJECT_SHARE_REWARD_CREDITS", 20);
+    counter.rewardedProofUrls.add(proofUrl);
+    counter.bonus += reward;
+    return { ...this.status(identity), rewarded: true, rewardCredits: reward };
+  }
+
+  status(identity: AiUsageIdentity): JsonRecord {
+    const counter = this.ensureCounter(identity.key);
+    const limit = aiDailyCredits(identity.authenticated);
+    return {
+      guardMode: aiUsageGuardMode(),
+      identity: identity.label,
+      authenticated: identity.authenticated,
+      limit,
+      bonus: counter.bonus,
+      used: counter.used,
+      remaining: Math.max(0, limit + counter.bonus - counter.used),
+      resetAt: new Date(counter.resetAt).toISOString(),
+    };
+  }
+
+  private ensureCounter(key: string): AiUsageCounter {
+    const existing = this.counters.get(key);
+    if (existing && existing.resetAt > Date.now()) {
+      return existing;
+    }
+
+    const next = {
+      used: 0,
+      bonus: 0,
+      resetAt: Date.now() + 24 * 60 * 60_000,
+      rewardedProofUrls: new Set<string>(),
+    };
+    this.counters.set(key, next);
+    return next;
+  }
+
+  private prune(): void {
+    const nowMs = Date.now();
+    for (const [key, counter] of this.counters.entries()) {
+      if (counter.resetAt < nowMs) {
+        this.counters.delete(key);
       }
     }
   }
@@ -303,6 +395,13 @@ function booleanValue(value: unknown): boolean {
   return value === true || value === "true";
 }
 
+function integerEnv(key: string, fallback: number): number {
+  const value = process.env[key];
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function allowedCorsOrigin(): string {
   return process.env.CORS_ALLOW_ORIGIN ?? `http://localhost:${process.env.VITE_DEV_PORT ?? "5173"}`;
 }
@@ -323,6 +422,25 @@ function oauthRedirectUri(req: IncomingMessage): string {
 
 function oauthConfigured(): boolean {
   return Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID && process.env.ZHIHU_OAUTH_CLIENT_SECRET);
+}
+
+function oauthLoginConfigured(): boolean {
+  return oauthConfigured() && Boolean(process.env.ZHIHU_OAUTH_AUTHORIZE_URL && process.env.ZHIHU_OAUTH_TOKEN_URL);
+}
+
+function aiUsageGuardMode(): AiUsageGuardMode {
+  const raw = process.env.AI_USAGE_GUARD_MODE ?? (process.env.ZHIHU_OAUTH_REQUIRED === "true" ? "oauth" : "off");
+  if (raw === "ip" || raw === "oauth" || raw === "oauth_or_ip" || raw === "off") {
+    return raw;
+  }
+  return "off";
+}
+
+function aiDailyCredits(authenticated: boolean): number {
+  if (authenticated) {
+    return integerEnv("AI_USAGE_AUTH_DAILY_CREDITS", integerEnv("AI_USAGE_DAILY_CREDITS", 30));
+  }
+  return integerEnv("AI_USAGE_ANON_DAILY_CREDITS", integerEnv("AI_USAGE_DAILY_CREDITS", 12));
 }
 
 function oauthTokenEndpointConfigured(): boolean {
@@ -468,6 +586,82 @@ function publicOAuthSession(record: OAuthTokenRecord | undefined): JsonRecord {
     userInfo: record.userInfo,
     followersReady: record.followers !== undefined,
   };
+}
+
+function meteredCredits(method: string, pathname: string): number {
+  if (method === "POST" && pathname === "/api/models/probe") return 1;
+  if (method === "POST" && pathname === "/api/experiment/generate") return 3;
+  if (method === "POST" && pathname === "/api/experiment/report") return 3;
+  if (method === "POST" && pathname === "/api/workflow/run") return 12;
+  if (method === "GET" && pathname === "/api/workflow/stream") return 12;
+  if (method === "POST" && pathname === "/api/workflow/prepare") return 3;
+  if (method === "POST" && pathname === "/api/workflow/debate") return 4;
+  if (method === "POST" && pathname === "/api/workflow/publish-draft") return 2;
+  if (method === "POST" && pathname === "/api/workflow/feedback") return 2;
+  return 0;
+}
+
+function requestIp(req: IncomingMessage): string {
+  const forwarded = headerValue(req.headers["x-forwarded-for"]);
+  return forwarded?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+}
+
+function usageIdentity(req: IncomingMessage, oauthSessions: OAuthSessionRegistry): AiUsageIdentity {
+  const sessionId = cookieValue(req, "zhihu_oauth_session");
+  const session = oauthSessions.get(sessionId);
+  if (session && sessionId) {
+    return {
+      key: `oauth:${sessionId}`,
+      authenticated: true,
+      label: "zhihu-oauth-session",
+    };
+  }
+
+  return {
+    key: `ip:${requestIp(req)}`,
+    authenticated: false,
+    label: "ip",
+  };
+}
+
+function requireMeteredAccess(
+  req: IncomingMessage,
+  oauthSessions: OAuthSessionRegistry,
+  usage: AiUsageRegistry,
+  credits: number,
+): { identity: AiUsageIdentity; usageStatus: JsonRecord } {
+  const mode = aiUsageGuardMode();
+  const identity = usageIdentity(req, oauthSessions);
+
+  if (mode === "off") {
+    return { identity, usageStatus: usage.status(identity) };
+  }
+
+  if (mode === "oauth" && !identity.authenticated) {
+    if (!oauthLoginConfigured()) {
+      throw new HttpError(503, "oauth_not_configured", "当前已开启 AI 成本保护，但知乎 OAuth 授权端点尚未配置，暂时不能消耗后端模型额度。");
+    }
+    throw new HttpError(401, "oauth_required", "使用 AI 生成前需要先登录知乎账号。");
+  }
+
+  return { identity, usageStatus: usage.consume(identity, credits) };
+}
+
+function validZhihuProofUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== "https:" || !(host === "zhihu.com" || host.endsWith(".zhihu.com"))) {
+      return undefined;
+    }
+    if (!/^\/(?:pin|question|answer|zvideo|p|ring)\//.test(url.pathname)) {
+      return undefined;
+    }
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 async function deploymentCommit(): Promise<string | undefined> {
@@ -651,6 +845,7 @@ async function handleRequest(
   confirmations: ConfirmationRegistry,
   oauthStates: OAuthStateRegistry,
   oauthSessions: OAuthSessionRegistry,
+  aiUsage: AiUsageRegistry,
   staticDir: string | undefined,
   req: IncomingMessage,
   res: ServerResponse,
@@ -673,6 +868,9 @@ async function handleRequest(
         "/api/oauth/start",
         "/api/oauth/callback",
         "/api/oauth/status",
+        "/api/oauth/session",
+        "/api/usage/status",
+        "/api/usage/reward/project-share",
         "/api/models",
         "/api/models/probe",
         "/api/zhihu/status",
@@ -714,12 +912,30 @@ async function handleRequest(
       callbackUrl: oauthRedirectUri(req),
       mode: oauthConfigured() ? "live-ready" : "mock-safe",
       session: publicOAuthSession(oauthSessions.get(cookieValue(req, "zhihu_oauth_session"))),
+      aiUsageGuardMode: aiUsageGuardMode(),
     });
     return;
   }
 
   if (req.method === "GET" && url.pathname === "/api/oauth/session") {
     sendJson(res, 200, publicOAuthSession(oauthSessions.get(cookieValue(req, "zhihu_oauth_session"))));
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/usage/status") {
+    const identity = usageIdentity(req, oauthSessions);
+    sendJson(res, 200, aiUsage.status(identity));
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/usage/reward/project-share") {
+    const body = await readJson(req);
+    const proofUrl = validZhihuProofUrl(body.proofUrl);
+    if (!proofUrl) {
+      throw new HttpError(400, "invalid_proof_url", "请提交一条知乎站内项目介绍链接，用于领取额外 AI 使用额度。");
+    }
+    const identity = usageIdentity(req, oauthSessions);
+    sendJson(res, 200, aiUsage.rewardProjectShare(identity, proofUrl));
     return;
   }
 
@@ -845,6 +1061,7 @@ async function handleRequest(
   }
 
   if (req.method === "POST" && url.pathname === "/api/models/probe") {
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const probeProvider = createRoutedLlmProvider(resolveModelPolicy({
       mode: "auto",
       defaultProvider: "deepseek-v4-flash",
@@ -917,6 +1134,7 @@ async function handleRequest(
     if (!idea) {
       throw new HttpError(400, "missing_idea", "请输入一个脑洞，才能开始试验。");
     }
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const experiment = await scoped.generateIdeaExperiment({
       idea,
@@ -986,6 +1204,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/experiment/report") {
     const body = await readJson(req);
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const result = await scoped.buildExperimentReport({
       experiment: ideaExperimentValue(body.experiment),
@@ -1005,6 +1224,7 @@ async function handleRequest(
     if (livePublishRequested(body, service)) {
       throw new HttpError(403, "confirmation_required", "真实知乎发布必须走发布预览和用户确认，不能通过一键 run 自动发布。");
     }
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const result = await service.runFullWorkflow({
       topicId: stringValue(body.topicId),
       publish: booleanValue(body.publish),
@@ -1030,6 +1250,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/workflow/prepare") {
     const body = await readJson(req);
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const snapshot = await scoped.prepareTopic(snapshotValue(body.snapshot));
     sendJson(res, 200, { snapshot, modelUsages: snapshot.modelUsages ?? [], nodeResults: snapshot.nodeResults ?? [] });
@@ -1038,6 +1259,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/workflow/debate") {
     const body = await readJson(req);
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const snapshot = await scoped.runDebate(snapshotValue(body.snapshot));
     sendJson(res, 200, { snapshot, modelUsages: snapshot.modelUsages ?? [], nodeResults: snapshot.nodeResults ?? [] });
@@ -1046,6 +1268,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/workflow/publish-draft") {
     const body = await readJson(req);
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const snapshot = await scoped.generatePublishDraft(snapshotValue(body.snapshot));
     sendJson(res, 200, {
@@ -1135,6 +1358,7 @@ async function handleRequest(
 
   if (req.method === "POST" && url.pathname === "/api/workflow/feedback") {
     const body = await readJson(req);
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     const scoped = service.withModelPolicy(parseModelPolicy(body));
     const publishResult = objectValue(body.publishResult);
     const publishId = stringValue(body.publishId) ?? stringValue(publishResult?.id);
@@ -1159,6 +1383,7 @@ async function handleRequest(
     if (booleanValue(url.searchParams.get("publish")) && requiresWriteConfirmation(service)) {
       throw new HttpError(403, "confirmation_required", "真实知乎发布必须走发布预览和用户确认，不能通过 SSE 自动发布。");
     }
+    requireMeteredAccess(req, oauthSessions, aiUsage, meteredCredits(req.method, url.pathname));
     res.writeHead(200, {
       "content-type": "text/event-stream; charset=utf-8",
       "cache-control": "no-cache, no-transform",
@@ -1199,10 +1424,11 @@ export function createBackendServer(options: BackendServerOptions = {}) {
   const confirmations = new ConfirmationRegistry();
   const oauthStates = new OAuthStateRegistry();
   const oauthSessions = new OAuthSessionRegistry();
+  const aiUsage = new AiUsageRegistry();
   const staticDir = options.staticDir;
 
   return createServer((req, res) => {
-    handleRequest(service, confirmations, oauthStates, oauthSessions, staticDir, req, res).catch((error) => {
+    handleRequest(service, confirmations, oauthStates, oauthSessions, aiUsage, staticDir, req, res).catch((error) => {
       const status = error instanceof HttpError ? error.status : 500;
       sendJson(res, status, {
         error: error instanceof HttpError ? error.code : "backend_error",

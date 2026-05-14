@@ -170,6 +170,14 @@ OpenAPI 请求会按官方文档自动生成 `X-App-Key`、`X-Timestamp`、`X-Lo
 - `GET /api/oauth/session` 只返回当前授权会话的公开摘要，不暴露 access token；配置 `ZHIHU_OAUTH_USER_INFO_URL` / `ZHIHU_OAUTH_USER_FOLLOWERS_URL` 后可在 callback 后拉取授权用户信息。
 - 可选变量：`PUBLIC_APP_URL`、`ZHIHU_OAUTH_REDIRECT_URI`、`ZHIHU_OAUTH_CLIENT_ID`、`ZHIHU_OAUTH_AUTHORIZE_URL`、`ZHIHU_OAUTH_TOKEN_URL`、`ZHIHU_OAUTH_TOKEN_BODY_MODE`、`ZHIHU_OAUTH_USER_INFO_URL`、`ZHIHU_OAUTH_USER_FOLLOWERS_URL`、`ZHIHU_OAUTH_SCOPE`、`ZHIHU_OAUTH_CLIENT_SECRET`。
 
+AI 成本保护：
+
+- `AI_USAGE_GUARD_MODE=off|ip|oauth|oauth_or_ip`。公网演示可先用 `ip` 做每日限额；官方 OAuth endpoint 配齐后切到 `oauth`，所有会消耗模型额度的接口都会要求知乎登录。
+- `AI_USAGE_DAILY_CREDITS` 设置默认每日额度；可用 `AI_USAGE_ANON_DAILY_CREDITS` 和 `AI_USAGE_AUTH_DAILY_CREDITS` 分开控制匿名/IP 与 OAuth 用户。
+- `GET /api/usage/status` 返回当前身份的已用、剩余、重置时间。
+- `POST /api/usage/reward/project-share` 接收知乎站内项目介绍链接，按 `AI_USAGE_PROJECT_SHARE_REWARD_CREDITS` 追加一次性额度；同一身份同一链接不会重复领取。
+- 被限额保护的接口包括模型探针、脑洞生成/报告、圆桌完整 run、SSE run、prepare/debate/publish-draft/feedback。真实发布/评论/reaction 仍保持用户确认 token，不会自动写入知乎。
+
 知乎直答 Agent 可作为 `custom` OpenAI-compatible 模型接入：
 
 - `CUSTOM_LLM_BASE_URL=https://api.zhihu.com/v1`

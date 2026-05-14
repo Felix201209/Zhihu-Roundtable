@@ -119,11 +119,17 @@ function friendlyError(error: unknown, fallback: string): string {
     if (error.status === 403 && error.code?.startsWith("confirmation")) {
       return "真实知乎写操作需要重新授权或完成用户确认；你也可以切回演示模式继续路演。";
     }
+    if (error.status === 429 && error.code === "ai_quota_exceeded") {
+      return `${error.message} 这是为了保护后端 DeepSeek 成本，避免同一用户无限调用。`;
+    }
+    if (error.status === 503 && error.code === "oauth_not_configured") {
+      return "AI 成本保护已开启，但知乎 OAuth 授权端点还没配置完整；请先切回演示模式或补齐官方 OAuth URL。";
+    }
     if (error.status === 403) {
       return "当前操作没有权限完成，请检查知乎授权、后端代理或演示模式设置。";
     }
     if (error.status === 401) {
-      return "知乎授权已失效，请重新登录或切换演示模式。";
+      return "继续使用 AI 生成前需要先登录知乎账号；请从知乎授权入口登录，或切回演示模式。";
     }
     return error.message;
   }

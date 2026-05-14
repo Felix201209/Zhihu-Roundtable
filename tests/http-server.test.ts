@@ -62,6 +62,8 @@ describe("backend HTTP server", () => {
       expect(health).toMatchObject({ ok: true, deploymentCommit: "test-health-commit" });
       expect(health.port).toBe(started.port);
       expect(health.endpoints).toContain("/api/oauth/callback");
+      expect(health.endpoints).toContain("/api/usage/status");
+      expect(health.endpoints).toContain("/api/usage/reward/project-share");
       expect(health.endpoints).toContain("/api/models");
       expect(health.endpoints).toContain("/api/zhihu/status");
       expect(health.endpoints).toContain("/api/readiness");
@@ -82,6 +84,10 @@ describe("backend HTTP server", () => {
       const oauthStatus = await fetch(`${baseUrl}/api/oauth/status`).then((res) => res.json());
       expect(oauthStatus.callbackUrl).toBe(`${baseUrl}/api/oauth/callback`);
       expect(oauthStatus.mode).toBe("mock-safe");
+      expect(oauthStatus.aiUsageGuardMode).toBe("off");
+
+      const usageStatus = await fetch(`${baseUrl}/api/usage/status`).then((res) => res.json());
+      expect(usageStatus).toMatchObject({ guardMode: "off", authenticated: false });
 
       const topics = await fetch(`${baseUrl}/api/topics?modelMode=mock&defaultProvider=mock`).then((res) => res.json());
       expect(topics.topics.length).toBeGreaterThan(0);
@@ -296,6 +302,89 @@ describe("backend HTTP server", () => {
           process.env[key] = value;
         }
       }
+    }
+  });
+
+  it("requires a Zhihu OAuth session for metered AI endpoints when the guard is strict", async () => {
+    const previousEnv = {
+      AI_USAGE_GUARD_MODE: process.env.AI_USAGE_GUARD_MODE,
+      ZHIHU_OAUTH_CLIENT_ID: process.env.ZHIHU_OAUTH_CLIENT_ID,
+      ZHIHU_OAUTH_CLIENT_SECRET: process.env.ZHIHU_OAUTH_CLIENT_SECRET,
+      ZHIHU_OAUTH_AUTHORIZE_URL: process.env.ZHIHU_OAUTH_AUTHORIZE_URL,
+      ZHIHU_OAUTH_TOKEN_URL: process.env.ZHIHU_OAUTH_TOKEN_URL,
+    };
+    try {
+      process.env.AI_USAGE_GUARD_MODE = "oauth";
+      process.env.ZHIHU_OAUTH_CLIENT_ID = "client-id";
+      process.env.ZHIHU_OAUTH_CLIENT_SECRET = "client-secret";
+      process.env.ZHIHU_OAUTH_AUTHORIZE_URL = "https://www.zhihu.com/oauth/authorize";
+      process.env.ZHIHU_OAUTH_TOKEN_URL = "https://www.zhihu.com/oauth/token";
+
+      started = await startBackendServer({ port: 0 });
+      const baseUrl = `http://127.0.0.1:${started.port}`;
+      const response = await fetch(`${baseUrl}/api/workflow/run`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ modelPolicy: { mode: "mock", defaultProvider: "mock" } }),
+      });
+      const body = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(body).toMatchObject({ error: "oauth_required" });
+    } finally {
+      restoreEnv(previousEnv);
+    }
+  });
+
+  it("limits anonymous AI usage by IP and rewards one Zhihu project share proof", async () => {
+    const previousEnv = {
+      AI_USAGE_GUARD_MODE: process.env.AI_USAGE_GUARD_MODE,
+      AI_USAGE_ANON_DAILY_CREDITS: process.env.AI_USAGE_ANON_DAILY_CREDITS,
+      AI_USAGE_PROJECT_SHARE_REWARD_CREDITS: process.env.AI_USAGE_PROJECT_SHARE_REWARD_CREDITS,
+    };
+    try {
+      process.env.AI_USAGE_GUARD_MODE = "ip";
+      process.env.AI_USAGE_ANON_DAILY_CREDITS = "2";
+      process.env.AI_USAGE_PROJECT_SHARE_REWARD_CREDITS = "5";
+
+      started = await startBackendServer({ port: 0 });
+      const baseUrl = `http://127.0.0.1:${started.port}`;
+      const headers = {
+        "content-type": "application/json",
+        "x-forwarded-for": "203.0.113.8",
+      };
+
+      const blocked = await fetch(`${baseUrl}/api/workflow/run`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ modelPolicy: { mode: "mock", defaultProvider: "mock" } }),
+      });
+      const blockedBody = await blocked.json();
+      expect(blocked.status).toBe(429);
+      expect(blockedBody).toMatchObject({ error: "ai_quota_exceeded" });
+
+      const invalidReward = await fetch(`${baseUrl}/api/usage/reward/project-share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ proofUrl: "https://example.com/not-zhihu" }),
+      });
+      expect(invalidReward.status).toBe(400);
+
+      const reward = await fetch(`${baseUrl}/api/usage/reward/project-share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ proofUrl: "https://www.zhihu.com/pin/123456" }),
+      }).then((res) => res.json());
+      expect(reward).toMatchObject({ rewarded: true, rewardCredits: 5, remaining: 7 });
+
+      const duplicate = await fetch(`${baseUrl}/api/usage/reward/project-share`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ proofUrl: "https://www.zhihu.com/pin/123456" }),
+      }).then((res) => res.json());
+      expect(duplicate).toMatchObject({ rewarded: false, reason: "already_rewarded", remaining: 7 });
+    } finally {
+      restoreEnv(previousEnv);
     }
   });
 
