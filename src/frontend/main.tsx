@@ -10,7 +10,6 @@ import {
   Loader2,
   MessageSquare,
   RefreshCcw,
-  Search,
   Send,
   ShieldCheck,
   Sparkles,
@@ -58,7 +57,7 @@ const exampleIdeas = [
 ];
 
 const roundtableStageLabels: Record<RoundtableUiStage, string> = {
-  radar: "选题雷达",
+  radar: "热榜台",
   prepare: "讨论方案",
   debate: "主持校验",
   publish: "发布策划",
@@ -479,13 +478,15 @@ export function App() {
     <main className="experiment-shell" aria-busy={Boolean(busy)}>
       <header className="experiment-topbar">
         <button className="brand-lockup brand-button" onClick={() => setMode("home")} aria-label="回到知辩圆桌首页">
-          <span>刘看山主持的知乎讨论组织台</span>
+          <span>刘看山圆桌</span>
           <strong>知辩圆桌</strong>
         </button>
-        <div className="topbar-status">
-          {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
-          <LiveStatusPill status={zhihuStatus} />
-        </div>
+        {mode === "home" ? null : (
+          <div className="topbar-status">
+            {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
+            <LiveStatusPill status={zhihuStatus} />
+          </div>
+        )}
       </header>
 
       {error ? (
@@ -594,9 +595,7 @@ export function App() {
 }
 
 function HomeEntry({
-  topics,
   onRoundtable,
-  onSelectTopic,
   onIdeaLab,
 }: {
   topics: Topic[];
@@ -604,146 +603,28 @@ function HomeEntry({
   onSelectTopic: (topicId: string) => void;
   onIdeaLab: () => void;
 }) {
-  const hotTopics = topics.slice(0, 4);
-
   return (
-    <section className="hero-entry zhihu-hero workbench-entry">
-      <div className="mission-strip" aria-label="产品定位">
-        <div>
-          <span className="eyebrow">刘看山主持</span>
-          <h1>知辩圆桌</h1>
-          <p>从知乎热榜到可发布讨论，再把评论区变成下一轮选题。</p>
+    <section className="home-clean">
+      <div className="home-hero-card">
+        <div className="home-mark" aria-hidden="true">
+          <LiuKanshanPortrait speaking />
         </div>
+        <span className="eyebrow">知乎黑客松 2026</span>
+        <h1>知辩圆桌</h1>
+        <p>把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。</p>
         <div className="hero-actions">
           <button className="primary-button hero-main-action" onClick={onRoundtable}>
-            从热榜生成讨论方案 <ArrowRight size={18} />
+            进入热榜台 <ArrowRight size={18} />
           </button>
           <button className="ghost-button hero-secondary-action" onClick={onIdeaLab}>
-            测试一个脑洞 <Lightbulb size={16} />
+            测一个脑洞 <Lightbulb size={16} />
           </button>
         </div>
-      </div>
-
-      <div className="home-cockpit" aria-label="知辩圆桌工作台">
-        <aside className="cockpit-panel hot-panel">
-          <PanelTitle kicker="LeftRail" title="知乎热榜" />
-          <div className="compact-topic-list">
-            {hotTopics.length > 0 ? hotTopics.map((topic, index) => (
-              <TopicCard key={topic.id} rank={index + 1} topic={topic} onSelect={() => onSelectTopic(topic.id)} compact />
-            )) : <SkeletonStack count={4} />}
-          </div>
-        </aside>
-
-        <section className="cockpit-panel host-panel" aria-label="刘看山主持舞台">
-          <div className="host-stage-main">
-            <LiuKanshanPortrait speaking />
-            <div className="host-bubble">
-              <span>刘看山正在看题</span>
-              <h2>先别急着表态，我先把证据、反方和追问摆上桌。</h2>
-              <p>好讨论不是一句结论，是一条能继续滚动的线索。</p>
-            </div>
-          </div>
-          <div className="signature-track home-track" aria-label="热榜到讨论闭环">
-            <article>
-              <b>01</b>
-              <strong>筛话题</strong>
-              <span>争议、证据、讨论空间一起看</span>
-            </article>
-            <article>
-              <b>02</b>
-              <strong>主持校验</strong>
-              <span>能站队？反方成立？证据够吗？</span>
-            </article>
-            <article>
-              <b>03</b>
-              <strong>发圈子</strong>
-              <span>只生成草稿，真实写入要确认</span>
-            </article>
-            <article>
-              <b>04</b>
-              <strong>收评论</strong>
-              <span>高质量评论进入下一轮选题</span>
-            </article>
-          </div>
-        </section>
-
-        <aside className="cockpit-panel proof-panel">
-          <PanelTitle kicker="RightInspector" title="技术证据" />
-          <div className="proof-stack" aria-label="上线证据">
-            <article>
-              <CheckCircle2 size={16} />
-              <strong>真实知乎读链路</strong>
-              <span>热榜、站内搜索、圈子与评论 API</span>
-            </article>
-            <article>
-              <Sparkles size={16} />
-              <strong>DeepSeek V4</strong>
-              <span>Flash 分类，Pro 改写与发布稿</span>
-            </article>
-            <article>
-              <ShieldCheck size={16} />
-              <strong>缓存与写保护</strong>
-              <span>读接口缓存；发布二次确认</span>
-            </article>
-          </div>
-        </aside>
-      </div>
-
-      <section className="signature-loop" aria-label="核心闭环">
-        <div className="signature-copy">
-          <span>核心闭环</span>
-          <h2>从热榜到下一轮话题</h2>
-          <p>筛话题、压问题、查证据、过主持质检，再把评论区的新反方变成下一轮选题。</p>
+        <div className="home-proof-line" aria-label="产品边界">
+          <span>真实读知乎</span>
+          <span>DeepSeek 生成</span>
+          <span>发布前确认</span>
         </div>
-        <div className="signature-track" aria-label="热榜到讨论闭环">
-          <article>
-            <b>01</b>
-            <strong>筛话题</strong>
-            <span>按争议、资料、讨论空间排序</span>
-          </article>
-          <article>
-            <b>02</b>
-            <strong>过三问</strong>
-            <span>能站队？反方成立？证据够吗？</span>
-          </article>
-          <article>
-            <b>03</b>
-            <strong>发圈子</strong>
-            <span>站队选项、引导评论、风险提醒</span>
-          </article>
-          <article>
-            <b>04</b>
-            <strong>收评论</strong>
-            <span>新反方和真实经历进入下一轮</span>
-          </article>
-        </div>
-      </section>
-      <div className="workflow-strip" aria-label="知辩圆桌能力">
-        <article>
-          <Search size={16} />
-          <strong>选题雷达</strong>
-          <span>从热榜筛选适合组织讨论的话题</span>
-        </article>
-        <article>
-          <ShieldCheck size={16} />
-          <strong>讨论方案</strong>
-          <span>生成完整讨论包和圈子帖草稿</span>
-        </article>
-        <article>
-          <Users size={16} />
-          <strong>主持校验</strong>
-          <span>刘看山校验讨论是否有张力</span>
-        </article>
-        <article>
-          <ClipboardList size={16} />
-          <strong>发布策划</strong>
-          <span>站队选项、引导评论、风险提醒</span>
-        </article>
-        <article>
-          <MessageSquare size={16} />
-          <strong>评论复盘</strong>
-          <span>回收评论区生成下一轮方向</span>
-        </article>
       </div>
     </section>
   );
@@ -781,8 +662,8 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
     <section className="flow-card">
       <PageHeading
         icon={<BarChart3 size={20} />}
-        title="选题雷达"
-        subtitle="先从知乎热榜里挑一个值得组织讨论的话题。系统关注争议度、资料丰富度、知乎讨论空间和能否产生下一轮内容。"
+        title="热榜台"
+        subtitle="挑一个能聊起来的热榜。热度、反方空间、证据密度一起看。"
       />
       <div className="topic-feed">
         {topics.slice(0, 5).map((topic, index) => (
@@ -791,7 +672,7 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
       </div>
       <div className="flow-actions split">
         <button className="ghost-button" onClick={onIdeaLab}>
-          不是热榜？测试一个脑洞 <Lightbulb size={16} />
+          不是热榜？测脑洞 <Lightbulb size={16} />
         </button>
       </div>
     </section>

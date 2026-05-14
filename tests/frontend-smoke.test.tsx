@@ -221,10 +221,10 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
+    fireEvent.click(screen.getByRole("button", { name: /进入热榜台/ }));
     await waitFor(() => expect(screen.getByText("Live API")).toBeInTheDocument());
     expect(screen.getByText("缓存开启")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
     await waitFor(() => expect(screen.getByText("正在拉取知乎热榜...")).toBeInTheDocument());
     expect(screen.getByRole("status", { name: /正在拉取知乎热榜/ })).toBeInTheDocument();
     expect(screen.queryByRole("progressbar", { name: "当前处理进度" })).not.toBeInTheDocument();
@@ -233,7 +233,7 @@ describe("frontend smoke", () => {
     expect(screen.getByText(/\d+s/)).toBeInTheDocument();
 
     resolveTopics?.(Response.json({ topics: workflow.topics }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     await waitFor(() => expect(screen.queryByText("正在拉取知乎热榜...")).not.toBeInTheDocument());
   });
 
@@ -258,13 +258,13 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
-    const mainAction = screen.getByRole("button", { name: /从热榜生成讨论方案/ });
-    const ideaAction = screen.getByRole("button", { name: /测试一个脑洞/ });
+    const mainAction = screen.getByRole("button", { name: /进入热榜台/ });
+    const ideaAction = screen.getByRole("button", { name: /测一个脑洞/ });
     expect(mainAction).toBeEnabled();
     expect(ideaAction).toBeEnabled();
 
     fireEvent.click(mainAction);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     const topicActions = screen.getAllByRole("button", { name: /生成讨论方案/ });
     expect(topicActions.length).toBeGreaterThan(0);
     expect(topicActions[0]).toBeEnabled();
@@ -405,12 +405,13 @@ describe("frontend smoke", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "知辩圆桌" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "从热榜到下一轮话题" })).toBeInTheDocument();
-    expect(screen.getByText("过三问")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /从热榜生成讨论方案/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /测试一个脑洞/ })).toBeInTheDocument();
+    expect(screen.getByText("把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。")).toBeInTheDocument();
+    expect(screen.getByText("真实读知乎")).toBeInTheDocument();
+    expect(screen.getByText("DeepSeek 生成")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /进入热榜台/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /测一个脑洞/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /测试一个脑洞/ }));
+    fireEvent.click(screen.getByRole("button", { name: /测一个脑洞/ }));
     expect(screen.getByRole("heading", { name: "想法试验场" })).toBeInTheDocument();
     expect(screen.getByLabelText("输入你的脑洞")).toBeInTheDocument();
 
@@ -490,8 +491,8 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /进入热榜台/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     expect(screen.getByText("AI 工具是否正在改变职场新人能力评价？")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
@@ -554,8 +555,8 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /进入热榜台/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
     await waitFor(() => expect(screen.getByRole("heading", { name: "讨论方案" })).toBeInTheDocument());
 
@@ -596,8 +597,8 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /进入热榜台/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
 
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
@@ -682,8 +683,8 @@ describe("frontend smoke", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: /从热榜生成讨论方案/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "选题雷达" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /进入热榜台/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "热榜台" })).toBeInTheDocument());
     fireEvent.click(screen.getAllByRole("button", { name: /生成讨论方案/ })[0]);
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
 
