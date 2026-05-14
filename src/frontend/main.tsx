@@ -47,8 +47,8 @@ import type {
 import liukanshanFront from "./assets/liukanshan-front.png";
 import "./styles.css";
 
-type AppMode = "home" | "roundtable" | "idea";
-type RoundtableUiStage = "radar" | "prepare" | "debate" | "publish" | "feedback";
+type AppMode = "home" | "roundtable" | "idea" | "tech";
+type RoundtableUiStage = "radar" | "progress" | "prepare" | "debate" | "publish" | "feedback";
 
 const exampleIdeas = [
   "我想做一个 AI 工具，帮知乎创作者判断选题有没有撞车，并给出改法。",
@@ -58,6 +58,7 @@ const exampleIdeas = [
 
 const roundtableStageLabels: Record<RoundtableUiStage, string> = {
   radar: "热榜台",
+  progress: "生成中",
   prepare: "讨论方案",
   debate: "主持校验",
   publish: "发布策划",
@@ -228,10 +229,10 @@ export function App() {
   }
 
   async function startRoundtable(topicId: string) {
-    setBusy("正在开启实时工作流：拉取热榜...");
+    setBusy("正在读取热榜详情、站内证据和讨论上下文...");
     setError(null);
     setSnapshot(null);
-    setRoundtableStage("radar");
+    setRoundtableStage("progress");
     setMode("roundtable");
 
     try {
@@ -255,7 +256,7 @@ export function App() {
           if (event.type === "radar") {
             setTopics(event.topics);
             setSnapshot(event.snapshot);
-            setBusy("热榜已锁定，正在重构议题...");
+            setBusy("热榜已锁定，正在读取详情并重构议题...");
             return;
           }
           if (event.type === "prepare") {
@@ -483,8 +484,11 @@ export function App() {
         </button>
         {mode === "home" ? null : (
           <div className="topbar-status">
-            {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : <RoundtableStageStepper stage={roundtableStage} />}
+            {mode === "idea" ? <IdeaStageStepper stage={ideaStage} /> : mode === "tech" ? <span className="tech-status-pill">技术页</span> : <RoundtableStageStepper stage={roundtableStage} />}
             <LiveStatusPill status={zhihuStatus} />
+            <button className="ghost-button topbar-tech-link" onClick={() => setMode(mode === "tech" ? "roundtable" : "tech")}>
+              {mode === "tech" ? "返回产品" : "技术页"}
+            </button>
           </div>
         )}
       </header>
@@ -505,6 +509,10 @@ export function App() {
 
       {mode === "roundtable" && roundtableStage === "radar" ? (
         <HotRadar topics={topics} onSelect={(topicId) => void startRoundtable(topicId)} onIdeaLab={openIdeaLab} />
+      ) : null}
+
+      {mode === "roundtable" && roundtableStage === "progress" ? (
+        <RoundtableProgress topic={topics.find((topic) => topic.id === snapshot?.selectedTopic?.id) ?? snapshot?.selectedTopic} elapsedSeconds={busyElapsedSeconds} />
       ) : null}
 
       {mode === "roundtable" && roundtableStage === "prepare" && snapshot ? (
@@ -572,13 +580,13 @@ export function App() {
         />
       ) : null}
 
-      {(snapshot || experiment) ? (
+      {mode === "tech" ? (
         <AdvancedDetails
-          snapshot={mode === "idea" ? experiment?.technicalSnapshot : snapshot}
+          snapshot={snapshot}
           experiment={experiment}
           readiness={readiness}
           zhihuStatus={zhihuStatus}
-          activeStage={mode === "idea" ? ideaStageLabels[ideaStage] : roundtableStageLabels[roundtableStage]}
+          activeStage={roundtableStageLabels[roundtableStage]}
         />
       ) : null}
 
@@ -666,7 +674,7 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
         subtitle="挑一个能聊起来的热榜。热度、反方空间、证据密度一起看。"
       />
       <div className="topic-feed">
-        {topics.slice(0, 5).map((topic, index) => (
+        {topics.map((topic, index) => (
           <TopicCard key={topic.id} rank={index + 1} topic={topic} onSelect={() => onSelect(topic.id)} />
         ))}
       </div>
@@ -675,6 +683,40 @@ function HotRadar({ topics, onSelect, onIdeaLab }: { topics: Topic[]; onSelect: 
           不是热榜？测脑洞 <Lightbulb size={16} />
         </button>
       </div>
+    </section>
+  );
+}
+
+function RoundtableProgress({ topic, elapsedSeconds }: { topic?: Topic; elapsedSeconds: number }) {
+  const steps = [
+    "读取热榜详情",
+    "检索知乎站内观点",
+    "整理证据缓存",
+    "重写讨论题",
+    "生成主持提纲",
+  ];
+
+  return (
+    <section className="flow-card progress-workbench" role="status" aria-live="polite">
+      <PageHeading
+        icon={<Loader2 size={20} className="spin" />}
+        title="正在开桌"
+        subtitle="先读内容，再发起讨论。这里不会把热榜标题直接丢给 AI 瞎写。"
+      />
+      <div className="progress-topic-card">
+        <span>已选热榜</span>
+        <h2>{topic?.title ?? "正在锁定热榜话题"}</h2>
+        <p>{topic?.reason ?? "正在读取知乎热榜详情、站内搜索结果和可讨论证据。"}</p>
+      </div>
+      <div className="progress-step-list">
+        {steps.map((step, index) => (
+          <article key={step} className={index <= Math.min(steps.length - 1, Math.floor(elapsedSeconds / 5)) ? "active" : ""}>
+            <b>{String(index + 1).padStart(2, "0")}</b>
+            <span>{step}</span>
+          </article>
+        ))}
+      </div>
+      <p className="progress-cache-note">知乎读接口和 DeepSeek JSON 均走缓存；同一热榜不会反复烧 API。</p>
     </section>
   );
 }
@@ -913,13 +955,40 @@ function ViewpointMapPanel({ snapshot, compact = false }: { snapshot: Roundtable
         <article key={group.key} className={`viewpoint-group ${group.key}`}>
           <strong>{group.title}</strong>
           {group.items.slice(0, compact ? 2 : 4).map((item, index) => (
-            <p key={index}>{item}</p>
+            <p key={index}>{formatViewpointItem(item)}</p>
           ))}
           <small>{group.source}</small>
         </article>
       ))}
     </div>
   );
+}
+
+function formatViewpointItem(item: unknown): string {
+  if (typeof item !== "string") {
+    return cleanDisplayText(String(item ?? ""));
+  }
+
+  const trimmed = item.trim();
+  if (!trimmed.startsWith("{")) {
+    return cleanDisplayText(trimmed);
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+    const heading = stringField(parsed, "heading") ?? stringField(parsed, "title") ?? stringField(parsed, "issue");
+    const body = stringField(parsed, "reasoning") ?? stringField(parsed, "detail") ?? stringField(parsed, "statement") ?? stringField(parsed, "summary");
+    const evidenceId = stringField(parsed, "evidenceId");
+    const content = [heading, body].filter(Boolean).join("：");
+    return cleanDisplayText(evidenceId && content ? `${content}（${evidenceId}）` : content || trimmed);
+  } catch {
+    return cleanDisplayText(trimmed.replace(/[{}"]/g, "").replace(/,/g, "，").replace(/:/g, "："));
+  }
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function DebateCheck({ title, value }: { title: string; value: string }) {
@@ -1464,8 +1533,12 @@ function AdvancedDetails({
   const nodes = experiment?.nodeResults ?? snapshot?.nodeResults ?? [];
 
   return (
-    <details className="advanced-details">
-      <summary>技术证据</summary>
+    <section className="advanced-details tech-page">
+      <PageHeading
+        icon={<ClipboardList size={20} />}
+        title="技术页"
+        subtitle="真实接口、缓存、模型调用和写保护单独放这里，不打断评委体验产品流程。"
+      />
       <div className="advanced-grid">
         <section>
           <h2>调用接口</h2>
@@ -1515,12 +1588,12 @@ function AdvancedDetails({
           <p>{readiness?.report.awardTargets.join(" / ") ?? "等待完整报告"}</p>
         </section>
       </div>
-    </details>
+    </section>
   );
 }
 
 function RoundtableStageStepper({ stage }: { stage: RoundtableUiStage }) {
-  const steps: RoundtableUiStage[] = ["radar", "prepare", "debate", "publish", "feedback"];
+  const steps: RoundtableUiStage[] = ["radar", "progress", "prepare", "debate", "publish", "feedback"];
   const activeIndex = Math.max(0, steps.indexOf(stage));
   const nextStage = steps[activeIndex + 1];
 

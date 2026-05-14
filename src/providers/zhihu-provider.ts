@@ -119,7 +119,12 @@ export class MockZhihuProvider implements ZhihuProvider {
   }
 
   async searchEvidence(topic: Topic): Promise<Evidence[]> {
-    return (demoEvidence[topic.id] ?? []).map((item) => ({ ...item }));
+    const cached = demoEvidence[topic.id];
+    if (cached?.length) {
+      return cached.map((item) => ({ ...item }));
+    }
+
+    return buildMockEvidenceForTopic(topic);
   }
 
   async getDefaultRing(): Promise<RingDetail> {
@@ -149,11 +154,7 @@ export class MockZhihuProvider implements ZhihuProvider {
   }
 
   async listComments(input: { topicId: string }): Promise<string[]> {
-    const insight = demoCommentInsights[input.topicId];
-
-    if (!insight) {
-      return [];
-    }
+    const insight = demoCommentInsights[input.topicId] ?? buildMockCommentInsight(input.topicId);
 
     return [
       ...insight.highQualityComments.map((item, index) => (index === 0 ? `支持：${item}` : item)),
@@ -188,17 +189,55 @@ export class MockZhihuProvider implements ZhihuProvider {
   async getCachedCommentInsight(topicId: string): Promise<CommentInsight | undefined> {
     const insight = demoCommentInsights[topicId];
 
-    if (!insight) {
-      return undefined;
-    }
-
-    return {
-      sentiment: { ...insight.sentiment },
-      highQualityComments: [...insight.highQualityComments],
-      newDisputes: [...insight.newDisputes],
-      nextRoundSuggestions: [...insight.nextRoundSuggestions],
-    };
+    return insight ? cloneCommentInsight(insight) : buildMockCommentInsight(topicId);
   }
+}
+
+function cloneCommentInsight(insight: CommentInsight): CommentInsight {
+  return {
+    sentiment: { ...insight.sentiment },
+    highQualityComments: [...insight.highQualityComments],
+    newDisputes: [...insight.newDisputes],
+    nextRoundSuggestions: [...insight.nextRoundSuggestions],
+  };
+}
+
+function buildMockCommentInsight(topicId: string): CommentInsight {
+  return {
+    sentiment: { support: 8, oppose: 4, neutral: 5 },
+    highQualityComments: [`围绕 ${topicId}，评论区最有价值的是带具体经历的站队，而不是泛泛表态。`],
+    newDisputes: ["部分评论会追问证据来源、适用场景和隐私边界，需要进入下一轮问题。"],
+    nextRoundSuggestions: ["把最高频反方改成下一轮开放问题，再补一组站内证据。"],
+  };
+}
+
+function buildMockEvidenceForTopic(topic: Topic): Evidence[] {
+  return [
+    {
+      id: `${topic.id}-zhihu-view`,
+      source: "zhihu",
+      title: `${topic.title}：站内已有分歧`,
+      summary: `围绕「${topic.title}」，站内讨论通常会先分成经验派、规则派和反方质疑三类观点。`,
+      stance: "neutral",
+      qualityScore: Math.max(76, Math.min(90, topic.evidenceScore)),
+    },
+    {
+      id: `${topic.id}-support`,
+      source: "mock",
+      title: "支持方强调实际体验",
+      summary: "支持方更看重具体场景里的效率、表达和协作变化，适合引导亲历者补充案例。",
+      stance: "support",
+      qualityScore: Math.max(72, Math.min(86, topic.debateScore - 2)),
+    },
+    {
+      id: `${topic.id}-oppose`,
+      source: "global",
+      title: "反方关注边界和误判",
+      summary: "反方通常会追问隐私、责任、信息来源和长期影响，能帮助讨论避免单向结论。",
+      stance: "oppose",
+      qualityScore: Math.max(72, Math.min(84, topic.evidenceScore - 4)),
+    },
+  ];
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

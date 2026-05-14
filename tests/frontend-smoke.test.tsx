@@ -437,7 +437,9 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByText("推荐方向")).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "C 想法试验场" })).toBeInTheDocument();
     expect(screen.getByText("AI 不替用户判断什么是好想法，知乎真实用户来判断。")).toBeInTheDocument();
-    expect(screen.getByText("技术证据")).toBeInTheDocument();
+    expect(screen.queryByText("技术证据")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "技术页" }));
+    expect(screen.getByRole("heading", { name: "技术页" })).toBeInTheDocument();
     expect(requests.some((request) => request.url.includes("/api/experiment/confirm-publish"))).toBe(true);
   });
 

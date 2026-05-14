@@ -172,17 +172,19 @@ describe("LLM JSON schemas", () => {
 
   it("normalizes richer model objects in viewpoint map arrays", () => {
     const parsed = parseViewpointMap({
-      support: [{ point: "支持观点", evidenceIds: ["ev-1"] }],
+      support: [{ heading: "支持观点", reasoning: "因为有真实经验", evidenceIds: ["ev-1"] }],
       oppose: [{ claim: "反方观点" }],
       neutral: ["中立观点"],
-      facts: [{ summary: "事实证据" }],
-      disputes: [{ question: "争议问题" }],
+      facts: [{ evidenceId: "ev-2", statement: "事实证据" }],
+      disputes: [{ issue: "争议问题", detail: "需要继续追问" }],
       followups: [{ text: "下一轮追问" }],
     });
 
-    expect(parsed.support).toEqual(["支持观点"]);
+    expect(parsed.support).toEqual(["支持观点：因为有真实经验"]);
     expect(parsed.oppose).toEqual(["反方观点"]);
-    expect(parsed.facts).toEqual(["事实证据"]);
+    expect(parsed.facts).toEqual(["事实证据（ev-2）"]);
+    expect(parsed.disputes).toEqual(["争议问题：需要继续追问"]);
+    expect(parsed.support[0]).not.toContain("{");
   });
 
   it("normalizes compact comment analysis responses", () => {

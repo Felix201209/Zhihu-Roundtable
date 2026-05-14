@@ -333,25 +333,27 @@ export class RoundtableWorkflowService {
   }
 
   async getRadar(): Promise<Topic[]> {
-    const rawTopics = await this.cache.getOrSet("topics:hot", () => this.zhihuProvider.getHotTopics());
-    const scored = await this.llmProvider.scoreTopics({ topics: rawTopics });
-    const scoreMap = new Map(scored.value.map((score) => [score.topicId, score]));
+    return this.cache.getOrSet("topics:radar:scored", async () => {
+      const rawTopics = await this.cache.getOrSet("topics:hot", () => this.zhihuProvider.getHotTopics());
+      const scored = await this.llmProvider.scoreTopics({ topics: rawTopics });
+      const scoreMap = new Map(scored.value.map((score) => [score.topicId, score]));
 
-    return rawTopics
-      .map((topic) => {
-        const score = scoreMap.get(topic.id);
-        return score
-          ? {
-              ...topic,
-              debateScore: score.debateScore,
-              evidenceScore: score.evidenceScore,
-              discussionPotential: score.discussionPotential,
-              controversyLevel: score.controversyLevel,
-              reason: score.reason,
-            }
-          : { ...topic };
-      })
-      .sort((a, b) => (b.discussionPotential ?? b.debateScore) - (a.discussionPotential ?? a.debateScore));
+      return rawTopics
+        .map((topic) => {
+          const score = scoreMap.get(topic.id);
+          return score
+            ? {
+                ...topic,
+                debateScore: score.debateScore,
+                evidenceScore: score.evidenceScore,
+                discussionPotential: score.discussionPotential,
+                controversyLevel: score.controversyLevel,
+                reason: score.reason,
+              }
+            : { ...topic };
+        })
+        .sort((a, b) => (b.discussionPotential ?? b.debateScore) - (a.discussionPotential ?? a.debateScore));
+    });
   }
 
   async getDefaultRing(): Promise<RingDetail> {
@@ -524,11 +526,11 @@ export class RoundtableWorkflowService {
       ...experiment,
       stage: "Collecting",
       feedback,
-      demoData: comments.length < 3,
+      demoData: this.zhihuProvider.mode !== "live" || comments.length < 3,
       technicalSnapshot,
       nodeResults: technicalSnapshot?.nodeResults ?? experiment.nodeResults ?? [],
       modelUsages: technicalSnapshot?.modelUsages ?? experiment.modelUsages ?? [],
-      statusMessage: comments.length >= 3 ? "已收集真实评论反馈" : "当前样本较少，已启用演示数据",
+      statusMessage: this.zhihuProvider.mode === "live" && comments.length >= 3 ? "已收集真实评论反馈" : "当前样本较少，已启用演示数据",
     };
   }
 

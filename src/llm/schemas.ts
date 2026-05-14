@@ -32,6 +32,14 @@ function stringFromItem(value: unknown): string {
   }
 
   const record = asRecord(value);
+  const heading = stringField(record, "heading") ?? stringField(record, "title") ?? stringField(record, "issue");
+  const body = stringField(record, "reasoning") ?? stringField(record, "detail") ?? stringField(record, "statement") ?? stringField(record, "summary");
+  const evidenceId = stringField(record, "evidenceId");
+  if (heading || body) {
+    const text = [heading, body].filter(Boolean).join("：");
+    return evidenceId ? `${text}（${evidenceId}）` : text;
+  }
+
   for (const key of ["text", "content", "claim", "point", "summary", "title", "reason", "comment", "question", "label", "dispute"]) {
     if (typeof record[key] === "string" && record[key].trim()) {
       return record[key].trim();
@@ -39,10 +47,17 @@ function stringFromItem(value: unknown): string {
   }
 
   if (Object.keys(record).length > 0) {
-    return JSON.stringify(record);
+    return Object.entries(record)
+      .map(([key, item]) => `${key}: ${typeof item === "string" ? item : String(item)}`)
+      .join("；");
   }
 
   return "";
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function stringArray(value: unknown): string[] {
