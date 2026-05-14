@@ -122,7 +122,7 @@ function friendlyError(error: unknown, fallback: string): string {
       return "真实知乎写操作需要重新授权或完成用户确认；你也可以切回演示模式继续路演。";
     }
     if (error.status === 429 && error.code === "ai_quota_exceeded") {
-      return `${error.message} 这是为了保护后端 DeepSeek 成本，避免同一用户无限调用。`;
+      return `${error.message} 这是为了保护后端模型成本，避免同一用户无限调用。`;
     }
     if (error.status === 503 && error.code === "oauth_not_configured") {
       return "AI 成本保护已开启，但知乎 OAuth 授权端点还没配置完整；请先切回演示模式或补齐官方 OAuth URL。";
@@ -662,7 +662,7 @@ function AuthGate({
         <div className="auth-copy">
           <span className="eyebrow">知乎账号授权</span>
           <h1>先保护额度，再开圆桌</h1>
-          <p>后端会调用 DeepSeek 和知乎 API。登录知乎后按账号计额度；暂时不登录也能继续体验，但匿名额度会更紧。</p>
+          <p>知辩圆桌会读取知乎内容，并调用后端模型完成重写、校验和复盘。登录知乎后按账号计额度；不登录也能先体验。</p>
           <div className="auth-meter" aria-label={`AI 使用额度，剩余 ${remaining}，每日 ${limit}`}>
             <div>
               <strong>{authenticated ? "已登录" : "未登录"}</strong>
@@ -743,7 +743,7 @@ function HomeEntry({
         </section>
         <div className="home-proof-line" aria-label="产品边界">
           <span>真实读知乎</span>
-          <span>DeepSeek 生成</span>
+          <span>刘看山主持</span>
           <span>发布前确认</span>
         </div>
       </div>
@@ -829,7 +829,7 @@ function RoundtableProgress({ topic, activeStep }: { topic?: Topic; activeStep: 
           </article>
         ))}
       </div>
-      <p className="progress-cache-note">知乎读接口和 DeepSeek JSON 均走缓存；同一热榜不会反复烧 API。</p>
+      <p className="progress-cache-note">知乎读接口和模型 JSON 均走缓存；同一热榜不会反复烧 API。</p>
     </section>
   );
 }
@@ -1663,7 +1663,7 @@ function AdvancedDetails({
           {zhihuStatus?.hotListHours ? <p>热榜时间窗：最近 {zhihuStatus.hotListHours} 小时。</p> : null}
           <p>
             缓存：知乎读接口 {zhihuStatus?.cache?.zhihuReadsEnabled === false ? "关闭" : "开启"}，
-            DeepSeek JSON {zhihuStatus?.cache?.llmJsonEnabled === false ? "关闭" : "开启"}。
+            模型 JSON 缓存 {zhihuStatus?.cache?.llmJsonEnabled === false ? "关闭" : "开启"}。
           </p>
           <p>当前阶段：{activeStage}</p>
         </section>
@@ -1773,7 +1773,7 @@ function BusyStrip({
         <span>{elapsedLabel}</span>
       </div>
       <div className="busy-meta">
-        <span>{status ? (live ? "真实知乎/DeepSeek 链路" : "演示兜底链路") : "接口状态检测中"}</span>
+        <span>{status ? (live ? "真实知乎/模型链路" : "演示兜底链路") : "接口状态检测中"}</span>
         <span>{cacheReady === null ? "缓存状态同步中" : cacheReady ? "读接口与模型结果会缓存" : "缓存未完全开启"}</span>
       </div>
     </div>

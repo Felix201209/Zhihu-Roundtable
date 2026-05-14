@@ -228,7 +228,7 @@ describe("frontend smoke", () => {
     await waitFor(() => expect(screen.getByText("正在拉取知乎热榜...")).toBeInTheDocument());
     expect(screen.getByRole("status", { name: /正在拉取知乎热榜/ })).toBeInTheDocument();
     expect(screen.queryByRole("progressbar", { name: "当前处理进度" })).not.toBeInTheDocument();
-    expect(screen.getByText("真实知乎/DeepSeek 链路")).toBeInTheDocument();
+    expect(screen.getByText("真实知乎/模型链路")).toBeInTheDocument();
     expect(screen.getByText("读接口与模型结果会缓存")).toBeInTheDocument();
     expect(screen.getByText(/\d+s/)).toBeInTheDocument();
 
@@ -407,7 +407,7 @@ describe("frontend smoke", () => {
     expect(screen.getByRole("heading", { name: "知辩圆桌" })).toBeInTheDocument();
     expect(screen.getByText("把一个热榜，开成一场有人站队、有证据、有后续的知乎讨论。")).toBeInTheDocument();
     expect(screen.getByText("真实读知乎")).toBeInTheDocument();
-    expect(screen.getByText("DeepSeek 生成")).toBeInTheDocument();
+    expect(screen.getByText("刘看山主持")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /进入热榜台/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /测一个脑洞/ })).toBeInTheDocument();
 
