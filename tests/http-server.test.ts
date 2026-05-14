@@ -234,7 +234,9 @@ describe("backend HTTP server", () => {
       ZHIHU_OAUTH_TOKEN_URL: process.env.ZHIHU_OAUTH_TOKEN_URL,
       ZHIHU_OAUTH_USER_INFO_URL: process.env.ZHIHU_OAUTH_USER_INFO_URL,
       ZHIHU_OAUTH_USER_FOLLOWERS_URL: process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL,
+      ZHIHU_OAUTH_SESSION_FILE: process.env.ZHIHU_OAUTH_SESSION_FILE,
     };
+    const sessionDir = mkdtempSync(join(tmpdir(), "zhihu-oauth-session-"));
     let tokenRequest: { contentType?: string; body: string } | undefined;
     const oauthApi = createServer(async (req, res) => {
       if (req.url === "/token" && req.method === "POST") {
@@ -281,6 +283,7 @@ describe("backend HTTP server", () => {
       process.env.ZHIHU_OAUTH_TOKEN_URL = `http://127.0.0.1:${oauthPort}/token`;
       process.env.ZHIHU_OAUTH_USER_INFO_URL = `http://127.0.0.1:${oauthPort}/user_info`;
       process.env.ZHIHU_OAUTH_USER_FOLLOWERS_URL = `http://127.0.0.1:${oauthPort}/user_followers`;
+      process.env.ZHIHU_OAUTH_SESSION_FILE = join(sessionDir, "oauth-sessions.json");
 
       started = await startBackendServer({ port: 0 });
       const baseUrl = `http://127.0.0.1:${started.port}`;
@@ -298,6 +301,7 @@ describe("backend HTTP server", () => {
       expect(callback.status).toBe(200);
       expect(html).toContain("知乎登录已完成");
       expect(html).toContain("已读取授权用户信息");
+      expect(html).toContain("正在回到知辩圆桌");
       expect(tokenRequest?.contentType).toBe("application/x-www-form-urlencoded");
       const tokenParams = new URLSearchParams(tokenRequest?.body);
       expect(tokenParams.get("code")).toBe("test-code");
@@ -307,6 +311,7 @@ describe("backend HTTP server", () => {
 
       const sessionCookie = callback.headers.get("set-cookie")?.match(/zhihu_oauth_session=[^;,]+/)?.[0];
       expect(sessionCookie).toBeTruthy();
+      expect(callback.headers.get("set-cookie")).toContain("Path=/");
       const session = await fetch(`${baseUrl}/api/oauth/session`, {
         headers: { cookie: sessionCookie ?? "" },
       }).then((res) => res.json());
@@ -319,8 +324,17 @@ describe("backend HTTP server", () => {
       });
       expect(JSON.stringify(session)).not.toContain("user-token");
       expect(JSON.stringify(session)).not.toContain("refresh-token");
+
+      await started?.close();
+      started = await startBackendServer({ port: 0 });
+      const restartedBaseUrl = `http://127.0.0.1:${started.port}`;
+      const persistedSession = await fetch(`${restartedBaseUrl}/api/oauth/session`, {
+        headers: { cookie: sessionCookie ?? "" },
+      }).then((res) => res.json());
+      expect(persistedSession.authenticated).toBe(true);
     } finally {
       await new Promise<void>((resolve) => oauthApi.close(() => resolve()));
+      rmSync(sessionDir, { recursive: true, force: true });
       for (const [key, value] of Object.entries(previousEnv)) {
         if (value === undefined) {
           delete process.env[key];

@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type ServerResponse } from "node:http";
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
-import { extname, resolve } from "node:path";
+import { dirname, extname, resolve } from "node:path";
 import { URL } from "node:url";
 import { RoundtableWorkflowService } from "./workflow-service.js";
 import { encodeSseEvent } from "./sse.js";
@@ -154,12 +155,19 @@ class OAuthStateRegistry {
 
 class OAuthSessionRegistry {
   private readonly records = new Map<string, OAuthTokenRecord>();
+  private readonly filePath: string | undefined;
+
+  constructor(filePath = process.env.ZHIHU_OAUTH_SESSION_FILE) {
+    this.filePath = filePath ? resolve(filePath) : undefined;
+    this.load();
+  }
 
   create(record: OAuthTokenRecord, ttlMs = 24 * 60 * 60_000): { sessionId: string; expiresAt: number } {
     this.prune();
     const sessionId = randomUUID();
     const expiresAt = record.expiresAt ?? Date.now() + ttlMs;
     this.records.set(sessionId, { ...record, expiresAt });
+    this.persist();
     return { sessionId, expiresAt };
   }
 
@@ -171,11 +179,38 @@ class OAuthSessionRegistry {
 
   private prune(): void {
     const nowMs = Date.now();
+    let changed = false;
     for (const [sessionId, record] of this.records.entries()) {
       if (record.expiresAt && record.expiresAt < nowMs) {
         this.records.delete(sessionId);
+        changed = true;
       }
     }
+    if (changed) this.persist();
+  }
+
+  private load(): void {
+    if (!this.filePath || !existsSync(this.filePath)) return;
+    try {
+      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as unknown;
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+      const records = (parsed as { records?: unknown }).records;
+      if (!records || typeof records !== "object" || Array.isArray(records)) return;
+      for (const [sessionId, record] of Object.entries(records)) {
+        if (record && typeof record === "object" && typeof (record as OAuthTokenRecord).accessToken === "string") {
+          this.records.set(sessionId, record as OAuthTokenRecord);
+        }
+      }
+      this.prune();
+    } catch {
+      this.records.clear();
+    }
+  }
+
+  private persist(): void {
+    if (!this.filePath) return;
+    mkdirSync(dirname(this.filePath), { recursive: true });
+    writeFileSync(this.filePath, JSON.stringify({ records: Object.fromEntries(this.records) }, null, 2));
   }
 }
 
@@ -498,7 +533,7 @@ function oauthCookie(state: string, maxAgeSeconds = 600): string {
 function oauthSessionCookie(sessionId: string, maxAgeSeconds: number): string {
   return [
     `zhihu_oauth_session=${encodeURIComponent(sessionId)}`,
-    "Path=/api/oauth",
+    "Path=/",
     "HttpOnly",
     "SameSite=Lax",
     `Max-Age=${maxAgeSeconds}`,
@@ -507,6 +542,10 @@ function oauthSessionCookie(sessionId: string, maxAgeSeconds: number): string {
 
 function clearOauthStateCookie(): string {
   return "zhihu_oauth_state=; Path=/api/oauth; HttpOnly; SameSite=Lax; Max-Age=0";
+}
+
+function clearLegacyOauthSessionCookie(): string {
+  return "zhihu_oauth_session=; Path=/api/oauth; HttpOnly; SameSite=Lax; Max-Age=0";
 }
 
 function cookieValue(req: IncomingMessage, key: string): string | undefined {
@@ -1017,6 +1056,7 @@ async function handleRequest(
     }
 
     const record = oauthStates.consume(effectiveState);
+    const returnUrl = new URL("/", record.redirectUri).toString();
     const tokenUrl = process.env.ZHIHU_OAUTH_TOKEN_URL;
     const clientId = oauthClientId();
     const clientSecret = oauthClientSecret();
@@ -1047,6 +1087,7 @@ async function handleRequest(
         headers["set-cookie"] = [
           oauthSessionCookie(session.sessionId, maxAgeSeconds),
           clearOauthStateCookie(),
+          clearLegacyOauthSessionCookie(),
         ];
         tokenExchange.tokenStored = true;
         tokenExchange.userInfoFetched = userInfo !== undefined;
@@ -1057,6 +1098,7 @@ async function handleRequest(
     sendHtml(res, tokenExchange.ok ? 200 : 202, [
       "<!doctype html><meta charset=\"utf-8\">",
       "<title>知乎登录回调</title>",
+      tokenExchange.ok ? `<meta http-equiv="refresh" content="0.8;url=${returnUrl}">` : "",
       "<style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:720px;margin:48px auto;padding:0 24px;line-height:1.7;color:#1f2329}.ok{color:#0f7b33}.warn{color:#8a5a00}</style>",
       `<h1 class="${tokenExchange.ok ? "ok" : "warn"}">${tokenExchange.ok ? "知乎登录已完成" : "知乎登录回调已接收"}</h1>`,
       tokenExchange.configured
@@ -1065,7 +1107,9 @@ async function handleRequest(
       tokenExchange.tokenStored ? "<p>access_token 已保存在 HttpOnly 会话中，可继续读取用户信息。</p>" : "",
       tokenExchange.userInfoFetched ? "<p>已读取授权用户信息。</p>" : "",
       tokenExchange.followersFetched ? "<p>已读取关注者/粉丝信息。</p>" : "",
-      "<p>你可以关闭此页，回到知辩圆桌继续体验。</p>",
+      tokenExchange.ok ? "<p>正在回到知辩圆桌...</p>" : "<p>你可以关闭此页，回到知辩圆桌继续体验。</p>",
+      `<p><a href="${returnUrl}">立即返回知辩圆桌</a></p>`,
+      tokenExchange.ok ? `<script>setTimeout(function(){ window.location.assign(${JSON.stringify(returnUrl)}); }, 800);</script>` : "",
     ].join(""), headers);
     return;
   }
