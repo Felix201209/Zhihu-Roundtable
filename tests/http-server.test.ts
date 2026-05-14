@@ -222,6 +222,8 @@ describe("backend HTTP server", () => {
     const previousEnv = {
       ZHIHU_OAUTH_CLIENT_ID: process.env.ZHIHU_OAUTH_CLIENT_ID,
       ZHIHU_OAUTH_CLIENT_SECRET: process.env.ZHIHU_OAUTH_CLIENT_SECRET,
+      ZHIHU_OAUTH_APP_ID: process.env.ZHIHU_OAUTH_APP_ID,
+      ZHIHU_OAUTH_APP_KEY: process.env.ZHIHU_OAUTH_APP_KEY,
       ZHIHU_OAUTH_AUTHORIZE_URL: process.env.ZHIHU_OAUTH_AUTHORIZE_URL,
       ZHIHU_OAUTH_TOKEN_URL: process.env.ZHIHU_OAUTH_TOKEN_URL,
       ZHIHU_OAUTH_USER_INFO_URL: process.env.ZHIHU_OAUTH_USER_INFO_URL,
@@ -302,6 +304,41 @@ describe("backend HTTP server", () => {
           process.env[key] = value;
         }
       }
+    }
+  });
+
+  it("accepts Zhihu OAuth App ID and App Key aliases", async () => {
+    const previousEnv = {
+      ZHIHU_OAUTH_CLIENT_ID: process.env.ZHIHU_OAUTH_CLIENT_ID,
+      ZHIHU_OAUTH_CLIENT_SECRET: process.env.ZHIHU_OAUTH_CLIENT_SECRET,
+      ZHIHU_OAUTH_APP_ID: process.env.ZHIHU_OAUTH_APP_ID,
+      ZHIHU_OAUTH_APP_KEY: process.env.ZHIHU_OAUTH_APP_KEY,
+      ZHIHU_OAUTH_AUTHORIZE_URL: process.env.ZHIHU_OAUTH_AUTHORIZE_URL,
+      ZHIHU_OAUTH_TOKEN_URL: process.env.ZHIHU_OAUTH_TOKEN_URL,
+    };
+    try {
+      delete process.env.ZHIHU_OAUTH_CLIENT_ID;
+      delete process.env.ZHIHU_OAUTH_CLIENT_SECRET;
+      process.env.ZHIHU_OAUTH_APP_ID = "app-id";
+      process.env.ZHIHU_OAUTH_APP_KEY = "app-key";
+      process.env.ZHIHU_OAUTH_AUTHORIZE_URL = "https://www.zhihu.com/oauth/authorize";
+      process.env.ZHIHU_OAUTH_TOKEN_URL = "https://www.zhihu.com/oauth/token";
+
+      started = await startBackendServer({ port: 0 });
+      const baseUrl = `http://127.0.0.1:${started.port}`;
+      const status = await fetch(`${baseUrl}/api/oauth/status`).then((res) => res.json());
+      expect(status).toMatchObject({
+        configured: true,
+        clientIdConfigured: true,
+        clientSecretConfigured: true,
+        mode: "live-ready",
+      });
+
+      const start = await fetch(`${baseUrl}/api/oauth/start`, { redirect: "manual" });
+      expect(start.status).toBe(302);
+      expect(new URL(start.headers.get("location") ?? "").searchParams.get("client_id")).toBe("app-id");
+    } finally {
+      restoreEnv(previousEnv);
     }
   });
 

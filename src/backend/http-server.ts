@@ -421,11 +421,19 @@ function oauthRedirectUri(req: IncomingMessage): string {
 }
 
 function oauthConfigured(): boolean {
-  return Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID && process.env.ZHIHU_OAUTH_CLIENT_SECRET);
+  return Boolean(oauthClientId() && oauthClientSecret());
 }
 
 function oauthLoginConfigured(): boolean {
   return oauthConfigured() && Boolean(process.env.ZHIHU_OAUTH_AUTHORIZE_URL && process.env.ZHIHU_OAUTH_TOKEN_URL);
+}
+
+function oauthClientId(): string | undefined {
+  return process.env.ZHIHU_OAUTH_CLIENT_ID ?? process.env.ZHIHU_OAUTH_APP_ID;
+}
+
+function oauthClientSecret(): string | undefined {
+  return process.env.ZHIHU_OAUTH_CLIENT_SECRET ?? process.env.ZHIHU_OAUTH_APP_KEY;
 }
 
 function aiUsageGuardMode(): AiUsageGuardMode {
@@ -901,8 +909,8 @@ async function handleRequest(
   if (req.method === "GET" && url.pathname === "/api/oauth/status") {
     sendJson(res, 200, {
       configured: oauthConfigured(),
-      clientIdConfigured: Boolean(process.env.ZHIHU_OAUTH_CLIENT_ID),
-      clientSecretConfigured: Boolean(process.env.ZHIHU_OAUTH_CLIENT_SECRET),
+      clientIdConfigured: Boolean(oauthClientId()),
+      clientSecretConfigured: Boolean(oauthClientSecret()),
       openApiAppKeyConfigured: Boolean(process.env.ZHIHU_APP_KEY),
       openApiAppSecretConfigured: Boolean(process.env.ZHIHU_APP_SECRET),
       authorizeUrlConfigured: Boolean(process.env.ZHIHU_OAUTH_AUTHORIZE_URL),
@@ -952,13 +960,13 @@ async function handleRequest(
         "<h1>知乎 OAuth 回调已就绪</h1>",
         "<p>当前环境尚未配置官方授权地址或 App 密钥，所以保持 mock-safe 体验。</p>",
         `<p>提交广场时可填写回调地址：<code>${redirectUri}</code></p>`,
-        "<p>配置 <code>ZHIHU_OAUTH_CLIENT_ID</code>、<code>ZHIHU_OAUTH_CLIENT_SECRET</code>、<code>ZHIHU_OAUTH_AUTHORIZE_URL</code> 后，此入口会跳转到知乎授权页。</p>",
+        "<p>配置 <code>ZHIHU_OAUTH_CLIENT_ID</code>/<code>ZHIHU_OAUTH_APP_ID</code>、<code>ZHIHU_OAUTH_CLIENT_SECRET</code>/<code>ZHIHU_OAUTH_APP_KEY</code>、<code>ZHIHU_OAUTH_AUTHORIZE_URL</code> 后，此入口会跳转到知乎授权页。</p>",
       ].join(""));
       return;
     }
 
     const auth = new URL(authorizeUrl);
-    auth.searchParams.set("client_id", process.env.ZHIHU_OAUTH_CLIENT_ID ?? "");
+    auth.searchParams.set("client_id", oauthClientId() ?? "");
     auth.searchParams.set("redirect_uri", redirectUri);
     auth.searchParams.set("response_type", "code");
     auth.searchParams.set("state", stateRecord.state);
@@ -984,18 +992,19 @@ async function handleRequest(
     }
 
     const tokenUrl = process.env.ZHIHU_OAUTH_TOKEN_URL;
-    const clientSecret = process.env.ZHIHU_OAUTH_CLIENT_SECRET;
+    const clientId = oauthClientId();
+    const clientSecret = oauthClientSecret();
     const tokenPayload = {
       grant_type: "authorization_code",
       code,
       redirect_uri: record.redirectUri,
-      client_id: process.env.ZHIHU_OAUTH_CLIENT_ID,
+      client_id: clientId,
       client_secret: clientSecret,
     };
     let tokenExchange: { ok: boolean; status?: number; configured: boolean; tokenStored?: boolean; userInfoFetched?: boolean; followersFetched?: boolean } = { ok: false, configured: false };
     const headers: OutgoingHttpHeaders = {};
 
-    if (tokenUrl && process.env.ZHIHU_OAUTH_CLIENT_ID && clientSecret) {
+    if (tokenUrl && clientId && clientSecret) {
       const exchanged = await exchangeOAuthToken({ tokenUrl, payload: tokenPayload });
       tokenExchange = { ok: exchanged.ok, status: exchanged.status, configured: true, tokenStored: false };
       if (exchanged.ok && exchanged.token) {

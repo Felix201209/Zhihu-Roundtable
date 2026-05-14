@@ -156,7 +156,7 @@ live 只读接口还有本地文件缓存，默认写入 `.cache/zhihu-openapi-c
   - 返回当前 HttpOnly OAuth 会话的公开状态；不会暴露 `access_token`、`refresh_token`。
 - `GET /api/oauth/start`
   - 未配置官方授权地址时返回 mock-safe 说明页，并展示可提交的 callback URL。
-  - 配置 `ZHIHU_OAUTH_AUTHORIZE_URL`、`ZHIHU_OAUTH_CLIENT_ID`、`ZHIHU_OAUTH_CLIENT_SECRET` 后跳转知乎授权页。
+  - 配置 `ZHIHU_OAUTH_AUTHORIZE_URL`、`ZHIHU_OAUTH_CLIENT_ID`/`ZHIHU_OAUTH_APP_ID`、`ZHIHU_OAUTH_CLIENT_SECRET`/`ZHIHU_OAUTH_APP_KEY` 后跳转知乎授权页。
 - `GET /api/oauth/callback`
   - 校验 `state` 和 `code`。
   - 配置 `ZHIHU_OAUTH_TOKEN_URL` 后会向官方 token endpoint 换 token。
