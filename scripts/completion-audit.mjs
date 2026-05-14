@@ -216,7 +216,7 @@ blocker("公网 Demo", "需要 PUBLIC_DEMO_URL，并同时通过公网 API smoke
     encoding: "utf8",
     env: {
       ...process.env,
-      PRODUCTION_FLOW_URL: url,
+      PRODUCTION_FLOW_URL: "",
       PRODUCTION_FLOW_REQUIRE_BROWSER: "true",
     },
   });

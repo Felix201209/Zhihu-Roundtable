@@ -114,7 +114,7 @@ assertFileIncludes("package.json", [
   "\"serve:app\": \"npm run build && STATIC_DIR=dist tsx src/backend/serve.ts\"",
   "\"verify:production\": \"npm run build && node scripts/verify-production-server.mjs && node scripts/verify-production-flow.mjs\"",
   "\"verify:public\": \"node scripts/verify-public-demo.mjs\"",
-  "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
+  "\"verify:public:full\": \"npm run verify:public && PRODUCTION_FLOW_URL= PRODUCTION_FLOW_REQUIRE_BROWSER=true node scripts/verify-production-flow.mjs\"",
   "\"verify:external-preflight\": \"node scripts/verify-external-preflight.mjs\"",
   "\"verify:remote-ci\": \"node scripts/verify-remote-ci.mjs\"",
   "\"verify:raspberry-pi\": \"node scripts/verify-raspberry-pi-templates.mjs\"",
