@@ -47,6 +47,7 @@ import type {
   VariantFeedback,
 } from "../core/types.js";
 import liukanshanFront from "./assets/liukanshan-front.png";
+import liukanshanHostStrip from "./assets/liukanshan-host-strip.png";
 import "./styles.css";
 
 type AppMode = "auth" | "home" | "roundtable" | "idea" | "tech";
@@ -713,7 +714,7 @@ function HomeEntry({
       <div className="home-hero-card">
         <div className="home-intro">
           <div className="home-mark" aria-hidden="true">
-            <LiuKanshanPortrait speaking />
+            <LiuKanshanPortrait speaking state="hosting" />
           </div>
           <div>
             <span className="eyebrow">知乎黑客松 2026</span>
@@ -752,10 +753,22 @@ function HomeEntry({
   );
 }
 
-function LiuKanshanPortrait({ compact = false, speaking = false }: { compact?: boolean; speaking?: boolean }) {
+function LiuKanshanPortrait({
+  compact = false,
+  speaking = false,
+  state = "idle",
+}: {
+  compact?: boolean;
+  speaking?: boolean;
+  state?: "idle" | "thinking" | "speaking" | "hosting";
+}) {
+  const frameStyle = { backgroundImage: `url(${liukanshanHostStrip})` } as React.CSSProperties;
+  const motionState = speaking && state === "idle" ? "speaking" : state;
   return (
-    <div className={`liukanshan-portrait ${compact ? "compact" : ""} ${speaking ? "speaking" : ""}`} aria-label="刘看山主持形象">
-      <img src={liukanshanFront} alt="刘看山 IP 形象" />
+    <div className={`liukanshan-portrait ${compact ? "compact" : ""} ${motionState}`} aria-label="刘看山主持形象">
+      <img className="liukanshan-fallback" src={liukanshanFront} alt="刘看山 IP 形象" />
+      <span className="liukanshan-sprite" style={frameStyle} aria-hidden="true" />
+      <span className="host-thinking-dots" aria-hidden="true"><i /><i /><i /></span>
     </div>
   );
 }
@@ -817,6 +830,13 @@ function RoundtableProgress({ topic, activeStep }: { topic?: Topic; activeStep: 
         title="正在开桌"
         subtitle="先读内容，再发起讨论。这里不会把热榜标题直接丢给 AI 瞎写。"
       />
+      <div className="progress-host-card">
+        <LiuKanshanPortrait compact state="thinking" />
+        <div>
+          <span>刘看山正在读题</span>
+          <strong>先找证据，再开讨论。</strong>
+        </div>
+      </div>
       <div className="progress-topic-card">
         <span>已选热榜</span>
         <h2>{topic?.title ?? "正在锁定热榜话题"}</h2>
@@ -1004,7 +1024,7 @@ function RoundtableView({ snapshot, onBack, onNext }: { snapshot: RoundtableSnap
       <div className="debate-layout">
         <section className="debate-decision">
           <div className="debate-host-line">
-            <LiuKanshanPortrait compact />
+            <LiuKanshanPortrait compact speaking state={activeSpeaker === "liu" ? "hosting" : "speaking"} />
             <div>
               <span>刘看山结论</span>
               <h3>{latestTurn?.nextQuestion ?? "可以进入发布策划，但需要保留待验证标注。"}</h3>
